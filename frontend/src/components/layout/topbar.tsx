@@ -49,11 +49,11 @@ export function Topbar() {
         >
           <Avatar className="size-8">
             <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
-              {user ? initials(user.display_name) : "··"}
+              {user ? initials(user.display_name) : "?"}
             </AvatarFallback>
           </Avatar>
           <span className="hidden text-sm font-medium sm:inline">
-            {user?.display_name ?? "Loading…"}
+            {user?.display_name ?? "Loading"}
           </span>
         </DropdownMenuTrigger>
 

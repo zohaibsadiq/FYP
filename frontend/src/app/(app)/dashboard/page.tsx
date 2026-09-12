@@ -1,26 +1,34 @@
 "use client";
 
-import { CalendarDays, MapPin, Plus, Shirt, WashingMachine } from "lucide-react";
+import Link from "next/link";
+import { MapPin, Plus, Shirt, Sparkles, WashingMachine } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { ItemCard } from "@/components/wardrobe/item-card";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/use-auth";
-
-const STAT_CARDS = [
-  { label: "Items", value: "0", icon: Shirt },
-  { label: "In the wash", value: "0", icon: WashingMachine },
-  { label: "Storage spots", value: "0", icon: MapPin },
-  { label: "Days planned", value: "0", icon: CalendarDays },
-];
+import { useGarments, useWardrobeStats } from "@/hooks/use-wardrobe";
+import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { data: user, isPending } = useCurrentUser();
+  const { data: user, isPending: userPending } = useCurrentUser();
+  const { data: stats, isPending: statsPending } = useWardrobeStats();
+  const { data: recent } = useGarments({ ordering: "-created_at" });
+
+  const isEmpty = !statsPending && (stats?.total ?? 0) === 0;
+
+  const tiles = [
+    { label: "Things you own", value: stats?.total, icon: Shirt },
+    { label: "In the wash", value: stats?.in_laundry, icon: WashingMachine },
+    { label: "Places you keep them", value: stats?.storage_locations, icon: MapPin },
+    { label: "Times worn", value: stats?.total_wears, icon: Sparkles },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
-        {isPending ? (
+        {userPending ? (
           <>
             <Skeleton className="h-9 w-72" />
             <Skeleton className="mt-3 h-5 w-96" />
@@ -28,51 +36,73 @@ export default function DashboardPage() {
         ) : (
           <>
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Good to see you, {user?.display_name}.
+              Hello, {user?.display_name}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              {user?.city
-                ? `Your account is set up for ${user.city}.`
-                : "Your account is set up."}
+              {isEmpty
+                ? "Let us get your clothes into the app."
+                : "Here is what is in your closet today."}
             </p>
           </>
         )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {STAT_CARDS.map(({ label, value, icon: Icon }) => (
+        {tiles.map(({ label, value, icon: Icon }) => (
           <Card key={label}>
             <CardContent className="flex items-center gap-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Icon className="size-5" />
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Icon className="size-5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <p className="text-2xl font-semibold tabular-nums">{value}</p>
-                <p className="truncate text-xs text-muted-foreground">{label}</p>
+                {statsPending ? (
+                  <Skeleton className="h-8 w-10" />
+                ) : (
+                  <p className="text-2xl font-semibold tabular-nums">{value ?? 0}</p>
+                )}
+                <p className="text-xs text-muted-foreground">{label}</p>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="text-base">Add your first item</CardTitle>
-          <CardDescription>
-            Pick one thing you wear often. Take a photo of it and write down the shelf or drawer it
-            is kept in. Outfit picks start once a few items are in.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-start gap-3">
-          <Button disabled aria-describedby="add-item-note">
-            <Plus className="size-4" />
-            Add an item
-          </Button>
-          <p id="add-item-note" className="text-sm text-muted-foreground">
-            This turns on when the closet opens.
-          </p>
-        </CardContent>
-      </Card>
+      {isEmpty ? (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-base">Start with one item</CardTitle>
+            <CardDescription className="max-w-prose">
+              Pick something you wear often. Take a photo of it on a plain surface, then write down
+              the drawer or shelf you keep it in. Do that a few times and the app can start
+              suggesting what to wear.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/closet/add"
+              className={cn(buttonVariants({ size: "lg" }), "h-11 gap-2 px-5")}
+            >
+              <Plus className="size-5" aria-hidden />
+              Add my first item
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <section>
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="text-lg font-semibold tracking-tight">Added recently</h2>
+            <Link href="/closet" className="text-sm font-medium text-primary hover:underline">
+              See all my clothes
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {recent?.results.slice(0, 4).map((item) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

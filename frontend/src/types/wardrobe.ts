@@ -35,6 +35,13 @@ export type ItemStatus = (typeof ITEM_STATUSES)[number];
 export const SEASONS = ["SUMMER", "WINTER", "SPRING", "AUTUMN"] as const;
 export type Season = (typeof SEASONS)[number];
 
+export const SEASON_LABELS: Record<Season, string> = {
+  SUMMER: "Summer",
+  WINTER: "Winter",
+  SPRING: "Spring",
+  AUTUMN: "Autumn",
+};
+
 export const OCCASIONS = [
   "CASUAL",
   "FORMAL",
@@ -46,8 +53,27 @@ export const OCCASIONS = [
 ] as const;
 export type Occasion = (typeof OCCASIONS)[number];
 
+export const OCCASION_LABELS: Record<Occasion, string> = {
+  CASUAL: "Every day",
+  FORMAL: "Formal",
+  BUSINESS: "Work",
+  PARTY: "Party",
+  TRADITIONAL: "Traditional",
+  SPORT: "Sport",
+  LOUNGE: "At home",
+};
+
 export const PATTERNS = ["SOLID", "STRIPED", "CHECKED", "PRINTED", "FLORAL", "OTHER"] as const;
 export type Pattern = (typeof PATTERNS)[number];
+
+export const PATTERN_LABELS: Record<Pattern, string> = {
+  SOLID: "One plain colour",
+  STRIPED: "Stripes",
+  CHECKED: "Checks",
+  PRINTED: "Printed",
+  FLORAL: "Flowers",
+  OTHER: "Something else",
+};
 
 export const STORAGE_KINDS = [
   "ROOM",
@@ -62,6 +88,18 @@ export const STORAGE_KINDS = [
   "OTHER",
 ] as const;
 export type StorageKind = (typeof STORAGE_KINDS)[number];
+
+/** Mirrors StorageLocation.MAX_DEPTH in apps/wardrobe/models.py. */
+export const MAX_STORAGE_DEPTH = 4;
+
+/**
+ * A place can hold another place only while its own trail is short enough to
+ * leave a level free. The API rejects anything deeper, so the picker greys
+ * these out rather than letting a form be filled in and then refused.
+ */
+export function canHoldMorePlaces(depth: number): boolean {
+  return depth <= MAX_STORAGE_DEPTH - 2;
+}
 
 export const STORAGE_KIND_LABELS: Record<StorageKind, string> = {
   ROOM: "Room",

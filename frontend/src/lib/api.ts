@@ -130,3 +130,22 @@ export function getFieldErrors(error: unknown): Record<string, string> {
   }
   return result;
 }
+
+// DRF's PrimaryKeyRelatedField wording when a write names a row the server no
+// longer has. A dropdown filled from a cached list keeps offering deleted rows,
+// and queries here hold results for a minute without refetching on focus.
+const STALE_CHOICE = /invalid pk|object does not exist/i;
+
+/** True when a save was refused because something it pointed at has been removed. */
+export function isStaleChoiceError(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 400) return false;
+
+  const data = error.response.data;
+  if (typeof data !== "object" || data === null) return false;
+
+  return Object.values(data).some((value) =>
+    (Array.isArray(value) ? value : [value]).some((message) =>
+      STALE_CHOICE.test(String(message)),
+    ),
+  );
+}

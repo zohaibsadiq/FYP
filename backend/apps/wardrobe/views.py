@@ -24,6 +24,7 @@ from .serializers import (
     CategorySerializer,
     GarmentItemListSerializer,
     GarmentItemSerializer,
+    ImageDiscardSerializer,
     ImageUploadRequestSerializer,
     ImageUploadResponseSerializer,
     MarkWornSerializer,
@@ -337,3 +338,43 @@ class GarmentImageUploadView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class GarmentImageDiscardView(APIView):
+    """
+    Throws away an upload that never became an item. The upload endpoint writes
+    to Cloudinary before the form is submitted, so swapping a photo or leaving
+    the page would otherwise keep paying to store it.
+    """
+
+    serializer_class = ImageDiscardSerializer
+
+    FOLDERS = (storage.Folder.GARMENT_ORIGINAL, storage.Folder.GARMENT_CLEAN)
+
+    @extend_schema(summary="Delete an upload that was never attached to an item")
+    def post(self, request):
+        payload = ImageDiscardSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        removed, kept = [], []
+        for public_id in payload.validated_data["public_ids"]:
+            if not any(
+                storage.owns_public_id(public_id, folder, request.user.id)
+                for folder in self.FOLDERS
+            ):
+                raise ValidationError(
+                    {"public_ids": "That image was uploaded by another account."}
+                )
+
+            # An id an item still points at is not an orphan, whatever the client
+            # believes: deleting it would leave that item with a broken photo.
+            if GarmentItem.objects.filter(
+                Q(original_image_public_id=public_id) | Q(clean_image_public_id=public_id)
+            ).exists():
+                kept.append(public_id)
+                continue
+
+            if storage.delete_image(public_id):
+                removed.append(public_id)
+
+        return Response({"removed": removed, "kept": kept}, status=status.HTTP_200_OK)

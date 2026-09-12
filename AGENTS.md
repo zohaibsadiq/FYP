@@ -40,6 +40,12 @@ Lives in `frontend/src/lib/copy.ts`, not inline in components.
 Base UI, not Radix. `render={<X />}` instead of `asChild`. `GroupLabel` must be
 inside `Group`. Positioning props go on `Positioner`, never `Popup`.
 
+Do not reach for `Select` directly. `ChoiceField` wraps it because Base UI needs
+an `items` prop to map a value back to its label, and has no clear action of its
+own: an optional field needs a row with `value={null}`. Both are easy to forget
+and neither fails the build. `PlaceField` is the storage picker, and holds the
+nesting rule that `StorageLocation.clean()` enforces server side.
+
 Never set a default `Content-Type` on the axios instance: axios serialises
 FormData to JSON when one is present, and file uploads silently arrive empty.
 

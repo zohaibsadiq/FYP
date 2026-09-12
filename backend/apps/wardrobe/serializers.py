@@ -205,6 +205,19 @@ class GarmentItemSerializer(serializers.ModelSerializer):
 
         return attrs
 
+    def update(self, instance, validated_data):
+        """Cloudinary bills for stored bytes, and a replaced photo is nobody's."""
+        from apps.vision import storage
+
+        was = {instance.original_image_public_id, instance.clean_image_public_id}
+        item = super().update(instance, validated_data)
+        now = {item.original_image_public_id, item.clean_image_public_id}
+
+        for public_id in was - now:
+            if public_id:
+                storage.delete_image(public_id)
+        return item
+
 
 def _validate_hex(value: str) -> str:
     if not value:
@@ -232,6 +245,17 @@ class ImageUploadRequestSerializer(serializers.Serializer):
     """Describes the multipart body of POST /api/wardrobe/upload/."""
 
     image = serializers.ImageField(help_text="JPG, PNG or WebP. Maximum 12 MB.")
+
+
+class ImageDiscardSerializer(serializers.Serializer):
+    """Body of POST /api/wardrobe/upload/discard/."""
+
+    public_ids = serializers.ListField(
+        child=serializers.CharField(max_length=255),
+        min_length=1,
+        max_length=4,
+        help_text="The public_id values the upload endpoint returned.",
+    )
 
 
 class DetectedAttributesSerializer(serializers.Serializer):

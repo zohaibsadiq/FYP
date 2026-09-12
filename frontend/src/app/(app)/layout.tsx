@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
 
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -16,15 +16,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isError } = useCurrentUser();
 
-  const [checked, setChecked] = useState(false);
+  // These routes are prerendered, so the token can only be read once the
+  // browser takes over. Subscribing rather than reading once also signs this
+  // tab out when another one does.
+  const signedIn = useSyncExternalStore(tokens.subscribe, tokens.isLoggedIn, () => false);
 
   useEffect(() => {
-    if (!tokens.isLoggedIn()) {
-      router.replace("/login");
-      return;
-    }
-    setChecked(true);
-  }, [router]);
+    if (!signedIn) router.replace("/login");
+  }, [signedIn, router]);
 
   useEffect(() => {
     if (isError) {
@@ -33,7 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isError, router]);
 
-  if (!checked) {
+  if (!signedIn) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />

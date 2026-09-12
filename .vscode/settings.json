@@ -1,0 +1,23 @@
+{
+  "// NOTE": "This tells VS Code to use the project's virtual environment. Without it, every Django import shows a false 'not found' warning.",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+  "python.analysis.typeCheckingMode": "basic",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.next": true,
+    "**/node_modules": true
+  },
+  "[python]": {
+    "editor.formatOnSave": false,
+    "editor.rulers": [88]
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "eslint.workingDirectories": ["frontend"],
+  "tailwindCSS.experimental.configFile": "frontend/src/app/globals.css"
+}

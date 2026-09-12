@@ -1,0 +1,35 @@
+# ---- Core framework ----
+Django==5.2.6
+djangorestframework==3.16.1
+
+# ---- Authentication (JWT tokens) ----
+djangorestframework-simplejwt==5.5.1
+
+# ---- Let Next.js (port 3000) talk to Django (port 8000) ----
+django-cors-headers==4.9.0
+
+# ---- Read secrets from .env file instead of hardcoding ----
+django-environ==0.12.0
+
+# ---- PostgreSQL driver (for Neon) ----
+psycopg[binary]==3.2.10
+dj-database-url==3.0.1
+
+# ---- Images ----
+Pillow==11.3.0
+
+# ---- Filtering/searching in API (?category=shirt&color=blue) ----
+django-filter==25.1
+
+# ---- Auto-generates API documentation page (examiners love this) ----
+drf-spectacular==0.28.0
+
+# ---- Production server + static files ----
+whitenoise==6.11.0
+gunicorn==23.0.0
+
+# ---- Image hosting ----
+cloudinary==1.44.1
+
+# ---- Background removal (Phase 2) ----
+rembg[cpu]==2.0.84

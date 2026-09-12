@@ -1,0 +1,55 @@
+# ===========================================================================
+#  SECRETS - never commit these
+# ===========================================================================
+.env
+.env.local
+.env.production
+*.pem
+
+# ===========================================================================
+#  Python / Django
+# ===========================================================================
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.so
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# AI model weights downloaded at runtime (huge files, never commit)
+*.onnx
+*.pth
+*.safetensors
+.u2net/
+models_cache/
+
+# ===========================================================================
+#  Node / Next.js
+# ===========================================================================
+node_modules/
+.next/
+out/
+build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+
+# ===========================================================================
+#  Editors / OS
+# ===========================================================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+*.swp

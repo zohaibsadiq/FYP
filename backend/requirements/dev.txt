@@ -1,0 +1,4 @@
+-r base.txt
+
+# ---- Development only ----
+django-extensions==4.1

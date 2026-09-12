@@ -1,15 +1,4 @@
-/**
- * TypeScript mirrors of the Django wardrobe models.
- *
- * These match apps/wardrobe/serializers.py field for field. When you change a
- * serializer, change this file in the same commit - that is the whole point of
- * having them.
- */
-
-// ---------------------------------------------------------------------------
-// Enums - keep these identical to the TextChoices in models.py
-// ---------------------------------------------------------------------------
-
+// Values mirror the TextChoices in apps/wardrobe/models.py.
 export const SLOTS = [
   "TOP",
   "BOTTOM",
@@ -87,10 +76,6 @@ export const STORAGE_KIND_LABELS: Record<StorageKind, string> = {
   OTHER: "Other",
 };
 
-// ---------------------------------------------------------------------------
-// Models
-// ---------------------------------------------------------------------------
-
 export interface Category {
   id: number;
   name: string;
@@ -126,7 +111,7 @@ export interface StorageNode {
   children: StorageNode[];
 }
 
-/** The light shape used by the closet grid. */
+/** Trimmed shape the closet grid lists; the detail view uses Garment. */
 export interface GarmentListItem {
   id: number;
   name: string;
@@ -151,7 +136,6 @@ export interface GarmentListItem {
   created_at: string;
 }
 
-/** The full shape for one item. */
 export interface Garment extends Omit<GarmentListItem, "category_slot"> {
   size: string;
   material: string;
@@ -170,11 +154,7 @@ export interface Garment extends Omit<GarmentListItem, "category_slot"> {
   updated_at: string;
 }
 
-// ---------------------------------------------------------------------------
-// Requests / responses
-// ---------------------------------------------------------------------------
-
-/** What POST /api/wardrobe/upload/ gives back after running rembg. */
+/** Response from POST /api/wardrobe/upload/ once rembg has cut the background out. */
 export interface ImageUploadResult {
   original_image_url: string;
   original_image_public_id: string;
@@ -215,7 +195,7 @@ export interface GarmentPayload {
   clean_image_public_id?: string;
 }
 
-/** Filters accepted by the closet grid, mirroring apps/wardrobe/filters.py. */
+/** Query params accepted by apps/wardrobe/filters.py. */
 export interface GarmentFilters {
   search?: string;
   slot?: Slot;

@@ -1,16 +1,7 @@
 """
-The core of the whole system: what you own, and where it physically is.
-
-Three models:
-    StorageLocation  - a tree: Bedroom -> Wardrobe -> Drawer 2
-    Category         - Shirt, Jeans, Sneakers... each belonging to a "slot"
-    GarmentItem      - one physical piece of clothing
-
-Design note worth knowing for your defence:
-Every field here exists because a later phase needs it. `warmth_level` and
-`occasions` look unnecessary now, but the Phase 4 suggestion engine cannot work
-without them - and adding columns to a table that already holds real data is
-much more painful than defining them up front.
+warmth_level and occasions are not read by any endpoint yet. They are defined
+up front because the suggestion engine needs them, and adding columns to a
+garment_items table that already holds real rows is expensive.
 """
 
 from __future__ import annotations
@@ -20,26 +11,17 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import F
 from django.utils import timezone
 
-
-# ===========================================================================
-#  1. STORAGE LOCATION - the feature commercial apps do not have
-# ===========================================================================
 
 class StorageLocation(models.Model):
     """
     One physical place, which may sit inside another place.
 
-    A row points at its parent, so the same table stores every level:
-
-        Bedroom            (parent = None)
-         └─ Main Wardrobe  (parent = Bedroom)
-             └─ Drawer 2   (parent = Main Wardrobe)
-
-    This is called an "adjacency list". It is the simplest tree design and it
-    is the right choice here because closets are shallow - three or four levels
-    at most - so the recursion never gets expensive.
+    Adjacency list: each row points at its parent, so a single table holds
+    every level. Closet trees are shallow, three or four levels at most, so
+    walking one recursively stays cheap.
     """
 
     class Kind(models.TextChoices):
@@ -54,7 +36,7 @@ class StorageLocation(models.Model):
         SUITCASE = "SUITCASE", "Suitcase"
         OTHER = "OTHER", "Other"
 
-    MAX_DEPTH = 4  # Room -> Wardrobe -> Drawer -> Slot is deep enough
+    MAX_DEPTH = 4  # Room > Wardrobe > Drawer > Slot
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -66,7 +48,7 @@ class StorageLocation(models.Model):
 
     parent = models.ForeignKey(
         "self",
-        on_delete=models.CASCADE,       # deleting a wardrobe deletes its drawers
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="children",
@@ -79,8 +61,8 @@ class StorageLocation(models.Model):
         db_table = "storage_locations"
         ordering = ["name"]
         constraints = [
-            # Two drawers in the SAME wardrobe cannot both be called "Drawer 2".
-            # Two different wardrobes each having a "Drawer 2" is fine.
+            # Scoped to the parent rather than the owner: one "Drawer 2" per
+            # wardrobe, but several wardrobes may each hold one.
             models.UniqueConstraint(
                 fields=["owner", "parent", "name"],
                 name="unique_location_name_per_parent",
@@ -91,19 +73,11 @@ class StorageLocation(models.Model):
     def __str__(self):
         return self.full_path
 
-    # -- validation ---------------------------------------------------------
-
     def clean(self):
-        """
-        Stops two things that would break the tree:
-          1. a location being its own ancestor (an infinite loop)
-          2. nesting deeper than MAX_DEPTH
-        """
         if self.parent_id:
             if self.parent_id == self.pk:
                 raise ValidationError({"parent": "A location cannot be inside itself."})
 
-            # Walk up the chain looking for ourselves
             ancestor = self.parent
             depth = 1
             while ancestor is not None:
@@ -121,11 +95,9 @@ class StorageLocation(models.Model):
             if self.parent.owner_id != self.owner_id:
                 raise ValidationError({"parent": "That location belongs to someone else."})
 
-    # -- helpers ------------------------------------------------------------
-
     @property
     def ancestors(self) -> list[StorageLocation]:
-        """From the top down: [Bedroom, Main Wardrobe] for Drawer 2."""
+        """Outermost first: [Bedroom, Main Wardrobe] for Drawer 2."""
         chain: list[StorageLocation] = []
         node = self.parent
         while node is not None:
@@ -135,20 +107,14 @@ class StorageLocation(models.Model):
 
     @property
     def full_path(self) -> str:
-        """'Bedroom → Main Wardrobe → Drawer 2' - what the user actually reads."""
-        return " → ".join([*(a.name for a in self.ancestors), self.name])
+        return " > ".join([*(a.name for a in self.ancestors), self.name])
 
     @property
     def depth(self) -> int:
         return len(self.ancestors)
 
     def descendant_ids(self) -> list[int]:
-        """
-        Every location inside this one, at any level, plus itself.
-
-        Used by "show me everything in the Bedroom" - which must include items
-        stored in the drawers inside the wardrobe inside that bedroom.
-        """
+        """This location plus every location nested inside it, at any depth."""
         ids = [self.pk]
         stack = list(self.children.all())
         while stack:
@@ -158,29 +124,22 @@ class StorageLocation(models.Model):
         return ids
 
 
-# ===========================================================================
-#  2. CATEGORY
-# ===========================================================================
-
 class Category(models.Model):
     """
-    'Shirt', 'Jeans', 'Sneakers'.
+    Slot, not name, is the field outfit assembly reads: a complete outfit needs
+    one TOP, one BOTTOM and one FOOTWEAR, whichever names fill them.
 
-    The important field is `slot`, not `name`. An outfit needs one TOP, one
-    BOTTOM and one pair of FOOTWEAR - it does not care whether the top is a
-    shirt or a sweater. Phase 4's outfit builder works entirely off slots.
-
-    `owner = NULL` means a built-in category everyone sees. A user can add their
-    own (e.g. 'Waistcoat') without affecting anybody else.
+    An owner of NULL is a built-in category shared by everyone; a non-null
+    owner is one user's own addition.
     """
 
     class Slot(models.TextChoices):
-        TOP = "TOP", "Top"                    # shirt, t-shirt, blouse, sweater
-        BOTTOM = "BOTTOM", "Bottom"           # jeans, trousers, skirt
-        FULL_BODY = "FULL_BODY", "Full body"  # dress, kurta, jumpsuit - fills TOP+BOTTOM
-        OUTERWEAR = "OUTERWEAR", "Outerwear"  # jacket, blazer, coat
+        TOP = "TOP", "Top"
+        BOTTOM = "BOTTOM", "Bottom"
+        FULL_BODY = "FULL_BODY", "Full body"  # dress or kurta, fills TOP and BOTTOM at once
+        OUTERWEAR = "OUTERWEAR", "Outerwear"
         FOOTWEAR = "FOOTWEAR", "Footwear"
-        ACCESSORY = "ACCESSORY", "Accessory"  # watch, belt, bag, scarf
+        ACCESSORY = "ACCESSORY", "Accessory"
         HEADWEAR = "HEADWEAR", "Headwear"
         OTHER = "OTHER", "Other"
 
@@ -213,23 +172,15 @@ class Category(models.Model):
         return self.owner_id is None
 
 
-# ===========================================================================
-#  3. GARMENT ITEM - one piece of clothing
-# ===========================================================================
-
 class GarmentItem(models.Model):
-    """One physical thing you own."""
-
-    # -- lifecycle ----------------------------------------------------------
     class Status(models.TextChoices):
         IN_WARDROBE = "IN_WARDROBE", "In wardrobe"
         IN_LAUNDRY = "IN_LAUNDRY", "In the wash"
-        LENT_OUT = "LENT_OUT", "Lent to a friend"     # Phase 6
-        FOR_SALE = "FOR_SALE", "Listed for sale"      # Phase 6
-        SOLD = "SOLD", "Sold"                         # Phase 6
+        LENT_OUT = "LENT_OUT", "Lent to a friend"
+        FOR_SALE = "FOR_SALE", "Listed for sale"
+        SOLD = "SOLD", "Sold"
         ARCHIVED = "ARCHIVED", "Archived"
 
-    # Statuses where the item can actually be worn today.
     WEARABLE_STATUSES = [Status.IN_WARDROBE]
 
     class Season(models.TextChoices):
@@ -255,18 +206,16 @@ class GarmentItem(models.Model):
         FLORAL = "FLORAL", "Floral"
         OTHER = "OTHER", "Other"
 
-    # -- ownership ----------------------------------------------------------
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="garments",
     )
 
-    # -- what it is ---------------------------------------------------------
     name = models.CharField(max_length=120, help_text="e.g. 'Navy linen shirt'")
     category = models.ForeignKey(
         Category,
-        on_delete=models.PROTECT,   # never silently orphan items
+        on_delete=models.PROTECT,
         related_name="items",
     )
     brand = models.CharField(max_length=60, blank=True)
@@ -274,14 +223,12 @@ class GarmentItem(models.Model):
     material = models.CharField(max_length=60, blank=True)
     pattern = models.CharField(max_length=20, choices=Pattern.choices, default=Pattern.SOLID)
 
-    # -- colour (filled automatically from the image, editable by the user) --
     primary_color_hex = models.CharField(
         max_length=7, blank=True, help_text="#1a2b3c - detected from the photo"
     )
     primary_color_name = models.CharField(max_length=30, blank=True, help_text="e.g. 'Navy'")
     secondary_color_hex = models.CharField(max_length=7, blank=True)
 
-    # -- context, used by the Phase 4 suggestion engine ---------------------
     seasons = ArrayField(
         models.CharField(max_length=10, choices=Season.choices),
         default=list,
@@ -300,18 +247,16 @@ class GarmentItem(models.Model):
     )
     is_waterproof = models.BooleanField(default=False, help_text="Considered when rain is forecast.")
 
-    # -- where it physically is ---------------------------------------------
     storage_location = models.ForeignKey(
         StorageLocation,
-        on_delete=models.SET_NULL,   # deleting a drawer must not delete the shirt
+        on_delete=models.SET_NULL,   # a deleted drawer must not take the garment with it
         null=True,
         blank=True,
         related_name="items",
     )
 
-    # -- images -------------------------------------------------------------
-    # We keep the public_id alongside every URL because deleting an image from
-    # Cloudinary needs the public_id, and we cannot reconstruct it from the URL.
+    # Cloudinary deletes by public_id, and the public_id cannot be
+    # reconstructed from the delivery URL, so both are stored per image.
     original_image_url = models.URLField(max_length=500, blank=True)
     original_image_public_id = models.CharField(max_length=200, blank=True)
     clean_image_url = models.URLField(
@@ -319,18 +264,16 @@ class GarmentItem(models.Model):
     )
     clean_image_public_id = models.CharField(max_length=200, blank=True)
 
-    # -- state --------------------------------------------------------------
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
     is_favorite = models.BooleanField(default=False)
 
-    # -- money and usage ----------------------------------------------------
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, default="PKR")
     purchase_date = models.DateField(null=True, blank=True)
 
-    # Denormalised on purpose: these could be computed from the WearLog table
-    # (Phase 3), but the closet grid shows them for every item on screen. Doing
-    # a COUNT() per item would be 40 extra queries per page load.
+    # Denormalised: the closet grid renders both for every item on screen, and
+    # deriving them from the wear log cost a COUNT() per row, around 40 extra
+    # queries a page.
     wear_count = models.PositiveIntegerField(default=0)
     last_worn_date = models.DateField(null=True, blank=True)
 
@@ -352,21 +295,15 @@ class GarmentItem(models.Model):
     def __str__(self):
         return f"{self.name} ({self.owner.email})"
 
-    # -- derived values the frontend shows ----------------------------------
-
     @property
     def display_image_url(self) -> str:
-        """Prefer the cutout; fall back to the original if rembg has not run."""
         return self.clean_image_url or self.original_image_url
 
     @property
     def cost_per_wear(self) -> float | None:
         """
-        The number that changes how people think about their clothes.
-        A 12,000 PKR jacket worn 60 times costs 200 per wear. Worn twice, 6,000.
-
-        Returns None when we do not know the price, and the full price when it
-        has never been worn (which is the honest answer, not a divide-by-zero).
+        None when no purchase price is recorded, and the full price while
+        wear_count is zero rather than a division by zero.
         """
         if self.purchase_price is None:
             return None
@@ -382,22 +319,19 @@ class GarmentItem(models.Model):
 
     @property
     def is_wearable_now(self) -> bool:
-        """False while it is in the wash, lent out, or sold."""
         return self.status in self.WEARABLE_STATUSES
 
     @property
     def location_path(self) -> str:
-        """'Bedroom → Main Wardrobe → Drawer 2', or empty if not assigned."""
         return self.storage_location.full_path if self.storage_location else ""
 
-    # -- actions ------------------------------------------------------------
-
     def mark_worn(self, on_date=None) -> None:
-        """
-        Called when the user confirms they wore this. Phase 3 wires it to the
-        wear log; keeping the logic on the model means both the API and the
-        admin panel behave identically.
-        """
-        self.wear_count += 1
-        self.last_worn_date = on_date or timezone.localdate()
-        self.save(update_fields=["wear_count", "last_worn_date", "updated_at"])
+        # Incremented in the database, not in Python: two requests arriving
+        # together would otherwise read the same count and write the same value,
+        # losing a wear and skewing cost_per_wear.
+        GarmentItem.objects.filter(pk=self.pk).update(
+            wear_count=F("wear_count") + 1,
+            last_worn_date=on_date or timezone.localdate(),
+            updated_at=timezone.now(),
+        )
+        self.refresh_from_db(fields=["wear_count", "last_worn_date", "updated_at"])

@@ -1,18 +1,6 @@
 """
-Background removal, and the colour detection that piggybacks on it.
-
-Turns a phone photo taken on a messy bed into a clean, studio-style cutout with
-a transparent background - which is what makes the closet grid look like a real
-product instead of a photo album.
-
-How it works underneath:
-`rembg` runs a pre-trained neural network called U2-Net. It outputs a mask -
-one value per pixel saying "garment" or "not garment" - and we use that mask as
-the image's alpha channel. We do NOT train anything; the model is already
-trained on a large salient-object-detection dataset.
-
-The model file (~176 MB) downloads by itself the first time and is then cached
-on disk, so only the very first run is slow.
+rembg fetches the u2net weights (~176 MB) on first use and caches them on disk,
+so the first cutout after a clean install is slow and needs network access.
 """
 
 from __future__ import annotations
@@ -26,23 +14,14 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Photos from phones are huge (4000px+). Anything past this adds seconds of
-# processing for no visible benefit once it is displayed in a grid.
+# Past this, a cutout costs seconds more for detail a grid tile discards.
 MAX_DIMENSION = 1600
 
-# The model is loaded once and kept in memory. Loading it per request would add
-# several seconds to every upload.
 _session = None
 
 
 def _get_session():
-    """
-    Create the rembg session on first use, not at import time.
-
-    This matters: if we loaded the model at import, `manage.py migrate` and even
-    `manage.py check` would sit there loading 176 MB of neural network for no
-    reason.
-    """
+    # Lazy: at import, every manage.py command would pay for the weights.
     global _session
     if _session is None:
         from rembg import new_session
@@ -55,28 +34,22 @@ def _get_session():
 
 @dataclass(frozen=True)
 class CutoutResult:
-    """What we get back from processing one photo."""
-
-    png_bytes: bytes           # transparent PNG, ready to upload
+    png_bytes: bytes
     width: int
     height: int
-    duration_ms: int           # measured, and reported in the thesis
+    duration_ms: int           # wall clock for one cutout
     dominant_hex: str          # e.g. "#1b2f55"
-    coverage: float            # 0-1: how much of the frame the garment fills
+    coverage: float            # 0-1 share of the frame the garment fills
 
     @property
     def looks_empty(self) -> bool:
-        """
-        Almost nothing was detected. Usually means a blurry photo, or a white
-        shirt on a white bedsheet. We warn the user rather than silently saving
-        a blank image.
-        """
+        """Almost nothing detected: a blurry photo, or a white top on a white sheet."""
         return self.coverage < 0.02
 
 
 def remove_background(image_bytes: bytes) -> CutoutResult:
     """
-    Main entry point. Give it the raw uploaded file, get back a clean PNG.
+    Raw uploaded bytes in, transparent PNG out.
 
     Raises:
         ValueError: if the file is not a readable image.
@@ -89,13 +62,13 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
     except Exception as exc:
         raise ValueError("That file is not a readable image.") from exc
 
-    # EXIF rotation: phone photos often carry "rotate 90 degrees" as metadata
-    # rather than in the pixels. Without this, shirts come out sideways.
+    # Phones record rotation as an EXIF tag rather than rotating the pixels, and
+    # rembg reads pixels. Without the transpose, shirts come out sideways.
     try:
         from PIL import ImageOps
 
         source = ImageOps.exif_transpose(source)
-    except Exception:  # very old or unusual files
+    except Exception:  # no EXIF block, or an unreadable one
         pass
 
     source = source.convert("RGB")
@@ -127,10 +100,6 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
     )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _downscale(image: Image.Image, max_side: int) -> Image.Image:
     if max(image.size) <= max_side:
         return image
@@ -140,13 +109,7 @@ def _downscale(image: Image.Image, max_side: int) -> Image.Image:
 
 
 def _crop_to_subject(image: Image.Image, padding: int = 12) -> Image.Image:
-    """
-    Trim the empty transparent space around the garment.
-
-    Without this, a shirt photographed from far away stays a small object
-    floating in a big empty rectangle, and the closet grid looks inconsistent.
-    getbbox() finds the bounding box of everything that is not fully transparent.
-    """
+    """Trim the transparent margin so every garment fills its grid tile the same way."""
     bbox = image.getbbox()
     if not bbox:
         return image
@@ -160,19 +123,7 @@ def _crop_to_subject(image: Image.Image, padding: int = 12) -> Image.Image:
 
 
 def _analyse_colour(image: Image.Image, sample_size: int = 120) -> tuple[str, float]:
-    """
-    Find the garment's main colour, ignoring the transparent background.
-
-    Method: shrink the image (so we look at ~14k pixels instead of millions),
-    throw away anything transparent or nearly so, then average what is left in
-    a way that ignores near-black and near-white shadow/highlight pixels which
-    would otherwise drag every colour toward grey.
-
-    This is deliberately simple. Phase 4's colour-harmony rules need a single
-    representative colour per garment, not a full palette.
-
-    Returns: ("#rrggbb", coverage 0-1)
-    """
+    """Returns ("#rrggbb", coverage 0-1) over the opaque pixels only."""
     small = image.copy()
     small.thumbnail((sample_size, sample_size), Image.LANCZOS)
     pixels = list(small.getdata())
@@ -183,7 +134,8 @@ def _analyse_colour(image: Image.Image, sample_size: int = 120) -> tuple[str, fl
     if not opaque:
         return "", 0.0
 
-    # Drop shadows and blown-out highlights before averaging
+    # Fabric in shadow and blown-out highlights carry no usable hue, and there
+    # are enough of both on a folded garment to drag the mean toward grey.
     mid = [
         (r, g, b)
         for r, g, b in opaque

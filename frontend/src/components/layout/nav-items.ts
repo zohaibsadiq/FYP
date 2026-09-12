@@ -10,34 +10,59 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/**
- * The app's navigation, defined once and used by BOTH the desktop sidebar and
- * the mobile bottom bar. Adding a page later means editing only this file.
- *
- * `phase` is just a note for us during development - it does not affect the UI.
- * `soon: true` greys the link out until we build that page, so the nav looks
- * complete from day one without leading to broken screens.
- */
-
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  phase: number;
-  soon?: boolean;
-  /** Shown in the mobile bottom bar (max 5 fit comfortably). */
+  /** Shown in the mobile bottom bar, which fits five. */
   primary?: boolean;
+  locked?: boolean;
+  /** Rendered as visible text beside a locked entry, never as a tooltip. */
+  lockedReason?: string;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, phase: 1, primary: true },
-  { href: "/closet", label: "My Closet", icon: Shirt, phase: 2, soon: true, primary: true },
-  { href: "/storage", label: "Storage Finder", icon: MapPin, phase: 2, soon: true },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays, phase: 3, soon: true, primary: true },
-  { href: "/try-on", label: "Fitting Room", icon: Scan, phase: 5, soon: true, primary: true },
-  { href: "/steal-the-look", label: "Steal the Look", icon: Sparkles, phase: 5, soon: true },
-  { href: "/marketplace", label: "Marketplace", icon: Store, phase: 6, soon: true, primary: true },
-  { href: "/swaps", label: "Friend Swaps", icon: Users, phase: 6, soon: true },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard, primary: true },
+  { href: "/closet", label: "My Clothes", icon: Shirt, primary: true },
+  { href: "/storage", label: "Where Things Are", icon: MapPin },
+  {
+    href: "/calendar",
+    label: "My Plans",
+    icon: CalendarDays,
+    primary: true,
+    locked: true,
+    lockedReason: "Opens when you add your first plan",
+  },
+  {
+    href: "/try-on",
+    label: "Try It On",
+    icon: Scan,
+    primary: true,
+    locked: true,
+    lockedReason: "Add a photo of yourself to use this",
+  },
+  {
+    href: "/steal-the-look",
+    label: "Copy a Look",
+    icon: Sparkles,
+    locked: true,
+    lockedReason: "Add a few clothes first",
+  },
+  {
+    href: "/marketplace",
+    label: "Buy and Sell",
+    icon: Store,
+    primary: true,
+    locked: true,
+    lockedReason: "Add a few clothes first",
+  },
+  {
+    href: "/swaps",
+    label: "Borrow from Friends",
+    icon: Users,
+    locked: true,
+    lockedReason: "Add a friend to start",
+  },
 ];
 
 export const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((item) => item.primary);

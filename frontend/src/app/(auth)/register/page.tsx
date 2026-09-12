@@ -1,13 +1,5 @@
 "use client";
 
-/**
- * /register
- *
- * We collect the city here, not later, because the weather feature in Phase 3
- * needs it. Asking for it once at signup means the dashboard works immediately
- * instead of nagging the user to complete their profile.
- */
-
 import Link from "next/link";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -28,25 +20,24 @@ export default function RegisterPage() {
     password_confirm: "",
   });
 
-  // Per-field messages from Django, e.g. { email: "Already exists." }
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const [formError, setFormError] = useState("");
 
   const register = useRegister();
 
-  /** One handler for all inputs - the input's `name` decides which key to update. */
   function update(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    // Clear the error for this field as soon as the user starts fixing it
     setFieldErrors((prev) => ({ ...prev, [name]: "" }));
   }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setFormError("");
 
-    // Check locally first so the user gets instant feedback without a round trip
     if (form.password !== form.password_confirm) {
-      setFieldErrors({ password_confirm: "Passwords do not match." });
+      setFieldErrors({ password_confirm: "Both passwords must be the same." });
       return;
     }
 
@@ -54,12 +45,15 @@ export default function RegisterPage() {
       {
         ...form,
         email: form.email.trim().toLowerCase(),
+        // The signup endpoint requires a country and PK is the only market so far.
         country_code: "PK",
       },
       {
         onError: (error) => {
+          const message = getErrorMessage(error, "Check the details above, then try again.");
           setFieldErrors(getFieldErrors(error));
-          toast.error(getErrorMessage(error, "Could not create your account."));
+          setFormError(message);
+          toast.error(message);
         },
       },
     );
@@ -69,8 +63,17 @@ export default function RegisterPage() {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Create your closet</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Takes under a minute. No credit card, obviously.
+        Takes about a minute. Add your clothes whenever it suits you.
       </p>
+
+      {formError ? (
+        <p
+          role="alert"
+          className="mt-6 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </p>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <Field
@@ -103,7 +106,7 @@ export default function RegisterPage() {
           onChange={update}
           placeholder="Lahore"
           autoComplete="address-level2"
-          hint="Used to fetch your local weather forecast."
+          hint="Outfit picks follow the weather where you live."
           error={fieldErrors.city}
           required
         />
@@ -134,7 +137,7 @@ export default function RegisterPage() {
 
         <Button type="submit" className="w-full" disabled={register.isPending}>
           {register.isPending && <Loader2 className="size-4 animate-spin" />}
-          {register.isPending ? "Creating account…" : "Create account"}
+          {register.isPending ? "Creating account..." : "Create account"}
         </Button>
       </form>
 
@@ -148,10 +151,6 @@ export default function RegisterPage() {
   );
 }
 
-/**
- * Small local component so we do not repeat label + input + error five times.
- * Kept in this file because nothing else needs it.
- */
 function Field({
   id,
   label,

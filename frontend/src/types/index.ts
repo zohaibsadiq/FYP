@@ -1,14 +1,4 @@
-/**
- * TypeScript types that mirror the Django models.
- *
- * RULE for this project: whenever we add a field in Django, we add it here too.
- * That way the editor warns us immediately if the frontend and backend drift
- * apart, instead of us finding out at runtime.
- */
-
-// ---------------------------------------------------------------------------
-// Auth / User
-// ---------------------------------------------------------------------------
+// A field added to a serializer belongs here in the same commit.
 
 export interface User {
   id: number;
@@ -46,14 +36,7 @@ export interface RegisterPayload {
   country_code?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Shared API shapes
-// ---------------------------------------------------------------------------
-
-/**
- * Every list endpoint in DRF returns this shape because we turned on
- * pagination in settings.py (PAGE_SIZE = 24).
- */
+/** Envelope around every list endpoint; page size is set in settings.py. */
 export interface Paginated<T> {
   count: number;
   next: string | null;
@@ -61,8 +44,5 @@ export interface Paginated<T> {
   results: T[];
 }
 
-/**
- * Django validation errors come back as {"field_name": ["message", ...]}.
- * We use this to show the message under the right input box.
- */
+/** Validation errors arrive as {"field_name": ["message", ...]}. */
 export type ApiFieldErrors = Record<string, string[] | string>;

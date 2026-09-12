@@ -1,17 +1,10 @@
-"""
-API endpoints for the wardrobe.
-
-The security rule that runs through this whole file: every queryset starts with
-`.filter(owner=self.request.user)`. There is no endpoint anywhere that can
-return another person's clothes, even if someone guesses an item's id.
-"""
-
 from __future__ import annotations
 
 import logging
 
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -40,26 +33,17 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
-# Phone photos are big, but 12 MB is already generous for a picture of a shirt.
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
-# ===========================================================================
-#  CATEGORIES
-# ===========================================================================
-
 @extend_schema(tags=["Wardrobe"])
 class CategoryViewSet(viewsets.ModelViewSet):
-    """
-    Built-in categories plus this user's own custom ones.
-
-    Built-ins (owner = NULL) are read-only: nobody may rename "Shirt" for
-    everybody else.
-    """
+    """Built-in categories, which are read-only, plus any the account has added."""
 
     serializer_class = CategorySerializer
-    # Only so the docs generator can see the model; get_queryset() is what runs.
+    # Placeholder so drf-spectacular can resolve the model; get_queryset() is
+    # what serves requests.
     queryset = Category.objects.none()
 
     def get_queryset(self):
@@ -91,18 +75,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 
-# ===========================================================================
-#  STORAGE LOCATIONS
-# ===========================================================================
-
 @extend_schema(tags=["Wardrobe"])
 class StorageLocationViewSet(viewsets.ModelViewSet):
-    """
-    The physical map of where things live.
-
-    Ordinary list/create/update/delete, plus a /tree/ endpoint that returns the
-    whole hierarchy nested, which is what the Storage page draws.
-    """
+    """Places where garments are kept, nestable to four levels."""
 
     serializer_class = StorageLocationSerializer
     queryset = StorageLocation.objects.none()
@@ -118,12 +93,7 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
     def perform_destroy(self, instance: StorageLocation):
-        """
-        Deleting a wardrobe deletes the drawers inside it (the model says
-        CASCADE), but the CLOTHES inside those drawers survive - they just lose
-        their location (the item model says SET_NULL). Losing a shelf must never
-        mean losing the record of a jacket.
-        """
+        """Child locations cascade; their items survive with storage_location NULL."""
         instance.delete()
 
     @extend_schema(
@@ -157,14 +127,8 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
-#  GARMENT ITEMS
-# ===========================================================================
-
 @extend_schema(tags=["Wardrobe"])
 class GarmentItemViewSet(viewsets.ModelViewSet):
-    """Everything you own."""
-
     queryset = GarmentItem.objects.none()
     filterset_class = GarmentItemFilter
     search_fields = ["name", "brand", "notes", "category__name", "primary_color_name"]
@@ -172,13 +136,14 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        # Owner filtering here is the only thing stopping cross-account reads:
+        # detail routes resolve against this queryset, so a guessed id gives a 404.
         return (
             GarmentItem.objects.filter(owner=self.request.user)
             .select_related("category", "storage_location", "storage_location__parent")
         )
 
     def get_serializer_class(self):
-        # The grid gets the light serializer, everything else the full one.
         if self.action == "list":
             return GarmentItemListSerializer
         return GarmentItemSerializer
@@ -187,13 +152,11 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
     def perform_destroy(self, instance: GarmentItem):
-        """Remove the item's images from Cloudinary too, so we don't pay to store orphans."""
+        """Cloudinary keeps uploads until they are deleted by public_id."""
         for public_id in (instance.clean_image_public_id, instance.original_image_public_id):
             if public_id:
                 storage.delete_image(public_id)
         instance.delete()
-
-    # -- actions ------------------------------------------------------------
 
     @extend_schema(summary="Log that this item was worn", request=MarkWornSerializer)
     @action(detail=True, methods=["post"], url_path="mark-worn")
@@ -215,7 +178,6 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         elif item.status == GarmentItem.Status.IN_WARDROBE:
             item.status = GarmentItem.Status.IN_LAUNDRY
         else:
-            # Lent out, for sale or sold - the laundry toggle makes no sense
             raise ValidationError(
                 f"This item is currently '{item.get_status_display()}', so it cannot go to the wash."
             )
@@ -239,24 +201,19 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
 
         location = payload.validated_data["storage_location"]
         if location and location.owner_id != request.user.id:
-            raise ValidationError({"storage_location": "That location does not belong to you."})
+            raise ValidationError({"storage_location": "That location belongs to another account."})
 
         with transaction.atomic():
+            # update() skips save(), and with it the auto_now on updated_at.
             updated = GarmentItem.objects.filter(
                 owner=request.user, id__in=payload.validated_data["item_ids"]
-            ).update(storage_location=location)
+            ).update(storage_location=location, updated_at=timezone.now())
 
         return Response({"updated": updated, "storage_location": location.id if location else None})
 
     @extend_schema(summary="Counts for the dashboard cards")
     @action(detail=False, methods=["get"])
     def stats(self, request):
-        """
-        One query for the whole dashboard instead of six separate endpoints.
-
-        `filter=` inside Count/Sum is a conditional aggregate: PostgreSQL
-        computes all of these in a single pass over the table.
-        """
         qs = GarmentItem.objects.filter(owner=request.user)
 
         totals = qs.aggregate(
@@ -289,31 +246,25 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         )
 
 
-# ===========================================================================
-#  IMAGE UPLOAD + BACKGROUND REMOVAL
-# ===========================================================================
-
 @extend_schema(
     tags=["Wardrobe"],
     summary="Upload a garment photo, remove its background, detect its colour",
     description=(
         "Send one image as multipart/form-data under the key `image`.\n\n"
-        "The server removes the background with rembg, trims the empty space, "
-        "detects the dominant colour, and uploads BOTH the original and the "
-        "cutout to Cloudinary.\n\n"
-        "Nothing is saved to the database yet - the response is what you then "
-        "pass to POST /api/wardrobe/items/ to create the item."
+        "The server removes the background, trims the empty space, detects the "
+        "dominant colour, and uploads BOTH the original and the cutout to "
+        "Cloudinary.\n\n"
+        "Nothing is written to the database here. The response fields are the "
+        "body of the follow-up POST /api/wardrobe/items/ that creates the item."
     ),
     request={"multipart/form-data": ImageUploadRequestSerializer},
     responses={201: ImageUploadResponseSerializer},
 )
 class GarmentImageUploadView(APIView):
     """
-    Deliberately separate from item creation.
-
-    Why: background removal takes a few seconds. Splitting it out lets the Add
-    Item page show the cutout preview while the user is still typing the brand
-    and price, instead of making them wait after pressing Save.
+    Kept separate from item creation because background removal takes a few
+    seconds: the cutout preview appears while the rest of the form is still being
+    filled in.
     """
 
     parser_classes = [MultiPartParser, FormParser]
@@ -337,7 +288,6 @@ class GarmentImageUploadView(APIView):
 
         raw = upload.read()
 
-        # ---- 1. remove the background -------------------------------------
         try:
             cutout = remove_background(raw)
         except ValueError as exc:
@@ -348,7 +298,6 @@ class GarmentImageUploadView(APIView):
                 {"image": "The background could not be removed from that image. Try another photo."}
             ) from exc
 
-        # ---- 2. store both versions ---------------------------------------
         user_id = request.user.id
         try:
             original = storage.upload_image(
@@ -363,7 +312,6 @@ class GarmentImageUploadView(APIView):
         except storage.CloudinaryNotConfigured as exc:
             raise ValidationError({"image": str(exc)}) from exc
 
-        # ---- 3. describe what we found ------------------------------------
         color_name = name_for_hex(cutout.dominant_hex)
 
         return Response(

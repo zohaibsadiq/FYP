@@ -1,20 +1,3 @@
-/**
- * The single place where the frontend talks to Django.
- *
- * Nothing in the app calls axios directly - everything goes through `api`.
- * That means we configure the base URL and the login token ONCE, here, instead
- * of repeating it in every component.
- *
- * Two automatic behaviours are set up below:
- *
- *  1. REQUEST interceptor  - attaches "Authorization: Bearer <token>" to every
- *                            outgoing request, so we never forget it.
- *
- *  2. RESPONSE interceptor - if Django replies 401 (token expired), it quietly
- *                            swaps the refresh token for a new access token and
- *                            retries the original request. The user sees nothing.
- */
-
 import axios, {
   AxiosError,
   AxiosHeaders,
@@ -28,15 +11,14 @@ import type { ApiFieldErrors } from "@/types";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+// No default Content-Type here. Axios picks application/json for plain objects
+// on its own, but a preset header makes it serialise FormData to JSON, and image
+// uploads then arrive empty with no error anywhere.
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
-  headers: { "Content-Type": "application/json" },
-  timeout: 30_000, // 30s. Raised later for the try-on endpoint, which is slow.
+  timeout: 30_000,
 });
 
-// ---------------------------------------------------------------------------
-// 1. Attach the token to every request
-// ---------------------------------------------------------------------------
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const access = tokens.getAccess();
   if (access) {
@@ -46,22 +28,19 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ---------------------------------------------------------------------------
-// 2. Refresh the token automatically when it expires
-// ---------------------------------------------------------------------------
-
-/**
- * If five requests fail at the same moment, we must NOT fire five refresh
- * calls. We keep one promise in flight and let everyone wait on it.
- */
+// The access token lasts 60 minutes, so it lapses between page views rather than
+// mid-request, and the first burst of calls afterwards comes back 401 together.
+// Refreshing once per failure would fire one refresh call per 401, and since
+// ROTATE_REFRESH_TOKENS is on every one of those mints another refresh token,
+// leaving whichever response lands last as the stored pair. One promise held here
+// turns a burst into a single refresh that the other callers wait on.
 let refreshInFlight: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
   const refresh = tokens.getRefresh();
   if (!refresh) throw new Error("No refresh token");
 
-  // Plain axios, not `api` - otherwise this call would be intercepted too
-  // and we would loop forever.
+  // Bare axios: going through `api` would re-enter the interceptor below.
   const { data } = await axios.post<{ access: string; refresh?: string }>(
     `${API_BASE_URL}/api/auth/refresh/`,
     { refresh },
@@ -69,12 +48,10 @@ async function refreshAccessToken(): Promise<string> {
   );
 
   tokens.saveAccess(data.access);
-  // ROTATE_REFRESH_TOKENS is on in Django, so a new refresh token comes back too
   if (data.refresh) tokens.save(data.access, data.refresh);
   return data.access;
 }
 
-/** Marker so we only ever retry a request once. */
 type RetriableConfig = AxiosRequestConfig & { _retried?: boolean };
 
 api.interceptors.response.use(
@@ -84,13 +61,13 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = original?.url ?? "";
 
+    // A 401 from these three means bad credentials or a dead refresh token, and
+    // refreshing would only produce another 401.
     const isAuthCall =
       url.includes("/auth/login") ||
       url.includes("/auth/register") ||
       url.includes("/auth/refresh");
 
-    // Only try to refresh on a 401, only once, and never for the login call
-    // itself (a 401 there just means "wrong password").
     if (status === 401 && original && !original._retried && !isAuthCall) {
       original._retried = true;
       try {
@@ -105,7 +82,6 @@ api.interceptors.response.use(
         return api.request(original);
       } catch {
         refreshInFlight = null;
-        // Refresh token is dead too - the session is genuinely over.
         tokens.clear();
         if (typeof window !== "undefined") {
           window.location.href = "/login";
@@ -117,32 +93,20 @@ api.interceptors.response.use(
   },
 );
 
-// ---------------------------------------------------------------------------
-// Error helper
-// ---------------------------------------------------------------------------
-
-/**
- * Turns any Django/axios error into one readable sentence we can put in a toast.
- *
- * Django sends validation errors like:
- *   { "email": ["An account with this email already exists."] }
- * and general errors like:
- *   { "detail": "Not found." }
- */
+/** Flattens any error from the API into a single sentence for a toast. */
 export function getErrorMessage(error: unknown, fallback = "Something went wrong."): string {
   if (!axios.isAxiosError(error)) {
     return error instanceof Error ? error.message : fallback;
   }
 
   if (!error.response) {
-    return "Cannot reach the server. Is the Django backend running on port 8000?";
+    return "Cannot reach the server. Check the connection and try again.";
   }
 
   const data = error.response.data as ApiFieldErrors & { detail?: string };
   if (typeof data === "string") return data;
   if (data?.detail) return data.detail;
 
-  // Take the first field error we find
   const firstKey = Object.keys(data ?? {})[0];
   if (firstKey) {
     const value = data[firstKey];
@@ -153,10 +117,6 @@ export function getErrorMessage(error: unknown, fallback = "Something went wrong
   return fallback;
 }
 
-/**
- * Pulls out per-field errors so a form can show them under the right input.
- * Example result: { email: "An account with this email already exists." }
- */
 export function getFieldErrors(error: unknown): Record<string, string> {
   if (!axios.isAxiosError(error) || !error.response) return {};
 

@@ -1,15 +1,4 @@
-"""
-Filters for the closet grid.
-
-These turn URL query strings into database queries:
-
-    /api/wardrobe/items/?slot=TOP&status=IN_WARDROBE&season=WINTER
-    /api/wardrobe/items/?location=3&unworn_days=100
-    /api/wardrobe/items/?search=denim
-
-Writing them here rather than inside the view keeps the view tiny and means the
-filters are automatically documented on the /api/docs/ page.
-"""
+"""Filter labels in this module are published in the schema served at /api/docs/."""
 
 from __future__ import annotations
 
@@ -21,14 +10,12 @@ from .models import Category, GarmentItem, StorageLocation
 
 
 class GarmentItemFilter(filters.FilterSet):
-    # ---- simple matches ----
     category = filters.NumberFilter(field_name="category_id")
     status = filters.ChoiceFilter(choices=GarmentItem.Status.choices)
     brand = filters.CharFilter(lookup_expr="icontains")
     is_favorite = filters.BooleanFilter()
     color = filters.CharFilter(field_name="primary_color_name", lookup_expr="iexact")
 
-    # ---- derived ----
     slot = filters.ChoiceFilter(
         field_name="category__slot",
         choices=Category.Slot.choices,
@@ -36,7 +23,7 @@ class GarmentItemFilter(filters.FilterSet):
     )
 
     location = filters.ModelChoiceFilter(
-        queryset=StorageLocation.objects.none(),   # replaced per-user in __init__
+        queryset=StorageLocation.objects.none(),   # narrowed per user in __init__
         method="filter_location",
         label="Storage location (includes everything nested inside it)",
     )
@@ -68,7 +55,6 @@ class GarmentItemFilter(filters.FilterSet):
         fields = ["category", "status", "brand", "is_favorite", "slot"]
 
     def __init__(self, *args, **kwargs):
-        """Limit the location dropdown to the requesting user's own locations."""
         super().__init__(*args, **kwargs)
         request = getattr(self, "request", None)
         if request and request.user.is_authenticated:
@@ -76,20 +62,13 @@ class GarmentItemFilter(filters.FilterSet):
                 owner=request.user
             )
 
-    # -- methods ------------------------------------------------------------
-
     def filter_location(self, queryset, name, value: StorageLocation):
-        """
-        Filtering by "Bedroom" must also return items in the wardrobe inside
-        that bedroom, and the drawers inside that wardrobe.
-        """
         return queryset.filter(storage_location_id__in=value.descendant_ids())
 
     def filter_season(self, queryset, name, value: str):
         """
-        An item with no seasons recorded is treated as all-year, so it always
-        matches. Otherwise every unlabelled item would vanish from a filtered
-        view, which looks like data loss to the user.
+        An item with no seasons recorded counts as all-year. Excluding those
+        would empty most filtered views, which reads as missing data.
         """
         return queryset.filter(Q(seasons__contains=[value.upper()]) | Q(seasons=[]))
 

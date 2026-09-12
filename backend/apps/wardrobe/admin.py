@@ -1,11 +1,3 @@
-"""
-Admin panel for the wardrobe.
-
-Worth setting up properly: during development this is the fastest way to add,
-inspect and fix data without writing any code, and it is also the screen you
-can show an examiner to prove the database design is real.
-"""
-
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -62,7 +54,7 @@ class GarmentItemAdmin(admin.ModelAdmin):
     def thumbnail(self, obj):
         url = obj.display_image_url
         if not url:
-            return "—"
+            return "-"
         return format_html(
             '<img src="{}" style="height:44px;width:44px;object-fit:contain;'
             'background:#f4f4f5;border-radius:6px" />',
@@ -72,7 +64,7 @@ class GarmentItemAdmin(admin.ModelAdmin):
     @admin.display(description="Colour")
     def color_swatch(self, obj):
         if not obj.primary_color_hex:
-            return "—"
+            return "-"
         return format_html(
             '<span style="display:inline-flex;align-items:center;gap:6px">'
             '<span style="width:14px;height:14px;border-radius:3px;border:1px solid #ccc;'

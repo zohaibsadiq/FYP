@@ -1,11 +1,3 @@
-"""
-Views = the actual API endpoints. Each class below becomes one URL.
-
-DRF gives us ready-made base classes so we write almost no code:
-  CreateAPIView        -> handles POST
-  RetrieveUpdateAPIView -> handles GET and PATCH
-"""
-
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -17,14 +9,6 @@ from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 
 @extend_schema(tags=["Auth"])
 class RegisterView(generics.CreateAPIView):
-    """
-    POST /api/auth/register/
-
-    AllowAny because a brand-new user obviously has no token yet.
-    (Remember: settings.py made every endpoint login-required by default,
-    so we must opt out here explicitly.)
-    """
-
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
@@ -33,8 +17,8 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Log them in immediately after signup so they are not asked to type
-        # their password a second time.
+        # Registration issues tokens itself so the client never re-posts the
+        # credentials it just sent.
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -48,25 +32,13 @@ class RegisterView(generics.CreateAPIView):
 
 @extend_schema(tags=["Auth"])
 class LoginView(TokenObtainPairView):
-    """
-    POST /api/auth/login/   body: {"email": "...", "password": "..."}
-    Returns: {access, refresh, user}
-    """
-
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
 
 
 @extend_schema(tags=["Auth"])
 class MeView(generics.RetrieveUpdateAPIView):
-    """
-    GET   /api/auth/me/   -> who am I
-    PATCH /api/auth/me/   -> update my city, name, or body photo
-
-    There is no "pk" in the URL on purpose: a user can only ever read or edit
-    their OWN profile. get_object() always returns request.user, so it is
-    impossible to fetch someone else's data through this endpoint.
-    """
+    """Resolves to request.user, so the endpoint cannot address another account."""
 
     serializer_class = UserSerializer
 

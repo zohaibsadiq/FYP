@@ -1,22 +1,9 @@
-"""
-Colour utilities.
-
-Right now this turns a hex code into a human word ("#1b2f55" -> "Navy") so the
-closet can be filtered by colour and the item title reads naturally.
-
-In Phase 4 the same module gains the colour-harmony rules (complementary,
-analogous, monochromatic) that score whether two garments go together. Keeping
-all colour logic in one file means that work does not get scattered later.
-"""
-
 from __future__ import annotations
 
 import colorsys
 
-# A deliberately small, wearable palette. Naming every one of 16 million hex
-# values is pointless - what a user needs is "is this navy or is it black".
-#
-# (name, hex) - chosen to cover the colours clothes are actually made in.
+# Deliberately short. The question a closet filter has to answer is "navy or
+# black", not which of 16 million hex values a photo averaged out to.
 NAMED_COLORS: list[tuple[str, str]] = [
     ("Black", "#000000"),
     ("Charcoal", "#36454f"),
@@ -68,13 +55,8 @@ def rgb_to_hex(r: int, g: int, b: int) -> str:
 
 def name_for_hex(value: str) -> str:
     """
-    Find the closest wearable colour name for a hex code.
-
-    We compare in HSV (hue, saturation, value) rather than RGB, and weight hue
-    most heavily. Reason: in plain RGB, a dark navy and a dark brown are
-    numerically close even though nobody would confuse them. Hue separates them
-    properly - and for greys, where hue is meaningless, we fall back to
-    comparing brightness.
+    Closest name in NAMED_COLORS, matched in HSV with hue weighted heaviest.
+    In RGB, #1b2f55 navy and #3d2314 chocolate sit close enough to swap names.
     """
     if not value:
         return ""
@@ -93,12 +75,12 @@ def name_for_hex(value: str) -> str:
         rr, rg, rb = hex_to_rgb(ref_hex)
         h2, s2, v2 = colorsys.rgb_to_hsv(rr / 255, rg / 255, rb / 255)
 
-        # Hue is a circle: 0.99 and 0.01 are neighbours, not opposites
+        # hue wraps at 1.0
         hue_gap = abs(h1 - h2)
         hue_gap = min(hue_gap, 1 - hue_gap)
 
         if s1 < 0.12 and s2 < 0.12:
-            # Both are effectively greyscale - only brightness matters
+            # colorsys returns an arbitrary hue below this saturation
             distance = abs(v1 - v2)
         else:
             distance = (hue_gap * 2.2) ** 2 + (s1 - s2) ** 2 + (v1 - v2) ** 2
@@ -111,12 +93,7 @@ def name_for_hex(value: str) -> str:
 
 
 def is_neutral(value: str) -> bool:
-    """
-    Neutrals (black, white, grey, beige, navy, denim) go with everything.
-
-    Phase 4's harmony scoring needs this: pairing two bold colours is risky,
-    but pairing anything with a neutral is always safe.
-    """
+    """Neutrals pair with anything, so harmony scoring treats them as always safe."""
     return name_for_hex(value) in {
         "Black", "Charcoal", "Grey", "Light Grey", "White", "Off White",
         "Cream", "Beige", "Tan", "Camel", "Navy", "Denim", "Khaki",

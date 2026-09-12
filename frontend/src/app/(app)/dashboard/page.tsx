@@ -1,56 +1,17 @@
 "use client";
 
-/**
- * /dashboard
- *
- * Right now this proves the end-to-end chain works:
- *   browser -> JWT token -> Django /api/auth/me/ -> real user data on screen.
- *
- * Each placeholder card below becomes a real feature in a later phase. They are
- * here on purpose: you can see the finished shape of the app from day one, and
- * so can your supervisor.
- */
+import { CalendarDays, MapPin, Plus, Shirt, WashingMachine } from "lucide-react";
 
-import {
-  CalendarDays,
-  CloudSun,
-  MapPin,
-  Scan,
-  Shirt,
-  Sparkles,
-  WashingMachine,
-} from "lucide-react";
-
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/use-auth";
 
 const STAT_CARDS = [
-  { label: "Items owned", value: "—", icon: Shirt, phase: 2 },
-  { label: "In the wash", value: "—", icon: WashingMachine, phase: 2 },
-  { label: "Storage spots", value: "—", icon: MapPin, phase: 2 },
-  { label: "Events planned", value: "—", icon: CalendarDays, phase: 3 },
-];
-
-const UPCOMING_FEATURES = [
-  {
-    icon: CloudSun,
-    title: "Today's suggestion",
-    body: "Once the weather API and the scoring engine are wired up, this card will propose a full outfit for today's forecast.",
-    phase: "Phase 3–4",
-  },
-  {
-    icon: Scan,
-    title: "Virtual fitting room",
-    body: "Pick a combination and see it rendered onto your own full-body photo before you get dressed.",
-    phase: "Phase 5",
-  },
-  {
-    icon: Sparkles,
-    title: "Steal the look",
-    body: "Upload any inspiration photo and the system finds the closest matches already hanging in your closet.",
-    phase: "Phase 5",
-  },
+  { label: "Items", value: "0", icon: Shirt },
+  { label: "In the wash", value: "0", icon: WashingMachine },
+  { label: "Storage spots", value: "0", icon: MapPin },
+  { label: "Days planned", value: "0", icon: CalendarDays },
 ];
 
 export default function DashboardPage() {
@@ -58,7 +19,6 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      {/* ---------------- Greeting ---------------- */}
       <div>
         {isPending ? (
           <>
@@ -72,14 +32,13 @@ export default function DashboardPage() {
             </h1>
             <p className="mt-2 text-muted-foreground">
               {user?.city
-                ? `Your wardrobe is set up for ${user.city}. Let's start filling it.`
-                : "Add your city in settings so we can pull your local weather."}
+                ? `Your account is set up for ${user.city}.`
+                : "Your account is set up."}
             </p>
           </>
         )}
       </div>
 
-      {/* ---------------- Quick stats ---------------- */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {STAT_CARDS.map(({ label, value, icon: Icon }) => (
           <Card key={label}>
@@ -96,66 +55,24 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ---------------- Connection confirmed ---------------- */}
-      <Card className="border-primary/30 bg-primary/5">
+      <Card className="border-dashed">
         <CardHeader>
-          <CardTitle className="text-base">Foundation is live</CardTitle>
+          <CardTitle className="text-base">Add your first item</CardTitle>
           <CardDescription>
-            This page loaded your real account from the Django API using a JWT
-            token, which means authentication, CORS, the database and the frontend
-            are all talking to each other correctly.
+            Pick one thing you wear often. Take a photo of it and write down the shelf or drawer it
+            is kept in. Outfit picks start once a few items are in.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <Row label="Signed in as" value={user?.email ?? "…"} />
-          <Row label="City" value={user?.city || "not set"} />
-          <Row label="Body photo for try-on" value={user?.has_body_photo ? "uploaded" : "not yet"} />
-          <Row
-            label="Member since"
-            value={
-              user?.date_joined
-                ? new Date(user.date_joined).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : "…"
-            }
-          />
+        <CardContent className="flex flex-col items-start gap-3">
+          <Button disabled aria-describedby="add-item-note">
+            <Plus className="size-4" />
+            Add an item
+          </Button>
+          <p id="add-item-note" className="text-sm text-muted-foreground">
+            This turns on when the closet opens.
+          </p>
         </CardContent>
       </Card>
-
-      {/* ---------------- What comes next ---------------- */}
-      <section>
-        <h2 className="text-lg font-semibold tracking-tight">Coming in the next phases</h2>
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          {UPCOMING_FEATURES.map(({ icon: Icon, title, body, phase }) => (
-            <Card key={title} className="border-dashed">
-              <CardHeader>
-                <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                  <Icon className="size-5" />
-                </span>
-                <CardTitle className="mt-3 text-base">{title}</CardTitle>
-                <CardDescription>{body}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <span className="rounded-md bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground">
-                  {phase}
-                </span>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-medium">{value}</span>
     </div>
   );
 }

@@ -1,197 +1,136 @@
-# Lumiere — Smart Wardrobe Management System
+# Closette
 
-A Context-Aware Smart Wardrobe Management System with Generative Virtual Try-On
-and Recency Analytics.
+A wardrobe app that tracks what you own and where it is physically kept, then
+uses the weather, your plans and what you wore recently to suggest what to put
+on. Photos are cut out from their background on upload and tagged by colour.
 
-Final Year Project. Next.js frontend, Django REST backend, PostgreSQL database.
+Next.js frontend, Django REST backend, Postgres.
 
----
+## Stack
 
-## What makes this different from existing wardrobe apps
+| Layer | Choice |
+| --- | --- |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind 4, shadcn/ui |
+| Data fetching | TanStack Query |
+| Backend | Django 5.2, Django REST Framework |
+| Auth | JWT via djangorestframework-simplejwt, email as the login field |
+| Database | Postgres with pgvector |
+| Background removal | rembg (U2-Net, runs locally on CPU) |
+| Image hosting | Cloudinary |
+| Weather | OpenWeather |
 
-| Capability | Acloset / Whering / Stylebook | This system |
-| --- | --- | --- |
-| Digital closet with photos | Yes | Yes |
-| Background removal on upload | Partly | Yes, automatic |
-| **Physical storage location** (room → cabinet → drawer) | No | Yes |
-| Weather-aware suggestions | Basic | Weather + occasion + recency scoring |
-| **Wear-recency guardrail** (never repeat an outfit in the same circle) | No | Yes |
-| **Generative virtual try-on** on your own photo | No | Yes |
-| Find your own clothes from an inspiration photo | No | Yes, vector search |
-| In-app resale with **digital ownership transfer** | No | Yes |
-| Friend-to-friend borrowing | No | Yes |
-
----
-
-## Tech stack
-
-| Layer | Choice | Why |
-| --- | --- | --- |
-| Frontend | Next.js 16, React 19, TypeScript | Industry standard, responsive on one codebase |
-| UI | Tailwind CSS 4 + shadcn/ui | Owned components, premium look |
-| Data fetching | TanStack Query | Caching and loading states for free |
-| Backend | Django 5.2 + Django REST Framework | Clean API layer, fast to build |
-| Auth | JWT (simplejwt), email-based login | Standard for a decoupled frontend |
-| Database | PostgreSQL (Neon) + pgvector | Relational data *and* image embeddings in one place |
-| Background removal | `rembg` | Phase 2 |
-| Image tagging + similarity | Fashion-CLIP | Phase 4–5 |
-| Virtual try-on | fal.ai (FASHN) | Phase 5 |
-| Weather | OpenWeather API | Phase 3 |
-| Image hosting | Cloudinary | Phase 2 |
-
----
-
-## Repository layout
+## Layout
 
 ```
-FYP/
-├── backend/                  Django REST API (port 8000)
-│   ├── config/               settings, root urls, wsgi
-│   ├── apps/                 one folder per feature
-│   │   ├── accounts/         users, JWT auth, profile
-│   │   ├── wardrobe/         items, categories, storage locations
-│   │   ├── outfits/          saved outfits, wear log
-│   │   ├── planner/          events, calendar, weather
-│   │   ├── intelligence/     suggestion engine, colour rules
-│   │   ├── vision/           rembg, Fashion-CLIP, try-on
-│   │   └── community/        marketplace + friend swaps
-│   ├── requirements/         base.txt, dev.txt
-│   └── manage.py
-│
-├── frontend/                 Next.js app (port 3000)
-│   └── src/
-│       ├── app/              routes
-│       │   ├── (auth)/       login, register
-│       │   └── (app)/        everything behind login
-│       ├── components/ui/    shadcn components
-│       ├── components/layout/ sidebar, topbar, mobile nav
-│       ├── hooks/            useCurrentUser, useLogin, ...
-│       ├── lib/              api client, token storage
-│       └── types/            TypeScript mirrors of Django models
-│
-└── docs/                     diagrams and notes for the thesis
+backend/
+  config/          settings, root urls, wsgi
+  apps/
+    accounts/      users, auth, profile
+    wardrobe/      items, categories, storage locations
+    outfits/       saved outfits and wear history
+    planner/       events, weather
+    intelligence/  colour rules, outfit scoring
+    vision/        background removal, Cloudinary, try-on
+    community/     marketplace and lending
+  requirements/
+
+frontend/src/
+  app/             routes; (auth) is public, (app) is behind login
+  components/ui/   shadcn primitives, overwritten by `shadcn add`
+  components/      feature components
+  hooks/
+  lib/             api client, token storage
+  types/           mirrors of the DRF serializers
 ```
 
-**Rule:** one Django app per feature, so two people can work at once without
-editing the same file.
+One Django app per feature area, so parallel work rarely touches the same file.
 
----
+## Prerequisites
 
-## Running it locally
+Python 3.13, Node 22 or newer, and a Postgres connection string. Any Postgres
+works; the project is developed against Neon.
 
-You need **two terminals** — one for each server.
-
-### Terminal 1 — backend
+## Setup
 
 ```bash
-cd backend
-venv/Scripts/activate          # Windows
-python manage.py runserver
-```
-
-Runs at http://localhost:8000
-API documentation at http://localhost:8000/api/docs/
-Admin panel at http://localhost:8000/admin/
-
-### Terminal 2 — frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-Runs at http://localhost:3000
-
----
-
-## First-time setup (for a new machine, or your teammate)
-
-```bash
-# 1. Backend
+# backend
 cd backend
 python -m venv venv
-venv/Scripts/activate
+venv/Scripts/activate          # source venv/bin/activate on macOS and Linux
 pip install -r requirements/dev.txt
-cp .env.example .env           # then fill in the real values
+cp .env.example .env           # fill in DATABASE_URL and the API keys
 python manage.py migrate
 python manage.py createsuperuser
 
-# 2. Frontend
+# frontend
 cd ../frontend
 npm install
 cp .env.example .env.local
 ```
 
-### Generating a new SECRET_KEY
+The first image upload downloads the 176 MB U2-Net model and caches it in
+`~/.rembg`. That request takes around 30 seconds; later ones take about 1.5.
+
+## Running
+
+Two terminals.
 
 ```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+cd backend && venv/Scripts/activate && python manage.py runserver
+cd frontend && npm run dev
 ```
 
----
-
-## Environment variables
-
-`backend/.env` — never committed.
-
-| Key | Needed by | Phase |
-| --- | --- | --- |
-| `SECRET_KEY` | Django | 1 |
-| `DEBUG` | Django | 1 |
-| `DATABASE_URL` | Neon PostgreSQL | 1 |
-| `CORS_ALLOWED_ORIGINS` | lets :3000 call :8000 | 1 |
-| `CLOUDINARY_*` | image hosting | 2 |
-| `OPENWEATHER_API_KEY` | weather | 3 |
-| `FAL_KEY` | virtual try-on | 5 |
-
-`frontend/.env.local`
-
-| Key | Value |
+| URL | |
 | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` locally |
+| http://localhost:3000 | app |
+| http://localhost:8000/api/docs/ | interactive API reference |
+| http://localhost:8000/admin/ | Django admin |
 
----
+## Environment
 
-## API endpoints
+`backend/.env`, copied from `.env.example` and never committed.
 
-Full interactive list at `/api/docs/` while the backend runs.
-
-### Phase 1 — Auth
-
-| Method | Endpoint | Purpose |
+| Key | Required | Notes |
 | --- | --- | --- |
-| POST | `/api/auth/register/` | Create account, returns tokens + user |
-| POST | `/api/auth/login/` | Sign in, returns tokens + user |
-| POST | `/api/auth/refresh/` | Swap refresh token for a new access token |
-| GET | `/api/auth/me/` | Current user |
-| PATCH | `/api/auth/me/` | Update name, city, body photo |
-| GET | `/api/health/` | Deployment health check |
+| `SECRET_KEY` | in production | Startup fails without it when `DEBUG` is off |
+| `DEBUG` | | Defaults to off |
+| `DATABASE_URL` | in production | Empty falls back to SQLite, which lacks the ArrayField columns |
+| `CONN_MAX_AGE` | | Defaults to 120, below Neon's 300s idle suspend |
+| `CORS_ALLOWED_ORIGINS` | | Defaults to `http://localhost:3000` |
+| `CLOUDINARY_CLOUD_NAME` | | |
+| `CLOUDINARY_API_KEY` | | |
+| `CLOUDINARY_API_SECRET` | | |
+| `OPENWEATHER_API_KEY` | | |
+| `FAL_KEY` | | Virtual try-on |
 
----
+`frontend/.env.local` needs `NEXT_PUBLIC_API_URL`, pointing at the backend.
 
-## Build phases
+If `DATABASE_URL` contains `-pooler`, Django disables server-side cursors,
+because the pooled endpoint runs PgBouncer in transaction mode. Schema
+migrations and index builds should use the direct endpoint.
 
-| Phase | Scope | Status |
-| --- | --- | --- |
-| 1 | Foundation: auth, project structure, deployment | **in progress** |
-| 2 | Wardrobe core: items, rembg, storage locations, search, laundry, cost-per-wear | planned |
-| 3 | Planner: weather, events, wear log, "what I wore last time" | planned |
-| 4 | Intelligence: outfit builder, colour rules, CLIP tagging, suggestion engine | planned |
-| 5 | AI showpieces: Steal the Look (pgvector), virtual try-on | planned |
-| 6 | Community: marketplace + friend swaps + ownership transfer | planned |
-| 7 | Polish, demo data, evaluation | planned |
+## API
 
----
+Full reference at `/api/docs/`, generated from the serializers by
+drf-spectacular. Every endpoint except register, login and refresh requires a
+bearer token, and every queryset is scoped to the requesting account.
 
-## Deliberately out of scope
+| | |
+| --- | --- |
+| `/api/auth/` | register, login, refresh, verify, me |
+| `/api/wardrobe/items/` | garments, plus mark-worn, toggle-laundry, bulk-move, stats |
+| `/api/wardrobe/storage/` | storage locations, plus a nested tree |
+| `/api/wardrobe/categories/` | built-in and account-specific categories |
+| `/api/wardrobe/upload/` | image in, background-removed image and detected colour out |
 
-Documented so the thesis can list them as future work rather than gaps:
+## Checks
 
-- Instagram / social platform API integration — the platform does not expose
-  post history or viewer data, so the recency feature uses the app's own event
-  log instead.
-- Online payment processing — the marketplace handles listing, purchase intent,
-  and ownership transfer; settlement happens offline.
-- Real-time AR try-on, 3D avatars, RFID hardware, smart-mirror hardware.
-- Skin-tone colour-season analysis and wrinkle detection — both need labelled
-  ground-truth data we cannot produce in the project window.
+```bash
+cd backend  && python manage.py check && python manage.py spectacular --file /dev/null
+cd frontend && npm run lint && npm run build
+```
+
+## Conventions
+
+See `AGENTS.md` for the comment policy, copy rules and the stack-specific
+pitfalls that have already caused bugs here.

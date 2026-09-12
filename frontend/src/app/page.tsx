@@ -12,65 +12,52 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/**
- * Public landing page (/).
- *
- * This is the first thing your supervisor and the defence panel will see, so it
- * states the problem, the solution, and the four pillars of the system in one
- * screen. It is a Server Component - no "use client" - so it is fast and
- * SEO-friendly.
- */
-
 const PILLARS = [
   {
     icon: MapPin,
-    title: "Knows where things are",
-    body: "Not just what you own, but its exact physical place: Bedroom Closet → Cabinet 2 → Hanger 4.",
+    title: "Find it fast",
+    body: "Save the room, the cupboard and the shelf each item sits on. Look it up and walk straight to it.",
   },
   {
     icon: CloudSun,
-    title: "Reads the context",
-    body: "Live weather, the occasion, and the dress code decide which outfits are even eligible.",
+    title: "Dressed for the day",
+    body: "Closette reads today's forecast first, then leaves out clothes that are too warm or too thin.",
   },
   {
     icon: Sparkles,
-    title: "Remembers what you wore",
-    body: "A freshness score pushes down anything you wore recently, so you never repeat by accident.",
+    title: "Fresh picks",
+    body: "Anything you wore in the last few days drops down the list, so the same shirt waits its turn.",
   },
   {
     icon: Scan,
-    title: "Shows it on you",
-    body: "Generative try-on places the chosen outfit onto your own full-body photo before you commit.",
+    title: "See it on you",
+    body: "Put an outfit on your own full-body photo before you get dressed.",
   },
 ];
 
 const FLOW = [
-  { step: "01", label: "Snap & save", detail: "Background removed automatically" },
-  { step: "02", label: "Plan an event", detail: "Weather and dress code pulled in" },
-  { step: "03", label: "Get suggestions", detail: "Scored, ranked, never repeated" },
-  { step: "04", label: "Try it on", detail: "Generated on your own photo" },
+  { step: "01", label: "Add a photo", detail: "One card per item" },
+  { step: "02", label: "Say where it lives", detail: "Room, cupboard, shelf" },
+  { step: "03", label: "Pick the day", detail: "Weather and plans included" },
+  { step: "04", label: "Get an outfit", detail: "Shown on your photo" },
 ];
 
 export default function LandingPage() {
   return (
     <main className="relative overflow-hidden">
-      {/* Soft brand glow in the background */}
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-[32rem] w-[64rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[120px]"
       />
 
-      {/* ---------------- Nav ---------------- */}
       <header className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Shirt className="size-5" />
           </span>
-          <span className="text-lg font-semibold tracking-tight">Lumiere</span>
+          <span className="text-lg font-semibold tracking-tight">Closette</span>
         </div>
-        {/* NOTE: this shadcn style is built on Base UI, which has no `asChild`.
-            For links we apply buttonVariants() to the <Link> directly - simpler
-            and it keeps the correct HTML (an anchor, not a button). */}
+        {/* Base UI has no asChild, so links take buttonVariants() directly. */}
         <nav className="flex items-center gap-2">
           <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }), "h-9 px-4")}>
             Sign in
@@ -81,23 +68,16 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      {/* ---------------- Hero ---------------- */}
       <section className="relative mx-auto max-w-4xl px-6 pt-16 pb-20 text-center sm:pt-24">
-        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground">
-          <Sparkles className="size-3.5 text-primary" />
-          Final Year Project · Computer Vision + Generative AI
-        </span>
-
-        <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
-          Your whole wardrobe,
-          <span className="block text-primary">aware of its context.</span>
+        <h1 className="text-balance text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
+          Everything you own,
+          <span className="block text-primary">easy to find.</span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-          Most wardrobe apps are a photo album with tags. Lumiere tracks where each
-          item physically lives, scores outfits against the weather and the
-          occasion, remembers what you already wore in front of whom, and renders
-          the result on your own photo before you get dressed.
+          Closette holds a list of your clothes and the spot each one is kept in. It checks the
+          weather before it offers an outfit. It passes over what you wore this week. See the
+          outfit on your own photo first.
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -120,7 +100,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- Four pillars ---------------- */}
       <section className="relative mx-auto max-w-6xl px-6 pb-20">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PILLARS.map(({ icon: Icon, title, body }) => (
@@ -138,15 +117,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- How it works ---------------- */}
       <section className="relative border-t border-border bg-muted/30 py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex items-center gap-2 text-sm font-medium text-primary">
             <CalendarDays className="size-4" />
-            The daily loop
+            Every morning
           </div>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Four steps, every morning.
+            Four steps, start to finish.
           </h2>
 
           <ol className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -161,11 +139,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ---------------- Footer ---------------- */}
       <footer className="border-t border-border py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 text-sm text-muted-foreground sm:flex-row">
-          <span>Lumiere — Smart Wardrobe Management System</span>
-          <span className="font-mono text-xs">Built with Next.js + Django</span>
+          <span>Closette</span>
+          <Link href="/register" className="hover:text-foreground">
+            Create your closet
+          </Link>
         </div>
       </footer>
     </main>

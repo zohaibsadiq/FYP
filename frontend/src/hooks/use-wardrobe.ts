@@ -19,6 +19,8 @@ import type {
   StorageLocation,
   StorageNode,
   WardrobeStats,
+  WearDay,
+  WearEvent,
 } from "@/types/wardrobe";
 
 // Hierarchical so invalidating ["wardrobe"] clears everything below it, and
@@ -32,6 +34,10 @@ export const wardrobeKeys = {
   categories: () => [...wardrobeKeys.all, "categories"] as const,
   storage: () => [...wardrobeKeys.all, "storage"] as const,
   storageTree: () => [...wardrobeKeys.storage(), "tree"] as const,
+  wears: () => [...wardrobeKeys.all, "wears"] as const,
+  itemWears: (id: number) => [...wardrobeKeys.wears(), "item", id] as const,
+  wearCalendar: (range: WearRange) => [...wardrobeKeys.wears(), "calendar", range] as const,
+  wearsOn: (date: string) => [...wardrobeKeys.wears(), "on", date] as const,
 };
 
 function cleanParams(filters: GarmentFilters) {
@@ -199,7 +205,7 @@ export function useDeleteGarment() {
 }
 
 /** mark-worn, toggle-laundry and toggle-favorite all return the updated item. */
-function useItemAction(path: string) {
+function useItemAction(path: string, touchesHistory = false) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
@@ -210,13 +216,110 @@ function useItemAction(path: string) {
       queryClient.setQueryData(wardrobeKeys.item(data.id), data);
       queryClient.invalidateQueries({ queryKey: wardrobeKeys.items() });
       queryClient.invalidateQueries({ queryKey: wardrobeKeys.stats() });
+      if (touchesHistory) {
+        queryClient.invalidateQueries({ queryKey: wardrobeKeys.wears() });
+      }
     },
   });
 }
 
-export const useMarkWorn = () => useItemAction("mark-worn");
+export const useMarkWorn = () => useItemAction("mark-worn", true);
 export const useToggleLaundry = () => useItemAction("toggle-laundry");
 export const useToggleFavorite = () => useItemAction("toggle-favorite");
+
+export interface WearRange {
+  since?: string;
+  until?: string;
+  days?: number;
+}
+
+/** Every day one item was worn, newest first. */
+export function useItemWears(id: number | null) {
+  return useQuery({
+    queryKey: wardrobeKeys.itemWears(id ?? 0),
+    queryFn: async () => {
+      const { data } = await api.get<WearEvent[]>(`/wardrobe/items/${id}/wears/`);
+      return data;
+    },
+    enabled: id !== null,
+  });
+}
+
+/** What was worn on one particular day. */
+export function useWearsOn(date: string | null) {
+  return useQuery({
+    queryKey: wardrobeKeys.wearsOn(date ?? ""),
+    queryFn: async () => {
+      const { data } = await api.get<Paginated<WearEvent>>("/wardrobe/wears/", {
+        params: { on: date, page_size: 100 },
+      });
+      return data.results;
+    },
+    enabled: Boolean(date),
+  });
+}
+
+/** The most recent wearings across the whole closet. */
+export function useRecentWears(days: number, limit = 40) {
+  return useQuery({
+    queryKey: [...wardrobeKeys.wears(), "recent", days, limit] as const,
+    queryFn: async () => {
+      const { data } = await api.get<Paginated<WearEvent>>("/wardrobe/wears/", {
+        params: { days, page_size: limit },
+      });
+      return data.results;
+    },
+  });
+}
+
+/** How many things were worn on each day, for the month grid. */
+export function useWearCalendar(range: WearRange) {
+  return useQuery({
+    queryKey: wardrobeKeys.wearCalendar(range),
+    queryFn: async () => {
+      const { data } = await api.get<WearDay[]>("/wardrobe/wears/calendar/", { params: range });
+      return data;
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Both of the buttons below change the same three things, so they share this. */
+function refreshWearData(queryClient: ReturnType<typeof useQueryClient>, item: Garment) {
+  queryClient.setQueryData(wardrobeKeys.item(item.id), item);
+  queryClient.invalidateQueries({ queryKey: wardrobeKeys.items() });
+  queryClient.invalidateQueries({ queryKey: wardrobeKeys.stats() });
+  queryClient.invalidateQueries({ queryKey: wardrobeKeys.wears() });
+}
+
+/** Records a wearing, optionally on an earlier day. */
+export function useRecordWear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: number; date?: string; note?: string }) => {
+      const { data } = await api.post<Garment>(`/wardrobe/items/${input.id}/mark-worn/`, {
+        ...(input.date ? { date: input.date } : {}),
+        ...(input.note ? { note: input.note } : {}),
+      });
+      return data;
+    },
+    onSuccess: (data) => refreshWearData(queryClient, data),
+  });
+}
+
+/** Takes a wearing back off the record, for a tap that was not meant. */
+export function useForgetWear() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: number; date?: string }) => {
+      const { data } = await api.post<Garment>(`/wardrobe/items/${input.id}/unmark-worn/`, {
+        ...(input.date ? { date: input.date } : {}),
+      });
+      return data;
+    },
+    onSuccess: (data) => refreshWearData(queryClient, data),
+  });
+}
 
 export function useCreateStorageLocation() {
   const queryClient = useQueryClient();

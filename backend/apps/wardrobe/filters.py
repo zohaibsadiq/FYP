@@ -10,7 +10,7 @@ from django.utils import timezone
 from django_filters import rest_framework as filters
 from rest_framework.filters import SearchFilter
 
-from .models import Category, GarmentItem, StorageLocation
+from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
 class GarmentItemFilter(filters.FilterSet):
@@ -134,3 +134,21 @@ class SpellingTolerantSearch(SearchFilter):
         # The screen tells the reader these are guesses rather than matches.
         request.spelling_guessed = True
         return queryset.annotate(_match=score).filter(_match__gte=self.THRESHOLD)
+
+
+class WearEventFilter(filters.FilterSet):
+    item = filters.NumberFilter(field_name="item_id")
+    slot = filters.ChoiceFilter(field_name="item__category__slot", choices=Category.Slot.choices)
+
+    on = filters.DateFilter(field_name="worn_on", label="A single day (YYYY-MM-DD)")
+    since = filters.DateFilter(field_name="worn_on", lookup_expr="gte", label="From this day onwards")
+    until = filters.DateFilter(field_name="worn_on", lookup_expr="lte", label="Up to and including this day")
+    days = filters.NumberFilter(method="filter_days", label="The last N days, today included")
+
+    class Meta:
+        model = WearEvent
+        fields = ["item", "slot", "on", "since", "until", "days"]
+
+    def filter_days(self, queryset, name, value):
+        cutoff = timezone.localdate() - timezone.timedelta(days=int(value) - 1)
+        return queryset.filter(worn_on__gte=cutoff)

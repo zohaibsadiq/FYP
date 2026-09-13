@@ -5,10 +5,11 @@ request.user.
 
 from __future__ import annotations
 
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import Category, GarmentItem, StorageLocation
+from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
 def _item_count(obj, related) -> int:
@@ -295,6 +296,65 @@ class MarkWornSerializer(serializers.Serializer):
         required=False,
         help_text="Defaults to today. Send a past date to record an earlier wear.",
     )
+    note = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=200,
+        help_text="Optional, e.g. 'Ayesha's mehndi'.",
+    )
+
+    def validate_date(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError("That day has not happened yet.")
+        return value
+
+
+class WearEventSerializer(serializers.ModelSerializer):
+    """One day an item was worn, with enough about the item to draw a row."""
+
+    item_name = serializers.CharField(source="item.name", read_only=True)
+    item_image_url = serializers.CharField(source="item.display_image_url", read_only=True)
+    item_slot = serializers.CharField(source="item.category.slot", read_only=True)
+    days_ago = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WearEvent
+        fields = [
+            "id", "item", "item_name", "item_image_url", "item_slot",
+            "worn_on", "note", "days_ago", "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+        # The one built from the unique constraint reads "the fields item,
+        # worn_on must make a unique set", which means nothing to the person
+        # looking at it. validate() below says the same thing in words.
+        validators = []
+
+    @extend_schema_field(serializers.IntegerField)
+    def get_days_ago(self, obj: WearEvent) -> int:
+        return (timezone.localdate() - obj.worn_on).days
+
+    def validate_worn_on(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError("That day has not happened yet.")
+        return value
+
+    def validate_item(self, value: GarmentItem):
+        owner = self.context["request"].user
+        if value.owner_id != owner.id:
+            raise serializers.ValidationError("That item is not in your closet.")
+        return value
+
+    def validate(self, attrs):
+        item = attrs.get("item") or getattr(self.instance, "item", None)
+        worn_on = attrs.get("worn_on") or getattr(self.instance, "worn_on", None)
+        clash = WearEvent.objects.filter(item=item, worn_on=worn_on)
+        if self.instance:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(
+                {"worn_on": f"{item.name} is already recorded as worn on {worn_on}."}
+            )
+        return attrs
 
 
 class ImageUploadRequestSerializer(serializers.Serializer):

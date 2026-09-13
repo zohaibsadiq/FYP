@@ -7,6 +7,7 @@ from .views import (
     GarmentImageUploadView,
     GarmentItemViewSet,
     StorageLocationViewSet,
+    WearEventViewSet,
 )
 
 app_name = "wardrobe"
@@ -15,6 +16,7 @@ router = DefaultRouter()
 router.register("items", GarmentItemViewSet, basename="item")
 router.register("categories", CategoryViewSet, basename="category")
 router.register("storage", StorageLocationViewSet, basename="storage")
+router.register("wears", WearEventViewSet, basename="wear")
 
 urlpatterns = [
     # Outside the router: this one processes an image and returns URLs instead

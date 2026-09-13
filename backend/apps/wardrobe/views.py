@@ -19,8 +19,8 @@ from apps.intelligence.colors import name_for_hex
 from apps.vision import storage
 from apps.vision.background import remove_background
 
-from .filters import GarmentItemFilter, SpellingTolerantSearch
-from .models import Category, GarmentItem, StorageLocation
+from .filters import GarmentItemFilter, SpellingTolerantSearch, WearEventFilter
+from .models import Category, GarmentItem, StorageLocation, WearEvent
 from .serializers import (
     BulkLocationSerializer,
     CategorySerializer,
@@ -32,25 +32,28 @@ from .serializers import (
     MarkWornSerializer,
     StorageLocationSerializer,
     StorageLocationTreeSerializer,
+    WearEventSerializer,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _save_unique(serializer, **kwargs):
+DUPLICATE_NAME = "You have just added something with that name. Please use a different one."
+
+
+def _save_unique(serializer, clash=None, **kwargs):
     """
-    The serializers check for a clashing name first, which is what produces a
-    readable message. Two requests arriving together both pass that check and
-    one then hits the database constraint, so the same answer is given again
-    rather than a 500.
+    The serializers check for a clash first, which is what produces a readable
+    message. Two requests arriving together both pass that check and one then
+    hits the database constraint, so the same answer is given again rather than
+    a 500.
     """
     try:
         with transaction.atomic():
-            serializer.save(**kwargs)
+            return serializer.save(**kwargs)
     except IntegrityError as exc:
-        raise ValidationError(
-            {"name": "You have just added something with that name. Please use a different one."}
-        ) from exc
+        raise ValidationError(clash or {"name": DUPLICATE_NAME}) from exc
+
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
@@ -188,8 +191,38 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         payload = MarkWornSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
 
-        item.mark_worn(payload.validated_data.get("date"))
+        item.mark_worn(
+            payload.validated_data.get("date"),
+            payload.validated_data.get("note", ""),
+        )
         return Response(GarmentItemSerializer(item, context={"request": request}).data)
+
+    @extend_schema(
+        summary="Undo a wearing, for a mistaken tap",
+        request=MarkWornSerializer,
+    )
+    @action(detail=True, methods=["post"], url_path="unmark-worn")
+    def unmark_worn(self, request, pk=None):
+        item = self.get_object()
+        payload = MarkWornSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+
+        day = payload.validated_data.get("date") or timezone.localdate()
+        if not item.forget_wear(day):
+            raise ValidationError(f"{item.name} is not recorded as worn on {day}.")
+        return Response(GarmentItemSerializer(item, context={"request": request}).data)
+
+    @extend_schema(
+        summary="Every day this item was worn, newest first",
+        responses=WearEventSerializer(many=True),
+    )
+    @action(detail=True, methods=["get"])
+    def wears(self, request, pk=None):
+        item = self.get_object()
+        log = item.wears.select_related("item", "item__category").order_by("-worn_on")
+        return Response(
+            WearEventSerializer(log, many=True, context={"request": request}).data
+        )
 
     @extend_schema(summary="Move between 'In wardrobe' and 'In the wash'")
     @action(detail=True, methods=["post"], url_path="toggle-laundry")
@@ -256,11 +289,27 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             .order_by("-count")
         )
 
+        # Two numbers the dashboard leads with: what is actually getting used,
+        # and what has been sitting untouched long enough to be worth a nudge.
+        week_ago = timezone.localdate() - timezone.timedelta(days=6)
+        stale = timezone.localdate() - timezone.timedelta(days=90)
+        worn_this_week = (
+            WearEvent.objects.filter(owner=request.user, worn_on__gte=week_ago)
+            .values("item_id")
+            .distinct()
+            .count()
+        )
+        forgotten = qs.filter(
+            Q(last_worn_date__lt=stale) | Q(last_worn_date__isnull=True)
+        ).count()
+
         return Response(
             {
                 **totals,
                 "total_spent": float(totals["total_spent"] or 0),
                 "total_wears": totals["total_wears"] or 0,
+                "worn_this_week": worn_this_week,
+                "not_worn_in_90_days": forgotten,
                 "storage_locations": StorageLocation.objects.filter(owner=request.user).count(),
                 "by_slot": [
                     {"slot": row["category__slot"], "count": row["count"]} for row in by_slot
@@ -400,3 +449,58 @@ class GarmentImageDiscardView(APIView):
                 removed.append(public_id)
 
         return Response({"removed": removed, "kept": kept}, status=status.HTTP_200_OK)
+
+
+ALREADY_WORN = {"worn_on": "That item is already recorded as worn on that day."}
+
+
+@extend_schema(tags=["Wardrobe"])
+class WearEventViewSet(viewsets.ModelViewSet):
+    """
+    The record of what was worn and when. The closet screen only needs the
+    running total on each item, so this is for the history list, the calendar
+    and the "what did I wear that day" lookup.
+    """
+
+    queryset = WearEvent.objects.none()
+    serializer_class = WearEventSerializer
+    filterset_class = WearEventFilter
+    ordering_fields = ["worn_on", "created_at"]
+    ordering = ["-worn_on", "-created_at"]
+
+    def get_queryset(self):
+        return (
+            WearEvent.objects.filter(owner=self.request.user)
+            .select_related("item", "item__category")
+        )
+
+    def perform_create(self, serializer):
+        event = _save_unique(serializer, clash=ALREADY_WORN, owner=self.request.user)
+        event.item.resync_wear_totals()
+
+    def perform_update(self, serializer):
+        before = serializer.instance.item_id
+        event = _save_unique(serializer, clash=ALREADY_WORN)
+        event.item.resync_wear_totals()
+        if before != event.item_id:
+            GarmentItem.objects.get(pk=before).resync_wear_totals()
+
+    def perform_destroy(self, instance: WearEvent):
+        item = instance.item
+        instance.delete()
+        item.resync_wear_totals()
+
+    @extend_schema(summary="How many things were worn on each day of a range")
+    @action(detail=False, methods=["get"])
+    def calendar(self, request):
+        """
+        One row per day, for drawing a month grid without sending every wearing
+        in it. The screen asks for the detail of a day only when it is opened.
+        """
+        days = (
+            self.filter_queryset(self.get_queryset())
+            .values("worn_on")
+            .annotate(count=Count("id"))
+            .order_by("worn_on")
+        )
+        return Response([{"date": row["worn_on"], "count": row["count"]} for row in days])

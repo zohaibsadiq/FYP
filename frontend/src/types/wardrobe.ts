@@ -247,8 +247,12 @@ export interface GarmentFilters {
   is_favorite?: boolean;
   no_location?: boolean;
   unworn_days?: number;
+  wearable?: boolean;
+  has_image?: boolean;
+  brand?: string;
   ordering?: string;
   page?: number;
+  page_size?: number;
 }
 
 export interface WardrobeStats {
@@ -260,6 +264,27 @@ export interface WardrobeStats {
   never_worn: number;
   total_spent: number;
   total_wears: number;
+  worn_this_week: number;
+  not_worn_in_90_days: number;
   storage_locations: number;
   by_slot: { slot: Slot; count: number }[];
+}
+
+/** One day an item was worn. At most one per item per day. */
+export interface WearEvent {
+  id: number;
+  item: number;
+  item_name: string;
+  item_image_url: string;
+  item_slot: Slot;
+  worn_on: string;
+  note: string;
+  days_ago: number;
+  created_at: string;
+}
+
+/** How many things were worn on one day, for drawing a month grid. */
+export interface WearDay {
+  date: string;
+  count: number;
 }

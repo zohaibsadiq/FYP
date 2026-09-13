@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db.models import Count
 from django.utils.html import format_html
 
-from .models import Category, GarmentItem, StorageLocation
+from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
 @admin.register(Category)
@@ -88,3 +88,13 @@ class GarmentItemAdmin(admin.ModelAdmin):
             '<img src="{}" style="max-height:260px;background:#f4f4f5;border-radius:8px" />',
             obj.display_image_url,
         )
+
+
+@admin.register(WearEvent)
+class WearEventAdmin(admin.ModelAdmin):
+    list_display = ("worn_on", "item", "owner", "note")
+    list_filter = ("worn_on", "item__category__slot")
+    search_fields = ("item__name", "owner__email", "note")
+    date_hierarchy = "worn_on"
+    autocomplete_fields = ("item",)
+    list_select_related = ("item", "owner")

@@ -13,8 +13,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
-from django.db.models import F
+from django.db import IntegrityError, models, transaction
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 
@@ -371,13 +371,91 @@ class GarmentItem(models.Model):
     def location_path(self) -> str:
         return self.storage_location.full_path if self.storage_location else ""
 
-    def mark_worn(self, on_date=None) -> None:
-        # Incremented in the database, not in Python: two requests arriving
-        # together would otherwise read the same count and write the same value,
-        # losing a wear and skewing cost_per_wear.
+    def mark_worn(self, on_date=None, note: str = "") -> tuple[WearEvent, bool]:
+        """
+        Records a wearing and returns the row with whether it was new.
+
+        Wearing the same thing twice in one day is treated as one wearing. A
+        double tap on the button is far more likely than a genuine second wear,
+        and every extra tap would quietly halve cost_per_wear.
+        """
+        day = on_date or timezone.localdate()
+        try:
+            with transaction.atomic():
+                event = WearEvent.objects.create(owner_id=self.owner_id, item=self, worn_on=day, note=note)
+        except IntegrityError:
+            # Two taps landing together: the constraint settles which one wins.
+            return WearEvent.objects.get(item=self, worn_on=day), False
+
+        self.resync_wear_totals()
+        return event, True
+
+    def forget_wear(self, on_date=None) -> bool:
+        """Undoes a wearing. Returns whether there was one to undo."""
+        day = on_date or timezone.localdate()
+        removed, _ = WearEvent.objects.filter(item=self, worn_on=day).delete()
+        if removed:
+            self.resync_wear_totals()
+        return bool(removed)
+
+    def resync_wear_totals(self) -> None:
+        """
+        Rebuilds the two summary columns from the log in one statement. Reading
+        them into Python first would let two requests arriving together write
+        the same value and lose a wearing.
+        """
+        log = WearEvent.objects.filter(item_id=models.OuterRef("pk"))
         GarmentItem.objects.filter(pk=self.pk).update(
-            wear_count=F("wear_count") + 1,
-            last_worn_date=on_date or timezone.localdate(),
+            wear_count=Coalesce(
+                models.Subquery(
+                    log.values("item_id").annotate(n=models.Count("id")).values("n")[:1]
+                ),
+                0,
+            ),
+            last_worn_date=models.Subquery(log.order_by("-worn_on").values("worn_on")[:1]),
             updated_at=timezone.now(),
         )
         self.refresh_from_db(fields=["wear_count", "last_worn_date", "updated_at"])
+
+
+class WearEvent(models.Model):
+    """
+    One day an item was worn.
+
+    GarmentItem.wear_count and last_worn_date are kept in step with this table
+    rather than counted from it on demand: the closet grid shows both for every
+    item on screen, which would be a COUNT per row.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wear_events",
+    )
+    item = models.ForeignKey(GarmentItem, on_delete=models.CASCADE, related_name="wears")
+    worn_on = models.DateField()
+    note = models.CharField(max_length=200, blank=True, help_text="e.g. 'Ayesha's mehndi'")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "wear_events"
+        ordering = ["-worn_on", "-created_at"]
+        constraints = [
+            # One wearing per item per day. Without it a repeated tap counts
+            # twice and cost_per_wear reads lower than it is.
+            models.UniqueConstraint(fields=["item", "worn_on"], name="one_wear_per_item_per_day"),
+        ]
+        indexes = [
+            # "What did I wear that week" and the dashboard feed both read this
+            # newest-first for one owner.
+            models.Index(fields=["owner", "-worn_on"], name="wear_owner_recent"),
+        ]
+
+    def __str__(self):
+        return f"{self.item.name} on {self.worn_on}"
+
+    def clean(self):
+        if self.worn_on and self.worn_on > timezone.localdate():
+            raise ValidationError({"worn_on": "That day has not happened yet."})
+        if self.item_id and self.owner_id and self.item.owner_id != self.owner_id:
+            raise ValidationError({"item": "That item belongs to someone else."})

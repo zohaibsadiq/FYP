@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Plus, Shirt, Sparkles, WashingMachine } from "lucide-react";
+import { CalendarCheck, MapPin, Plus, Shirt, WashingMachine } from "lucide-react";
 
+import { ForgottenItems } from "@/components/wardrobe/forgotten-items";
 import { ItemCard } from "@/components/wardrobe/item-card";
+import { RecentWears } from "@/components/wardrobe/recent-wears";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +24,7 @@ export default function DashboardPage() {
     { label: "Things you own", value: stats?.total, icon: Shirt },
     { label: "In the wash", value: stats?.in_laundry, icon: WashingMachine },
     { label: "Places you keep them", value: stats?.storage_locations, icon: MapPin },
-    { label: "Times worn", value: stats?.total_wears, icon: Sparkles },
+    { label: "Worn this week", value: stats?.worn_this_week, icon: CalendarCheck },
   ];
 
   return (
@@ -102,6 +104,13 @@ export default function DashboardPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {isEmpty ? null : (
+        <>
+          <RecentWears />
+          <ForgottenItems />
+        </>
       )}
     </div>
   );

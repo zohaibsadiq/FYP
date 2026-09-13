@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { CheckboxGroupField } from "@/components/form/checkbox-group-field";
 import { ChoiceField } from "@/components/form/choice-field";
 import { PlaceField } from "@/components/form/place-field";
+import { WearHistory } from "@/components/wardrobe/wear-history";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,7 +41,7 @@ import {
   useCreateStorageLocation,
   useDeleteGarment,
   useGarment,
-  useMarkWorn,
+  useRecordWear,
   useStorageLocations,
   useToggleFavorite,
   useToggleLaundry,
@@ -133,7 +134,7 @@ function Details({
   onEdit: () => void;
   onDeleted: () => void;
 }) {
-  const markWorn = useMarkWorn();
+  const recordWear = useRecordWear();
   const toggleLaundry = useToggleLaundry();
   const toggleFavorite = useToggleFavorite();
   const remove = useDeleteGarment();
@@ -231,11 +232,20 @@ function Details({
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={markWorn.isPending || inWash}
-              onClick={() => run(markWorn, "Added to what you have worn.")}
+              disabled={recordWear.isPending || inWash}
+              onClick={() =>
+                recordWear.mutate(
+                  { id: item.id },
+                  {
+                    onSuccess: () => toast.success("Saved. You wore this today."),
+                    onError: (e) =>
+                      toast.error(getErrorMessage(e, "That did not save. Try again.")),
+                  },
+                )
+              }
               className="h-11 px-5"
             >
-              I wore this
+              I wore this today
             </Button>
             <Button
               type="button"
@@ -278,6 +288,8 @@ function Details({
           ))}
         </dl>
       ) : null}
+
+      <WearHistory item={item} />
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button type="button" onClick={onEdit} className="h-11 gap-2 px-5">

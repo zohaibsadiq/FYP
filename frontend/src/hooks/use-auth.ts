@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
+import { plannerKeys } from "@/hooks/use-planner";
 import { api } from "@/lib/api";
 import { tokens } from "@/lib/tokens";
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types";
@@ -72,6 +73,9 @@ export function useUpdateProfile() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(ME_QUERY_KEY, data);
+      // The city decides which weather is shown, so a saved profile has to
+      // drop the reading that was fetched for the old one.
+      queryClient.invalidateQueries({ queryKey: plannerKeys.all });
     },
   });
 }

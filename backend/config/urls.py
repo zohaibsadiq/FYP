@@ -25,6 +25,7 @@ urlpatterns = [
 
     path("api/auth/", include("apps.accounts.urls")),
     path("api/wardrobe/", include("apps.wardrobe.urls")),
+    path("api/planner/", include("apps.planner.urls")),
 ]
 
 if settings.DEBUG:

@@ -192,3 +192,10 @@ CLOUDINARY = {
 }
 
 CLOUDINARY_ROOT_FOLDER = env("CLOUDINARY_ROOT_FOLDER", default="closette")
+
+# Weather is read for the city on the account. The forecast is cached rather
+# than fetched per request: the free plan allows 60 calls a minute and every
+# dashboard load would otherwise be one.
+OPENWEATHER_API_KEY = env("OPENWEATHER_API_KEY", default="")
+WEATHER_CACHE_SECONDS = env.int("WEATHER_CACHE_SECONDS", default=1800)
+WEATHER_TIMEOUT_SECONDS = env.float("WEATHER_TIMEOUT_SECONDS", default=6.0)

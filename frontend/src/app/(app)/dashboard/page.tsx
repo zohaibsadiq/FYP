@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarCheck, MapPin, Plus, Shirt, WashingMachine } from "lucide-react";
 
+import { WeatherCard } from "@/components/planner/weather-card";
 import { ForgottenItems } from "@/components/wardrobe/forgotten-items";
 import { ItemCard } from "@/components/wardrobe/item-card";
 import { RecentWears } from "@/components/wardrobe/recent-wears";
@@ -48,6 +49,8 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      <WeatherCard />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map(({ label, value, icon: Icon }) => (

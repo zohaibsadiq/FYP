@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, MapPin, Shirt, WashingMachine } from "lucide-react";
+import { Clock, Heart, MapPin, Shirt, WashingMachine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { thumbnail } from "@/lib/images";
 import { cn } from "@/lib/utils";
+import { lastWorn, lastWornSentence } from "@/lib/wear";
 import type { GarmentListItem } from "@/types/wardrobe";
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 
 export function ItemCard({ item, onWear, onToggleLaundry, onToggleFavorite, busy }: Props) {
   const inWash = item.status === "IN_LAUNDRY";
+  const worn = lastWorn(item);
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card focus-within:ring-3 focus-within:ring-ring/50 hover:border-primary/40">
@@ -84,6 +86,13 @@ export function ItemCard({ item, onWear, onToggleLaundry, onToggleFavorite, busy
             <span className="line-clamp-1">{item.location_path}</span>
           </p>
         ) : null}
+
+        <p className="mt-1 flex items-start gap-1 text-xs">
+          <Clock className="mt-px size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className={cn(worn.recent ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")}>
+            {lastWornSentence(worn)}
+          </span>
+        </p>
 
         <p className="mt-1 text-xs text-muted-foreground">
           {item.wear_count === 0

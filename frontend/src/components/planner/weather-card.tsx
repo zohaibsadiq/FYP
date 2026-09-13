@@ -29,6 +29,7 @@ import { useCurrentUser, useUpdateProfile } from "@/hooks/use-auth";
 import { usePlannerToday } from "@/hooks/use-planner";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { lastWorn, lastWornSentence } from "@/lib/wear";
 import type { Weather } from "@/types/planner";
 
 // Built once rather than picked as a component inside render, which would
@@ -131,29 +132,44 @@ export function WeatherCard() {
                   {group.slot_label}
                 </p>
                 <ul className="space-y-1.5">
-                  {group.items.slice(0, 3).map((item) => (
-                    <li key={item.id}>
-                      <Link
-                        href={`/closet/${item.id}`}
-                        className="flex items-center gap-2 rounded-lg p-1 text-sm transition-colors hover:bg-accent"
-                      >
-                        <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                          {item.display_image_url ? (
-                            <Image
-                              src={item.display_image_url}
-                              alt=""
-                              fill
-                              sizes="36px"
-                              className="object-contain p-0.5"
-                            />
-                          ) : (
-                            <Shirt className="size-4 text-muted-foreground" aria-hidden />
-                          )}
-                        </span>
-                        <span className="truncate">{item.name}</span>
-                      </Link>
-                    </li>
-                  ))}
+                  {group.items.slice(0, 3).map((item) => {
+                    const worn = lastWorn(item);
+                    return (
+                      <li key={item.id}>
+                        <Link
+                          href={`/closet/${item.id}`}
+                          className="flex items-center gap-2 rounded-lg p-1 text-sm transition-colors hover:bg-accent"
+                        >
+                          <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                            {item.display_image_url ? (
+                              <Image
+                                src={item.display_image_url}
+                                alt=""
+                                fill
+                                sizes="36px"
+                                className="object-contain p-0.5"
+                              />
+                            ) : (
+                              <Shirt className="size-4 text-muted-foreground" aria-hidden />
+                            )}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{item.name}</span>
+                            <span
+                              className={cn(
+                                "block truncate text-xs",
+                                worn.recent
+                                  ? "text-amber-700 dark:text-amber-400"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {lastWornSentence(worn)}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

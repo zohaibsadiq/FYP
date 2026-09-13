@@ -169,6 +169,8 @@ export interface GarmentListItem {
   wear_count: number;
   last_worn_date: string | null;
   days_since_worn: number | null;
+  /** What the most recent wearing was for, when one was written down. */
+  last_worn_note: string;
   purchase_price: string | null;
   currency: string;
   cost_per_wear: number | null;

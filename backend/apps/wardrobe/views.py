@@ -144,6 +144,7 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
             GarmentItem.objects.filter(
                 owner=request.user, storage_location_id__in=location.descendant_ids()
             )
+            .with_last_occasion()
             .select_related("category", "storage_location")
             .order_by("name")
         )
@@ -166,6 +167,7 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         # detail routes resolve against this queryset, so a guessed id gives a 404.
         return (
             GarmentItem.objects.filter(owner=self.request.user)
+            .with_last_occasion()
             .select_related("category", "storage_location", "storage_location__parent")
         )
 
@@ -195,7 +197,13 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             payload.validated_data.get("date"),
             payload.validated_data.get("note", ""),
         )
-        return Response(GarmentItemSerializer(item, context={"request": request}).data)
+        # Read back through the annotated queryset: the last occasion is worked
+        # out in the query, so the copy in memory still holds the one before.
+        return Response(
+            GarmentItemSerializer(
+                self.get_queryset().get(pk=item.pk), context={"request": request}
+            ).data
+        )
 
     @extend_schema(
         summary="Undo a wearing, for a mistaken tap",
@@ -210,7 +218,11 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         day = payload.validated_data.get("date") or timezone.localdate()
         if not item.forget_wear(day):
             raise ValidationError(f"{item.name} is not recorded as worn on {day}.")
-        return Response(GarmentItemSerializer(item, context={"request": request}).data)
+        return Response(
+            GarmentItemSerializer(
+                self.get_queryset().get(pk=item.pk), context={"request": request}
+            ).data
+        )
 
     @extend_schema(
         summary="Every day this item was worn, newest first",

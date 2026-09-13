@@ -199,6 +199,18 @@ class Category(models.Model):
         return self.owner_id is None
 
 
+class GarmentItemQuerySet(models.QuerySet):
+    def with_last_occasion(self):
+        """
+        Carries the note from the most recent wearing, so a list can say "worn
+        to Ayesha's mehndi" without a query per row.
+        """
+        latest = WearEvent.objects.filter(item_id=models.OuterRef("pk")).order_by("-worn_on")
+        return self.annotate(
+            last_worn_note=Coalesce(models.Subquery(latest.values("note")[:1]), models.Value(""))
+        )
+
+
 class GarmentItem(models.Model):
     class Status(models.TextChoices):
         IN_WARDROBE = "IN_WARDROBE", "In wardrobe"
@@ -316,6 +328,8 @@ class GarmentItem(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = GarmentItemQuerySet.as_manager()
 
     class Meta:
         db_table = "garment_items"

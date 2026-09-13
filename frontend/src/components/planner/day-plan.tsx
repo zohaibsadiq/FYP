@@ -7,6 +7,7 @@ import { CalendarPlus, Check, Loader2, Pencil, Shirt, Trash2 } from "lucide-reac
 import { toast } from "sonner";
 
 import { ItemPicker } from "@/components/planner/item-picker";
+import { HistoryButton, WearHistoryDialog } from "@/components/wardrobe/wear-history-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,8 @@ import {
 } from "@/hooks/use-planner";
 import { getErrorMessage } from "@/lib/api";
 import { daysAgo, friendlyDay, parseDay } from "@/lib/dates";
+import { cn } from "@/lib/utils";
+import { lastWorn, lastWornSentence } from "@/lib/wear";
 import type { PlannedOutfit } from "@/types/planner";
 
 const MAX_ITEMS = 12;
@@ -75,8 +78,10 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
   const confirm = useConfirmWorn();
   const remove = useDeletePlan();
   const [confirming, setConfirming] = useState(false);
+  const [showingHistoryFor, setShowingHistoryFor] = useState<number | null>(null);
 
   const inThePast = daysAgo(plan.planned_for) >= 0;
+  const openHistoryFor = plan.item_details.find((item) => item.id === showingHistoryFor);
 
   return (
     <div className="space-y-4">
@@ -95,30 +100,48 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
           This day is marked, but nothing is picked out for it yet.
         </p>
       ) : (
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {plan.item_details.map((item) => (
-            <li key={item.id}>
-              <Link
-                href={`/closet/${item.id}`}
-                className="flex aspect-square flex-col items-center justify-end gap-1 rounded-xl border border-border p-2 text-center transition-colors hover:border-primary hover:bg-accent"
-              >
-                <span className="relative flex w-full flex-1 items-center justify-center overflow-hidden">
-                  {item.display_image_url ? (
-                    <Image
-                      src={item.display_image_url}
-                      alt=""
-                      fill
-                      sizes="(max-width: 640px) 30vw, 120px"
-                      className="object-contain p-1"
-                    />
-                  ) : (
-                    <Shirt className="size-7 text-muted-foreground" aria-hidden />
-                  )}
-                </span>
-                <span className="line-clamp-2 text-xs leading-tight">{item.name}</span>
-              </Link>
-            </li>
-          ))}
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {plan.item_details.map((item) => {
+            const worn = lastWorn(item);
+            return (
+              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
+                <Link
+                  href={`/closet/${item.id}`}
+                  className="flex min-w-40 flex-1 items-center gap-3 rounded-lg transition-colors hover:text-primary"
+                >
+                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                    {item.display_image_url ? (
+                      <Image
+                        src={item.display_image_url}
+                        alt=""
+                        fill
+                        sizes="48px"
+                        className="object-contain p-1"
+                      />
+                    ) : (
+                      <Shirt className="size-5 text-muted-foreground" aria-hidden />
+                    )}
+                  </span>
+
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{item.name}</span>
+                    <span
+                      className={cn(
+                        "block text-sm",
+                        worn.recent
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {lastWornSentence(worn)}
+                    </span>
+                  </span>
+                </Link>
+
+                <HistoryButton onClick={() => setShowingHistoryFor(item.id)} className="h-9" />
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -193,6 +216,16 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {openHistoryFor ? (
+        <WearHistoryDialog
+          item={openHistoryFor}
+          open
+          onOpenChange={(next) => {
+            if (!next) setShowingHistoryFor(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -213,6 +246,16 @@ function PlanForm({
   const [note, setNote] = useState(plan?.note ?? "");
   const [items, setItems] = useState<number[]>(plan?.items ?? []);
   const [problem, setProblem] = useState("");
+
+  // Nothing to save until the day has something on it. An always-visible Save
+  // button on an empty form invites a tap that does nothing useful.
+  const hasSomething = items.length > 0 || label.trim().length > 0 || note.trim().length > 0;
+  const changed =
+    !plan ||
+    label.trim() !== plan.label ||
+    note.trim() !== plan.note ||
+    items.length !== plan.items.length ||
+    items.some((id, index) => id !== plan.items[index]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -265,7 +308,12 @@ function PlanForm({
 
       <div>
         <p className="mb-3 font-medium">Pick what you will wear</p>
-        <ItemPicker chosen={items} onChange={setItems} max={MAX_ITEMS} />
+        <ItemPicker
+          chosen={items}
+          onChange={setItems}
+          max={MAX_ITEMS}
+          known={plan?.item_details ?? []}
+        />
       </div>
 
       {problem ? (
@@ -274,15 +322,23 @@ function PlanForm({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={save.isPending} className="h-11 gap-2 px-5">
-          {save.isPending ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <CalendarPlus className="size-4" aria-hidden />
-          )}
-          {plan ? "Save changes" : "Save this day"}
-        </Button>
+      <div className="flex flex-wrap gap-2" aria-live="polite">
+        {hasSomething && changed ? (
+          <Button type="submit" disabled={save.isPending} className="h-11 gap-2 px-5">
+            {save.isPending ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <CalendarPlus className="size-4" aria-hidden />
+            )}
+            {plan ? "Save changes" : "Save this day"}
+          </Button>
+        ) : (
+          <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+            {hasSomething
+              ? "Nothing has changed yet."
+              : "Pick something to wear, or write what the day is, and a save button appears here."}
+          </p>
+        )}
 
         {onCancel ? (
           <Button

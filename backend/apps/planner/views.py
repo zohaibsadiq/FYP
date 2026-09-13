@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Count, Q, When
+from django.db.models import Case, Count, Prefetch, Q, When
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import viewsets
@@ -50,7 +50,9 @@ def suits_today(owner, weather: Weather):
             owner=owner,
             category__slot=slot,
             status__in=GarmentItem.WEARABLE_STATUSES,
-        ).select_related("category", "storage_location", "storage_location__parent")
+        ).with_last_occasion().select_related(
+            "category", "storage_location", "storage_location__parent"
+        )
 
         warm_enough = base.filter(warmth_level__in=weather.advice.warmth_levels)
         if not warm_enough.exists():
@@ -129,9 +131,15 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
     ordering = ["-planned_for"]
 
     def get_queryset(self):
-        return (
-            PlannedOutfit.objects.filter(owner=self.request.user)
-            .prefetch_related("items__category", "items__storage_location")
+        return PlannedOutfit.objects.filter(owner=self.request.user).prefetch_related(
+            # Prefetched through the annotated queryset, otherwise every item in
+            # every plan would cost one more query for its last occasion.
+            Prefetch(
+                "items",
+                queryset=GarmentItem.objects.with_last_occasion().select_related(
+                    "category", "storage_location", "storage_location__parent"
+                ),
+            )
         )
 
     def perform_create(self, serializer):
@@ -186,7 +194,11 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
             )
 
         recorded = plan.confirm_worn()
+        # Re-read so the items carry the occasion just written, rather than the
+        # one prefetched before this call.
         return Response({
             "recorded": recorded,
-            "plan": PlannedOutfitSerializer(plan, context={"request": request}).data,
+            "plan": PlannedOutfitSerializer(
+                self.get_queryset().get(pk=plan.pk), context={"request": request}
+            ).data,
         })

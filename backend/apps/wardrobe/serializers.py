@@ -155,6 +155,7 @@ class GarmentItemListSerializer(serializers.ModelSerializer):
     cost_per_wear = serializers.FloatField(read_only=True)
     days_since_worn = serializers.IntegerField(read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    last_worn_note = serializers.SerializerMethodField()
 
     class Meta:
         model = GarmentItem
@@ -164,10 +165,19 @@ class GarmentItemListSerializer(serializers.ModelSerializer):
             "display_image_url", "primary_color_hex", "primary_color_name",
             "status", "status_label", "is_favorite",
             "storage_location", "location_path",
-            "wear_count", "last_worn_date", "days_since_worn",
+            "wear_count", "last_worn_date", "days_since_worn", "last_worn_note",
             "purchase_price", "currency", "cost_per_wear",
             "created_at",
         ]
+
+    @extend_schema_field(serializers.CharField)
+    def get_last_worn_note(self, obj: GarmentItem) -> str:
+        """
+        Empty unless the queryset was built with with_last_occasion(). A plain
+        field would be dropped from the response entirely when the annotation
+        is missing, which reads to the client as the field never existing.
+        """
+        return getattr(obj, "last_worn_note", "") or ""
 
 
 class GarmentItemSerializer(serializers.ModelSerializer):
@@ -177,8 +187,14 @@ class GarmentItemSerializer(serializers.ModelSerializer):
     location_path = serializers.CharField(read_only=True)
     cost_per_wear = serializers.FloatField(read_only=True)
     days_since_worn = serializers.IntegerField(read_only=True)
+    last_worn_note = serializers.SerializerMethodField()
     is_wearable_now = serializers.BooleanField(read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    @extend_schema_field(serializers.CharField)
+    def get_last_worn_note(self, obj: GarmentItem) -> str:
+        """Same as the list serializer: never dropped, empty when unannotated."""
+        return getattr(obj, "last_worn_note", "") or ""
 
     class Meta:
         model = GarmentItem
@@ -192,7 +208,7 @@ class GarmentItemSerializer(serializers.ModelSerializer):
             "clean_image_url", "clean_image_public_id", "display_image_url",
             "status", "status_label", "is_wearable_now", "is_favorite",
             "purchase_price", "currency", "purchase_date",
-            "wear_count", "last_worn_date", "days_since_worn", "cost_per_wear",
+            "wear_count", "last_worn_date", "days_since_worn", "last_worn_note", "cost_per_wear",
             "notes", "created_at", "updated_at",
         ]
         read_only_fields = [

@@ -6,7 +6,7 @@ import { Check, ChevronDown, Loader2, Plus, X } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { canHoldMorePlaces, type StorageLocation } from "@/types/wardrobe";
+import { hasRoomInside, type StorageLocation } from "@/types/wardrobe";
 
 const CREATE = "__new_place__";
 
@@ -28,10 +28,13 @@ type PlaceFieldProps = {
   hint?: string;
   error?: string;
   creating?: boolean;
-  /** Hides places that have no room left inside them. */
-  mustHoldAnother?: boolean;
-  /** Keeps a place from being offered as somewhere to put itself. */
-  excludeId?: number | null;
+  /**
+   * Levels this answer needs inside the place it names. Leave unset when the
+   * field picks a place for an item, which takes no room at all.
+   */
+  roomNeeded?: number;
+  /** Places that must not be offered, such as the one being moved. */
+  excludeIds?: number[];
 };
 
 export function PlaceField({
@@ -45,15 +48,17 @@ export function PlaceField({
   hint,
   error,
   creating = false,
-  mustHoldAnother = false,
-  excludeId = null,
+  roomNeeded = 0,
+  excludeIds,
 }: PlaceFieldProps) {
+  const hidden = useMemo(() => new Set(excludeIds ?? []), [excludeIds]);
+
   const options = useMemo<Option[]>(
     () =>
       places
-        .filter((place) => place.id !== excludeId)
+        .filter((place) => !hidden.has(place.id))
         .map((place) => {
-          const full = mustHoldAnother && !canHoldMorePlaces(place.depth);
+          const full = roomNeeded > 0 && !hasRoomInside(place.depth, roomNeeded);
           return {
             value: String(place.id),
             label: place.full_path,
@@ -61,7 +66,7 @@ export function PlaceField({
             note: full ? "full, nothing else fits inside" : undefined,
           };
         }),
-    [places, mustHoldAnother, excludeId],
+    [places, roomNeeded, hidden],
   );
 
   const selectedLabel = options.find((option) => option.value === value)?.label ?? "";

@@ -93,12 +93,13 @@ export type StorageKind = (typeof STORAGE_KINDS)[number];
 export const MAX_STORAGE_DEPTH = 4;
 
 /**
- * A place can hold another place only while its own trail is short enough to
- * leave a level free. The API rejects anything deeper, so the picker greys
- * these out rather than letting a form be filled in and then refused.
+ * Whether a place at this depth has room for something `levels` deep. A brand
+ * new place is 1 level; moving a wardrobe that already holds drawers is more.
+ * StorageLocation.clean() rejects anything deeper, so the picker greys these
+ * out rather than letting a form be filled in and then refused.
  */
-export function canHoldMorePlaces(depth: number): boolean {
-  return depth <= MAX_STORAGE_DEPTH - 2;
+export function hasRoomInside(depth: number, levels = 1): boolean {
+  return depth + levels <= MAX_STORAGE_DEPTH - 1;
 }
 
 export const STORAGE_KIND_LABELS: Record<StorageKind, string> = {

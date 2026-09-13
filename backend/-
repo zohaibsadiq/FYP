@@ -1,0 +1,2126 @@
+openapi: 3.0.3
+info:
+  title: Closette API
+  version: 1.0.0
+  description: Wardrobe items, storage locations, outfits and planning data for Closette.
+paths:
+  /api/auth/login/:
+    post:
+      operationId: api_auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/auth/me/:
+    get:
+      operationId: api_auth_me_retrieve
+      description: Resolves to request.user, so the endpoint cannot address another
+        account.
+      tags:
+      - Auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: api_auth_me_update
+      description: Resolves to request.user, so the endpoint cannot address another
+        account.
+      tags:
+      - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: api_auth_me_partial_update
+      description: Resolves to request.user, so the endpoint cannot address another
+        account.
+      tags:
+      - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/auth/refresh/:
+    post:
+      operationId: api_auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/auth/register/:
+    post:
+      operationId: api_auth_register_create
+      tags:
+      - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Register'
+          description: ''
+  /api/auth/verify/:
+    post:
+      operationId: api_auth_verify_create
+      description: |-
+        Takes a token and indicates if it is valid.  This view provides no
+        information about a token's fitness for a particular use.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+        required: true
+      responses:
+        '200':
+          description: No response body
+  /api/wardrobe/categories/:
+    get:
+      operationId: api_wardrobe_categories_list
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategoryList'
+          description: ''
+    post:
+      operationId: api_wardrobe_categories_create
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/wardrobe/categories/{id}/:
+    get:
+      operationId: api_wardrobe_categories_retrieve
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    put:
+      operationId: api_wardrobe_categories_update
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    patch:
+      operationId: api_wardrobe_categories_partial_update
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    delete:
+      operationId: api_wardrobe_categories_destroy
+      description: Built-in categories, which are read-only, plus any the account
+        has added.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this category.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/wardrobe/items/:
+    get:
+      operationId: api_wardrobe_items_list
+      parameters:
+      - in: query
+        name: brand
+        schema:
+          type: string
+      - in: query
+        name: category
+        schema:
+          type: number
+      - in: query
+        name: color
+        schema:
+          type: string
+      - in: query
+        name: has_image
+        schema:
+          type: boolean
+      - in: query
+        name: is_favorite
+        schema:
+          type: boolean
+      - in: query
+        name: location
+        schema:
+          type: string
+        description: Storage location (includes everything nested inside it)
+      - in: query
+        name: no_location
+        schema:
+          type: boolean
+        description: Items whose storage place has not been recorded
+      - in: query
+        name: occasion
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: season
+        schema:
+          type: string
+        description: Items suitable for this season (items with no season set always
+          match)
+      - in: query
+        name: slot
+        schema:
+          type: string
+          enum:
+          - ACCESSORY
+          - BOTTOM
+          - FOOTWEAR
+          - FULL_BODY
+          - HEADWEAR
+          - OTHER
+          - OUTERWEAR
+          - TOP
+        description: |-
+          Outfit slot (TOP, BOTTOM, FOOTWEAR...)
+
+          * `TOP` - Top
+          * `BOTTOM` - Bottom
+          * `FULL_BODY` - Full body
+          * `OUTERWEAR` - Outerwear
+          * `FOOTWEAR` - Footwear
+          * `ACCESSORY` - Accessory
+          * `HEADWEAR` - Headwear
+          * `OTHER` - Other
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - ARCHIVED
+          - FOR_SALE
+          - IN_LAUNDRY
+          - IN_WARDROBE
+          - LENT_OUT
+          - SOLD
+        description: |-
+          * `IN_WARDROBE` - In wardrobe
+          * `IN_LAUNDRY` - In the wash
+          * `LENT_OUT` - Lent to a friend
+          * `FOR_SALE` - Listed for sale
+          * `SOLD` - Sold
+          * `ARCHIVED` - Archived
+      - in: query
+        name: unworn_days
+        schema:
+          type: number
+        description: Not worn for at least this many days (never-worn items count)
+      - in: query
+        name: wearable
+        schema:
+          type: boolean
+        description: Only items available to wear right now
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedGarmentItemListList'
+          description: ''
+    post:
+      operationId: api_wardrobe_items_create
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/items/{id}/:
+    get:
+      operationId: api_wardrobe_items_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+    put:
+      operationId: api_wardrobe_items_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+    patch:
+      operationId: api_wardrobe_items_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedGarmentItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedGarmentItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedGarmentItemRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+    delete:
+      operationId: api_wardrobe_items_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/wardrobe/items/{id}/mark-worn/:
+    post:
+      operationId: api_wardrobe_items_mark_worn_create
+      summary: Log that this item was worn
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkWornRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MarkWornRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MarkWornRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/items/{id}/toggle-favorite/:
+    post:
+      operationId: api_wardrobe_items_toggle_favorite_create
+      summary: Add or remove from favourites
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/items/{id}/toggle-laundry/:
+    post:
+      operationId: api_wardrobe_items_toggle_laundry_create
+      summary: Move between 'In wardrobe' and 'In the wash'
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this garment item.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GarmentItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/items/bulk-move/:
+    post:
+      operationId: api_wardrobe_items_bulk_move_create
+      summary: Move many items into one location at once
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkLocationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BulkLocationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BulkLocationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/items/stats/:
+    get:
+      operationId: api_wardrobe_items_stats_retrieve
+      summary: Counts for the dashboard cards
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GarmentItem'
+          description: ''
+  /api/wardrobe/storage/:
+    get:
+      operationId: api_wardrobe_storage_list
+      description: Places where garments are kept, nestable to four levels.
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStorageLocationList'
+          description: ''
+    post:
+      operationId: api_wardrobe_storage_create
+      description: Places where garments are kept, nestable to four levels.
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageLocation'
+          description: ''
+  /api/wardrobe/storage/{id}/:
+    get:
+      operationId: api_wardrobe_storage_retrieve
+      description: Places where garments are kept, nestable to four levels.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this storage location.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageLocation'
+          description: ''
+    put:
+      operationId: api_wardrobe_storage_update
+      description: Places where garments are kept, nestable to four levels.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this storage location.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StorageLocationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageLocation'
+          description: ''
+    patch:
+      operationId: api_wardrobe_storage_partial_update
+      description: Places where garments are kept, nestable to four levels.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this storage location.
+        required: true
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageLocationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageLocationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStorageLocationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageLocation'
+          description: ''
+    delete:
+      operationId: api_wardrobe_storage_destroy
+      description: Places where garments are kept, nestable to four levels.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this storage location.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/wardrobe/storage/{id}/items/:
+    get:
+      operationId: api_wardrobe_storage_items_retrieve
+      description: Places where garments are kept, nestable to four levels.
+      summary: Items stored in this location and everything inside it
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this storage location.
+        required: true
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageLocation'
+          description: ''
+  /api/wardrobe/storage/tree/:
+    get:
+      operationId: api_wardrobe_storage_tree_list
+      description: Places where garments are kept, nestable to four levels.
+      summary: Whole storage hierarchy, nested
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Wardrobe
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStorageLocationTreeList'
+          description: ''
+  /api/wardrobe/upload/:
+    post:
+      operationId: api_wardrobe_upload_create
+      description: |-
+        Send one image as multipart/form-data under the key `image`.
+
+        The server removes the background, trims the empty space, detects the dominant colour, and uploads BOTH the original and the cutout to Cloudinary.
+
+        Nothing is written to the database here. The response fields are the body of the follow-up POST /api/wardrobe/items/ that creates the item.
+      summary: Upload a garment photo, remove its background, detect its colour
+      tags:
+      - Wardrobe
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageUploadRequestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageUploadResponse'
+          description: ''
+  /api/wardrobe/upload/discard/:
+    post:
+      operationId: api_wardrobe_upload_discard_create
+      description: |-
+        Throws away an upload that never became an item. The upload endpoint writes
+        to Cloudinary before the form is submitted, so swapping a photo or leaving
+        the page would otherwise keep paying to store it.
+      summary: Delete an upload that was never attached to an item
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageDiscardRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImageDiscardRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageDiscardRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageDiscard'
+          description: ''
+components:
+  schemas:
+    BulkLocationRequest:
+      type: object
+      properties:
+        item_ids:
+          type: array
+          items:
+            type: integer
+        storage_location:
+          type: integer
+          nullable: true
+      required:
+      - item_ids
+      - storage_location
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 60
+        slot:
+          $ref: '#/components/schemas/SlotEnum'
+        slot_label:
+          type: string
+          readOnly: true
+        icon:
+          type: string
+          description: lucide-react icon name
+          maxLength: 40
+        sort_order:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        is_system:
+          type: boolean
+          readOnly: true
+        item_count:
+          type: integer
+          readOnly: true
+      required:
+      - id
+      - is_system
+      - item_count
+      - name
+      - slot_label
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        slot:
+          $ref: '#/components/schemas/SlotEnum'
+        icon:
+          type: string
+          description: lucide-react icon name
+          maxLength: 40
+        sort_order:
+          type: integer
+          maximum: 32767
+          minimum: 0
+      required:
+      - name
+    DetectedAttributes:
+      type: object
+      properties:
+        primary_color_hex:
+          type: string
+        primary_color_name:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+      required:
+      - height
+      - primary_color_hex
+      - primary_color_name
+      - width
+    GarmentItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: e.g. 'Navy linen shirt'
+          maxLength: 120
+        brand:
+          type: string
+          maxLength: 60
+        size:
+          type: string
+          maxLength: 20
+        material:
+          type: string
+          maxLength: 60
+        pattern:
+          $ref: '#/components/schemas/PatternEnum'
+        category:
+          type: integer
+        category_name:
+          type: string
+          readOnly: true
+        category_slot:
+          type: string
+          readOnly: true
+        primary_color_hex:
+          type: string
+          description: '#1a2b3c - detected from the photo'
+          maxLength: 7
+        primary_color_name:
+          type: string
+          description: e.g. 'Navy'
+          maxLength: 30
+        secondary_color_hex:
+          type: string
+          maxLength: 7
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonsEnum'
+          description: Empty means suitable all year.
+        occasions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccasionsEnum'
+        warmth_level:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: 1 = very light (vest), 5 = very warm (winter coat). Matched
+            against temperature.
+        is_waterproof:
+          type: boolean
+          description: Considered when rain is forecast.
+        storage_location:
+          type: integer
+          nullable: true
+        location_path:
+          type: string
+          readOnly: true
+        original_image_url:
+          type: string
+          format: uri
+          maxLength: 500
+        clean_image_url:
+          type: string
+          format: uri
+          description: Background removed by rembg.
+          maxLength: 500
+        display_image_url:
+          type: string
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        status_label:
+          type: string
+          readOnly: true
+        is_wearable_now:
+          type: boolean
+          readOnly: true
+        is_favorite:
+          type: boolean
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        wear_count:
+          type: integer
+          readOnly: true
+        last_worn_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        days_since_worn:
+          type: integer
+          readOnly: true
+        cost_per_wear:
+          type: number
+          format: double
+          readOnly: true
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - category_name
+      - category_slot
+      - cost_per_wear
+      - created_at
+      - days_since_worn
+      - display_image_url
+      - id
+      - is_wearable_now
+      - last_worn_date
+      - location_path
+      - name
+      - status_label
+      - updated_at
+      - wear_count
+    GarmentItemList:
+      type: object
+      description: Fewer fields than the detail serializer; the closet grid loads
+        24 at a time.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: e.g. 'Navy linen shirt'
+          maxLength: 120
+        brand:
+          type: string
+          maxLength: 60
+        category:
+          type: integer
+        category_name:
+          type: string
+          readOnly: true
+        category_slot:
+          type: string
+          readOnly: true
+        display_image_url:
+          type: string
+          readOnly: true
+        primary_color_hex:
+          type: string
+          description: '#1a2b3c - detected from the photo'
+          maxLength: 7
+        primary_color_name:
+          type: string
+          description: e.g. 'Navy'
+          maxLength: 30
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        status_label:
+          type: string
+          readOnly: true
+        is_favorite:
+          type: boolean
+        storage_location:
+          type: integer
+          nullable: true
+        location_path:
+          type: string
+          readOnly: true
+        wear_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        last_worn_date:
+          type: string
+          format: date
+          nullable: true
+        days_since_worn:
+          type: integer
+          readOnly: true
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          maxLength: 3
+        cost_per_wear:
+          type: number
+          format: double
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - category
+      - category_name
+      - category_slot
+      - cost_per_wear
+      - created_at
+      - days_since_worn
+      - display_image_url
+      - id
+      - location_path
+      - name
+      - status_label
+    GarmentItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: e.g. 'Navy linen shirt'
+          maxLength: 120
+        brand:
+          type: string
+          maxLength: 60
+        size:
+          type: string
+          maxLength: 20
+        material:
+          type: string
+          maxLength: 60
+        pattern:
+          $ref: '#/components/schemas/PatternEnum'
+        category:
+          type: integer
+        primary_color_hex:
+          type: string
+          description: '#1a2b3c - detected from the photo'
+          maxLength: 7
+        primary_color_name:
+          type: string
+          description: e.g. 'Navy'
+          maxLength: 30
+        secondary_color_hex:
+          type: string
+          maxLength: 7
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonsEnum'
+          description: Empty means suitable all year.
+        occasions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccasionsEnum'
+        warmth_level:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: 1 = very light (vest), 5 = very warm (winter coat). Matched
+            against temperature.
+        is_waterproof:
+          type: boolean
+          description: Considered when rain is forecast.
+        storage_location:
+          type: integer
+          nullable: true
+        original_image_url:
+          type: string
+          format: uri
+          maxLength: 500
+        original_image_public_id:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        clean_image_url:
+          type: string
+          format: uri
+          description: Background removed by rembg.
+          maxLength: 500
+        clean_image_public_id:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        is_favorite:
+          type: boolean
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+      required:
+      - category
+      - name
+    ImageDiscard:
+      type: object
+      description: Body of POST /api/wardrobe/upload/discard/.
+      properties:
+        public_ids:
+          type: array
+          items:
+            type: string
+            maxLength: 255
+          description: The public_id values the upload endpoint returned.
+          maxItems: 4
+          minItems: 1
+      required:
+      - public_ids
+    ImageDiscardRequest:
+      type: object
+      description: Body of POST /api/wardrobe/upload/discard/.
+      properties:
+        public_ids:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 255
+          description: The public_id values the upload endpoint returned.
+          maxItems: 4
+          minItems: 1
+      required:
+      - public_ids
+    ImageUploadRequestRequest:
+      type: object
+      description: Describes the multipart body of POST /api/wardrobe/upload/.
+      properties:
+        image:
+          type: string
+          format: binary
+          description: JPG, PNG or WebP. Maximum 12 MB.
+      required:
+      - image
+    ImageUploadResponse:
+      type: object
+      description: The four image fields go straight into POST /api/wardrobe/items/.
+      properties:
+        original_image_url:
+          type: string
+          format: uri
+        original_image_public_id:
+          type: string
+        clean_image_url:
+          type: string
+          format: uri
+        clean_image_public_id:
+          type: string
+        detected:
+          $ref: '#/components/schemas/DetectedAttributes'
+        processing_ms:
+          type: integer
+          description: Background-removal time in milliseconds.
+        coverage:
+          type: number
+          format: double
+          description: Share of the frame the garment fills, from 0 to 1.
+        warning:
+          type: string
+          nullable: true
+      required:
+      - clean_image_public_id
+      - clean_image_url
+      - coverage
+      - detected
+      - original_image_public_id
+      - original_image_url
+      - processing_ms
+      - warning
+    KindEnum:
+      enum:
+      - ROOM
+      - WARDROBE
+      - CABINET
+      - DRAWER
+      - SHELF
+      - RAIL
+      - HANGER
+      - BOX
+      - SUITCASE
+      - OTHER
+      type: string
+      description: |-
+        * `ROOM` - Room
+        * `WARDROBE` - Wardrobe / Closet
+        * `CABINET` - Cabinet
+        * `DRAWER` - Drawer
+        * `SHELF` - Shelf
+        * `RAIL` - Hanging rail
+        * `HANGER` - Hanger slot
+        * `BOX` - Box / Storage bin
+        * `SUITCASE` - Suitcase
+        * `OTHER` - Other
+    LoginRequest:
+      type: object
+      description: |-
+        Subclassed to authenticate on email rather than username, and to inline the
+        user in the token response. simplejwt returns {access, refresh} alone, which
+        leaves the client unable to render anything until a second /me/ round trip
+        completes.
+      properties:
+        email:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    MarkWornRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: Defaults to today. Send a past date to record an earlier wear.
+    OccasionsEnum:
+      enum:
+      - CASUAL
+      - FORMAL
+      - BUSINESS
+      - PARTY
+      - TRADITIONAL
+      - SPORT
+      - LOUNGE
+      type: string
+      description: |-
+        * `CASUAL` - Casual
+        * `FORMAL` - Formal
+        * `BUSINESS` - Business
+        * `PARTY` - Party
+        * `TRADITIONAL` - Traditional
+        * `SPORT` - Sport
+        * `LOUNGE` - Loungewear
+    PaginatedCategoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    PaginatedGarmentItemListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GarmentItemList'
+    PaginatedStorageLocationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageLocation'
+    PaginatedStorageLocationTreeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageLocationTree'
+    PatchedCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        slot:
+          $ref: '#/components/schemas/SlotEnum'
+        icon:
+          type: string
+          description: lucide-react icon name
+          maxLength: 40
+        sort_order:
+          type: integer
+          maximum: 32767
+          minimum: 0
+    PatchedGarmentItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: e.g. 'Navy linen shirt'
+          maxLength: 120
+        brand:
+          type: string
+          maxLength: 60
+        size:
+          type: string
+          maxLength: 20
+        material:
+          type: string
+          maxLength: 60
+        pattern:
+          $ref: '#/components/schemas/PatternEnum'
+        category:
+          type: integer
+        primary_color_hex:
+          type: string
+          description: '#1a2b3c - detected from the photo'
+          maxLength: 7
+        primary_color_name:
+          type: string
+          description: e.g. 'Navy'
+          maxLength: 30
+        secondary_color_hex:
+          type: string
+          maxLength: 7
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeasonsEnum'
+          description: Empty means suitable all year.
+        occasions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OccasionsEnum'
+        warmth_level:
+          type: integer
+          maximum: 5
+          minimum: 1
+          description: 1 = very light (vest), 5 = very warm (winter coat). Matched
+            against temperature.
+        is_waterproof:
+          type: boolean
+          description: Considered when rain is forecast.
+        storage_location:
+          type: integer
+          nullable: true
+        original_image_url:
+          type: string
+          format: uri
+          maxLength: 500
+        original_image_public_id:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        clean_image_url:
+          type: string
+          format: uri
+          description: Background removed by rembg.
+          maxLength: 500
+        clean_image_public_id:
+          type: string
+          writeOnly: true
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        is_favorite:
+          type: boolean
+        purchase_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        purchase_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+    PatchedStorageLocationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: e.g. 'Main Wardrobe' or 'Drawer 2'
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        parent:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          maxLength: 200
+    PatchedUserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+        city:
+          type: string
+          description: City used to fetch the weather forecast, e.g. 'Lahore'
+          maxLength: 100
+        country_code:
+          type: string
+          description: Two-letter country code, e.g. 'PK'
+          maxLength: 2
+        body_photo_url:
+          type: string
+          format: uri
+          description: Full-body front-facing photo. The try-on model draws clothes
+            onto this.
+          maxLength: 200
+    PatternEnum:
+      enum:
+      - SOLID
+      - STRIPED
+      - CHECKED
+      - PRINTED
+      - FLORAL
+      - OTHER
+      type: string
+      description: |-
+        * `SOLID` - Solid
+        * `STRIPED` - Striped
+        * `CHECKED` - Checked
+        * `PRINTED` - Printed
+        * `FLORAL` - Floral
+        * `OTHER` - Other
+    Register:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 150
+        city:
+          type: string
+          description: City used to fetch the weather forecast, e.g. 'Lahore'
+          maxLength: 100
+        country_code:
+          type: string
+          description: Two-letter country code, e.g. 'PK'
+          maxLength: 2
+      required:
+      - email
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        full_name:
+          type: string
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+        password_confirm:
+          type: string
+          writeOnly: true
+          minLength: 1
+        city:
+          type: string
+          description: City used to fetch the weather forecast, e.g. 'Lahore'
+          maxLength: 100
+        country_code:
+          type: string
+          description: Two-letter country code, e.g. 'PK'
+          maxLength: 2
+      required:
+      - email
+      - password
+      - password_confirm
+    SeasonsEnum:
+      enum:
+      - SUMMER
+      - WINTER
+      - SPRING
+      - AUTUMN
+      type: string
+      description: |-
+        * `SUMMER` - Summer
+        * `WINTER` - Winter
+        * `SPRING` - Spring
+        * `AUTUMN` - Autumn
+    SlotEnum:
+      enum:
+      - TOP
+      - BOTTOM
+      - FULL_BODY
+      - OUTERWEAR
+      - FOOTWEAR
+      - ACCESSORY
+      - HEADWEAR
+      - OTHER
+      type: string
+      description: |-
+        * `TOP` - Top
+        * `BOTTOM` - Bottom
+        * `FULL_BODY` - Full body
+        * `OUTERWEAR` - Outerwear
+        * `FOOTWEAR` - Footwear
+        * `ACCESSORY` - Accessory
+        * `HEADWEAR` - Headwear
+        * `OTHER` - Other
+    StatusEnum:
+      enum:
+      - IN_WARDROBE
+      - IN_LAUNDRY
+      - LENT_OUT
+      - FOR_SALE
+      - SOLD
+      - ARCHIVED
+      type: string
+      description: |-
+        * `IN_WARDROBE` - In wardrobe
+        * `IN_LAUNDRY` - In the wash
+        * `LENT_OUT` - Lent to a friend
+        * `FOR_SALE` - Listed for sale
+        * `SOLD` - Sold
+        * `ARCHIVED` - Archived
+    StorageLocation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: e.g. 'Main Wardrobe' or 'Drawer 2'
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        kind_label:
+          type: string
+          readOnly: true
+        parent:
+          type: integer
+          nullable: true
+        full_path:
+          type: string
+          readOnly: true
+        depth:
+          type: integer
+          readOnly: true
+        notes:
+          type: string
+          maxLength: 200
+        item_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - depth
+      - full_path
+      - id
+      - item_count
+      - kind_label
+      - name
+    StorageLocationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: e.g. 'Main Wardrobe' or 'Drawer 2'
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        parent:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          maxLength: 200
+      required:
+      - name
+    StorageLocationTree:
+      type: object
+      description: Nested representation used by the storage page to draw the hierarchy.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          description: e.g. 'Main Wardrobe' or 'Drawer 2'
+          maxLength: 80
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        kind_label:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          maxLength: 200
+        item_count:
+          type: integer
+          description: Items directly in this location, not counting sub-locations.
+          readOnly: true
+        children:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - children
+      - id
+      - item_count
+      - kind_label
+      - name
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    TokenVerifyRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - token
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        full_name:
+          type: string
+          maxLength: 150
+        display_name:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          description: City used to fetch the weather forecast, e.g. 'Lahore'
+          maxLength: 100
+        country_code:
+          type: string
+          description: Two-letter country code, e.g. 'PK'
+          maxLength: 2
+        body_photo_url:
+          type: string
+          format: uri
+          description: Full-body front-facing photo. The try-on model draws clothes
+            onto this.
+          maxLength: 200
+        has_body_photo:
+          type: boolean
+          readOnly: true
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - date_joined
+      - display_name
+      - email
+      - has_body_photo
+      - id
+    UserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+        city:
+          type: string
+          description: City used to fetch the weather forecast, e.g. 'Lahore'
+          maxLength: 100
+        country_code:
+          type: string
+          description: Two-letter country code, e.g. 'PK'
+          maxLength: 2
+        body_photo_url:
+          type: string
+          format: uri
+          description: Full-body front-facing photo. The try-on model draws clothes
+            onto this.
+          maxLength: 200
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

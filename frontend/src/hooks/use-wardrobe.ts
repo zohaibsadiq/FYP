@@ -242,6 +242,35 @@ export function useCreateStorageLocation() {
   });
 }
 
+export function useUpdateStorageLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...payload
+    }: {
+      id: number;
+      name?: string;
+      kind?: string;
+      parent?: number | null;
+      notes?: string;
+    }) => {
+      const { data } = await api.patch<StorageLocation>(`/wardrobe/storage/${id}/`, payload);
+      return data;
+    },
+    onSuccess: () => {
+      // A rename or a move rewrites full_path on everything below it, and every
+      // item that names one of those places.
+      queryClient.invalidateQueries({ queryKey: wardrobeKeys.all });
+    },
+    onError: (error) => {
+      if (isStaleChoiceError(error)) {
+        queryClient.invalidateQueries({ queryKey: wardrobeKeys.storage() });
+      }
+    },
+  });
+}
+
 export function useDeleteStorageLocation() {
   const queryClient = useQueryClient();
   return useMutation({

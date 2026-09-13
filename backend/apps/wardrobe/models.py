@@ -6,6 +6,8 @@ garment_items table that already holds real rows is expensive.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
@@ -67,6 +69,14 @@ class StorageLocation(models.Model):
                 fields=["owner", "parent", "name"],
                 name="unique_location_name_per_parent",
             ),
+            # Postgres treats NULLs as distinct, so the constraint above never
+            # applies to a place with no parent. Without this one, nothing in
+            # the database stops two rooms sharing a name.
+            models.UniqueConstraint(
+                fields=["owner", "name"],
+                condition=models.Q(parent__isnull=True),
+                name="unique_root_location_name_per_owner",
+            ),
         ]
         indexes = [models.Index(fields=["owner", "parent"])]
 
@@ -74,26 +84,32 @@ class StorageLocation(models.Model):
         return self.full_path
 
     def clean(self):
-        if self.parent_id:
-            if self.parent_id == self.pk:
-                raise ValidationError({"parent": "A location cannot be inside itself."})
+        if not self.parent_id:
+            return
 
-            ancestor = self.parent
-            depth = 1
-            while ancestor is not None:
-                if ancestor.pk == self.pk:
-                    raise ValidationError(
-                        {"parent": "That would create a loop - this is already a parent of it."}
-                    )
-                depth += 1
-                if depth > self.MAX_DEPTH:
-                    raise ValidationError(
-                        {"parent": f"Storage can only be nested {self.MAX_DEPTH} levels deep."}
-                    )
-                ancestor = ancestor.parent
+        if self.parent_id == self.pk:
+            raise ValidationError({"parent": "A location cannot be inside itself."})
 
-            if self.parent.owner_id != self.owner_id:
-                raise ValidationError({"parent": "That location belongs to someone else."})
+        chain = []
+        ancestor = self.parent
+        while ancestor is not None:
+            if ancestor.pk == self.pk:
+                raise ValidationError(
+                    {"parent": "That would create a loop - this is already a parent of it."}
+                )
+            chain.append(ancestor)
+            ancestor = ancestor.parent
+
+        if self.parent.owner_id != self.owner_id:
+            raise ValidationError({"parent": "That location belongs to someone else."})
+
+        # len(chain) is where this row would sit, and whatever is already nested
+        # inside it moves down with it. Checking the row alone would let a
+        # wardrobe full of drawers be moved somewhere that leaves them no room.
+        if len(chain) + self.height > self.MAX_DEPTH - 1:
+            raise ValidationError(
+                {"parent": f"Storage can only be nested {self.MAX_DEPTH} levels deep."}
+            )
 
     @property
     def ancestors(self) -> list[StorageLocation]:
@@ -112,6 +128,16 @@ class StorageLocation(models.Model):
     @property
     def depth(self) -> int:
         return len(self.ancestors)
+
+    @property
+    def height(self) -> int:
+        """Levels nested inside this one. A drawer holding nothing is 0."""
+        # An unsaved row has no pk, and children.all() would then match every
+        # row whose parent is NULL rather than nothing at all.
+        if not self.pk:
+            return 0
+        children = list(self.children.all())
+        return 1 + max((child.height for child in children), default=0) if children else 0
 
     def descendant_ids(self) -> list[int]:
         """This location plus every location nested inside it, at any depth."""
@@ -267,7 +293,15 @@ class GarmentItem(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
     is_favorite = models.BooleanField(default=False)
 
-    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    purchase_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        # cost_per_wear divides by this, and a negative price would be shown to
+        # the owner as a negative cost.
+        validators=[MinValueValidator(Decimal("0"))],
+    )
     currency = models.CharField(max_length=3, default="PKR")
     purchase_date = models.DateField(null=True, blank=True)
 

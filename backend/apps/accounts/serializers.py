@@ -71,6 +71,13 @@ class LoginSerializer(TokenObtainPairSerializer):
     username_field = "email"
 
     def validate(self, attrs):
+        # RegisterSerializer stores the address lowercased, and authenticate()
+        # matches it exactly. A phone keyboard capitalises the first letter of
+        # an email by default, which would otherwise lock people out of their
+        # own account with "No active account found".
+        if attrs.get(self.username_field):
+            attrs[self.username_field] = attrs[self.username_field].lower().strip()
+
         data = super().validate(attrs)
         data["user"] = UserSerializer(self.user).data
         return data

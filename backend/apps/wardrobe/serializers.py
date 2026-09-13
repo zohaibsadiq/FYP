@@ -11,22 +11,61 @@ from rest_framework import serializers
 from .models import Category, GarmentItem, StorageLocation
 
 
+def _item_count(obj, related) -> int:
+    """
+    The list views annotate item_count. A row that has just been created has not
+    been through that queryset, and DRF drops a read-only field whose attribute
+    is missing instead of raising, so the response would quietly change shape
+    between POST and GET.
+    """
+    annotated = getattr(obj, "item_count", None)
+    return annotated if annotated is not None else related.count()
+
+
 class CategorySerializer(serializers.ModelSerializer):
     slot_label = serializers.CharField(source="get_slot_display", read_only=True)
     is_system = serializers.BooleanField(read_only=True)
-    item_count = serializers.IntegerField(read_only=True)  # annotated in the view
+    item_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = ["id", "name", "slot", "slot_label", "icon", "sort_order", "is_system", "item_count"]
         read_only_fields = ["id", "is_system", "item_count"]
 
+    def get_item_count(self, obj: Category) -> int:
+        request = self.context.get("request")
+        owned = obj.items.filter(owner=request.user) if request else obj.items
+        return _item_count(obj, owned)
+
+    def validate(self, attrs):
+        """
+        unique_category_per_owner is enforced by the database, and owner is never
+        a serializer field, so DRF cannot build its own check for it. Without
+        this the second one raises IntegrityError and the request 500s.
+        """
+        request = self.context.get("request")
+        if not request:
+            return attrs
+
+        name = attrs.get("name", getattr(self.instance, "name", ""))
+        clash = Category.objects.filter(owner=request.user, name__iexact=name.strip())
+        if self.instance:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(
+                {"name": f"You already have a category called {name.strip()}."}
+            )
+        return attrs
+
 
 class StorageLocationSerializer(serializers.ModelSerializer):
     full_path = serializers.CharField(read_only=True)
     depth = serializers.IntegerField(read_only=True)
     kind_label = serializers.CharField(source="get_kind_display", read_only=True)
-    item_count = serializers.IntegerField(read_only=True)  # annotated in the view
+    item_count = serializers.SerializerMethodField()
+
+    def get_item_count(self, obj: StorageLocation) -> int:
+        return _item_count(obj, obj.items)
 
     class Meta:
         model = StorageLocation
@@ -46,10 +85,27 @@ class StorageLocationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """Run the model clean() so the cycle and depth rules apply to API writes."""
+        owner = self.context["request"].user
+
         instance = StorageLocation(**{**self._current_values(), **attrs})
         instance.pk = self.instance.pk if self.instance else None
-        instance.owner = self.context["request"].user
+        instance.owner = owner
         instance.clean()
+
+        # unique_location_name_per_parent lives in the database, and owner is
+        # never a serializer field, so DRF cannot build its own check for it.
+        # Naming two drawers the same is an ordinary slip, and without this it
+        # raises IntegrityError and the request 500s.
+        clash = StorageLocation.objects.filter(
+            owner=owner, parent=instance.parent, name__iexact=instance.name.strip()
+        )
+        if self.instance:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            where = instance.parent.full_path if instance.parent else "your places"
+            raise serializers.ValidationError(
+                {"name": f"There is already a {instance.name.strip()} in {where}."}
+            )
         return attrs
 
     def _current_values(self) -> dict:

@@ -62,7 +62,7 @@ describe("PlaceField", () => {
 
   it("greys out a place that has no room left inside it", async () => {
     const user = userEvent.setup();
-    render(<Harness mustHoldAnother />);
+    render(<Harness roomNeeded={1} />);
 
     await openList(user);
 
@@ -75,7 +75,7 @@ describe("PlaceField", () => {
     );
   });
 
-  it("offers every place when the field is for an item rather than a place", async () => {
+  it("offers every place when the answer needs no room inside, as an item does", async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
@@ -130,11 +130,43 @@ describe("PlaceField", () => {
 
   it("never offers a place as somewhere to put itself", async () => {
     const user = userEvent.setup();
-    render(<Harness excludeId={2} />);
+    render(<Harness excludeIds={[2]} />);
 
     await openList(user);
 
     expect(await screen.findByRole("option", { name: "Bedroom" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Bedroom > Wardrobe" })).not.toBeInTheDocument();
+  });
+});
+
+describe("PlaceField room to move into", () => {
+  it("greys out a place that cannot take a whole branch, only a single row", async () => {
+    const user = userEvent.setup();
+    // Moving a wardrobe that already holds a drawer needs two levels free, so
+    // only the two shallowest places can take it.
+    render(<Harness roomNeeded={2} />);
+
+    await openList(user);
+
+    const disabled = (await screen.findAllByRole("option")).filter((option) =>
+      option.hasAttribute("data-disabled"),
+    );
+
+    expect(disabled).toHaveLength(2);
+    expect(disabled[0]).toHaveTextContent("Bedroom > Wardrobe > Drawer 1");
+    expect(disabled[1]).toHaveTextContent("Slot A");
+    expect(disabled[0]).toHaveTextContent("full, nothing else fits inside");
+  });
+
+  it("never offers a place inside the one being moved", async () => {
+    const user = userEvent.setup();
+    render(<Harness excludeIds={[2, 3, 4]} />);
+
+    await openList(user);
+
+    expect(await screen.findByRole("option", { name: "Bedroom" })).toBeInTheDocument();
+    for (const gone of [/Wardrobe$/, /Drawer 1$/, /Slot A/]) {
+      expect(screen.queryByRole("option", { name: gone })).not.toBeInTheDocument();
+    }
   });
 });

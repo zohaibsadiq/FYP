@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -34,6 +34,22 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
+
+def _save_unique(serializer, **kwargs):
+    """
+    The serializers check for a clashing name first, which is what produces a
+    readable message. Two requests arriving together both pass that check and
+    one then hits the database constraint, so the same answer is given again
+    rather than a 500.
+    """
+    try:
+        with transaction.atomic():
+            serializer.save(**kwargs)
+    except IntegrityError as exc:
+        raise ValidationError(
+            {"name": "You have just added something with that name. Please use a different one."}
+        ) from exc
+
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
@@ -57,7 +73,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        _save_unique(serializer, owner=self.request.user)
 
     def _guard_system_category(self, instance: Category):
         if instance.is_system:
@@ -65,7 +81,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         self._guard_system_category(serializer.instance)
-        serializer.save()
+        _save_unique(serializer)
 
     def perform_destroy(self, instance):
         self._guard_system_category(instance)
@@ -91,7 +107,10 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        _save_unique(serializer, owner=self.request.user)
+
+    def perform_update(self, serializer):
+        _save_unique(serializer)
 
     def perform_destroy(self, instance: StorageLocation):
         """Child locations cascade; their items survive with storage_location NULL."""

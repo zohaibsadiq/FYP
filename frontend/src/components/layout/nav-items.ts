@@ -25,14 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, primary: true },
   { href: "/closet", label: "My Clothes", icon: Shirt, primary: true },
   { href: "/storage", label: "Where Things Are", icon: MapPin },
-  {
-    href: "/calendar",
-    label: "My Plans",
-    icon: CalendarDays,
-    primary: true,
-    locked: true,
-    lockedReason: "Opens when you add your first plan",
-  },
+  { href: "/plan", label: "My Plans", icon: CalendarDays, primary: true },
   {
     href: "/try-on",
     label: "Try It On",

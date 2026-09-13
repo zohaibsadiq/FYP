@@ -47,3 +47,41 @@ export interface TodayPlan {
   unavailable: WeatherUnavailable | null;
   picks: SlotPick[];
 }
+
+/** One day in the calendar and the clothes set aside for it. */
+export interface PlannedOutfit {
+  id: number;
+  planned_for: string;
+  label: string;
+  note: string;
+  /** Ids only, which is what a save sends back. */
+  items: number[];
+  /** The same items with names and pictures, for drawing them. */
+  item_details: GarmentListItem[];
+  is_confirmed: boolean;
+  worn_confirmed_at: string | null;
+  /** Negative once the day has passed. */
+  days_away: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One square of the month grid, without its contents. */
+export interface PlanDay {
+  date: string;
+  label: string;
+  item_count: number;
+  is_confirmed: boolean;
+}
+
+export interface PlanPayload {
+  planned_for: string;
+  label?: string;
+  note?: string;
+  items?: number[];
+}
+
+export interface ConfirmedPlan {
+  recorded: number;
+  plan: PlannedOutfit;
+}

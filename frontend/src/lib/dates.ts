@@ -82,3 +82,37 @@ export function monthLabel(iso: string): string {
   ];
   return `${names[date.getMonth()]} ${date.getFullYear()}`;
 }
+
+export function startOfMonth(iso: string): string {
+  const date = parseDay(iso);
+  return toIso(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+export function addMonths(iso: string, months: number): string {
+  const date = parseDay(iso);
+  // Anchored to the first of the month, so stepping from 31 March does not
+  // land in May the way setMonth alone would.
+  return toIso(new Date(date.getFullYear(), date.getMonth() + months, 1));
+}
+
+/** Monday first: the weekend then sits at the end of the row, where it reads. */
+export const WEEKDAY_INITIALS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/**
+ * Six rows of seven days covering the whole month, padded with the days either
+ * side so every row is full. Six rows always, so the grid does not jump height
+ * between months.
+ */
+export function monthGrid(iso: string): { date: string; inMonth: boolean }[] {
+  const first = parseDay(startOfMonth(iso));
+  const month = first.getMonth();
+
+  // getDay() is 0 for Sunday, and this grid starts on Monday.
+  const lead = (first.getDay() + 6) % 7;
+  const start = new Date(first.getFullYear(), month, 1 - lead);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    return { date: toIso(day), inMonth: day.getMonth() === month };
+  });
+}

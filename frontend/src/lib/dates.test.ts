@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   addDays,
+  addMonths,
   daysAgo,
   friendlyDay,
+  monthGrid,
   monthLabel,
   parseDay,
   spanInWords,
+  startOfMonth,
   toIso,
   todayIso,
 } from "./dates";
@@ -121,5 +124,67 @@ describe("spanInWords", () => {
 describe("monthLabel", () => {
   it("spells the month out", () => {
     expect(monthLabel("2026-09-14")).toBe("September 2026");
+  });
+});
+
+describe("startOfMonth", () => {
+  it("snaps to the first", () => {
+    expect(startOfMonth("2026-09-23")).toBe("2026-09-01");
+  });
+});
+
+describe("addMonths", () => {
+  it("steps forward", () => {
+    expect(addMonths("2026-09-01", 1)).toBe("2026-10-01");
+  });
+
+  it("steps back across a year", () => {
+    expect(addMonths("2026-01-01", -1)).toBe("2025-12-01");
+  });
+
+  it("does not skip February when stepping off a 31st", () => {
+    expect(addMonths("2026-01-31", 1)).toBe("2026-02-01");
+  });
+});
+
+describe("monthGrid", () => {
+  it("always draws six full rows, so the page does not jump height", () => {
+    for (const month of ["2026-02-01", "2026-09-01", "2026-08-01", "2026-11-01"]) {
+      expect(monthGrid(month)).toHaveLength(42);
+    }
+  });
+
+  it("starts on a Monday", () => {
+    const first = monthGrid("2026-09-01")[0];
+    expect(parseDay(first.date).getDay()).toBe(1);
+  });
+
+  it("pads with the days either side and marks them as outside the month", () => {
+    const grid = monthGrid("2026-09-01");
+    expect(grid[0]).toEqual({ date: "2026-08-31", inMonth: false });
+    expect(grid[1]).toEqual({ date: "2026-09-01", inMonth: true });
+  });
+
+  it("holds every day of the month exactly once", () => {
+    const inside = monthGrid("2026-09-01").filter((day) => day.inMonth);
+    expect(inside).toHaveLength(30);
+    expect(new Set(inside.map((day) => day.date)).size).toBe(30);
+  });
+
+  it("handles a month that starts on a Monday with no padding at the front", () => {
+    const grid = monthGrid("2026-06-01");
+    expect(grid[0]).toEqual({ date: "2026-06-01", inMonth: true });
+  });
+
+  it("handles February in a leap year", () => {
+    const inside = monthGrid("2028-02-01").filter((day) => day.inMonth);
+    expect(inside).toHaveLength(29);
+  });
+
+  it("runs in an unbroken line of days", () => {
+    const grid = monthGrid("2026-09-01");
+    for (let i = 1; i < grid.length; i += 1) {
+      expect(grid[i].date).toBe(addDays(grid[i - 1].date, 1));
+    }
   });
 });

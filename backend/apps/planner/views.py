@@ -1,16 +1,28 @@
-"""What today looks like outside, and what in the closet suits it."""
+"""Today outside, what in the closet suits it, and the days ahead."""
 
 from __future__ import annotations
 
-from django.db.models import Case, Q, When
+from django.db import IntegrityError, transaction
+from django.db.models import Case, Count, Q, When
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.wardrobe.models import Category, GarmentItem
 from apps.wardrobe.serializers import GarmentItemListSerializer
 
-from .serializers import TodaySerializer
+from .filters import PlannedOutfitFilter
+from .models import PlannedOutfit
+from .serializers import (
+    ConfirmWornSerializer,
+    PlanDaySerializer,
+    PlannedOutfitSerializer,
+    TodaySerializer,
+)
 from .weather import Weather, WeatherUnavailable, for_city
 
 # Everything worn on an ordinary day. Outerwear is added only when it is cold
@@ -103,4 +115,78 @@ class TodayView(APIView):
                 }
                 for group in groups
             ],
+        })
+
+
+@extend_schema(tags=["Planner"])
+class PlannedOutfitViewSet(viewsets.ModelViewSet):
+    """Days in the calendar, and the clothes set aside for them."""
+
+    queryset = PlannedOutfit.objects.none()
+    serializer_class = PlannedOutfitSerializer
+    filterset_class = PlannedOutfitFilter
+    ordering_fields = ["planned_for", "created_at"]
+    ordering = ["-planned_for"]
+
+    def get_queryset(self):
+        return (
+            PlannedOutfit.objects.filter(owner=self.request.user)
+            .prefetch_related("items__category", "items__storage_location")
+        )
+
+    def perform_create(self, serializer):
+        try:
+            with transaction.atomic():
+                serializer.save(owner=self.request.user)
+        except IntegrityError as exc:
+            # Two requests arriving together both pass the check above and one
+            # then meets the constraint, so it gets the same answer rather than
+            # a 500.
+            raise ValidationError(
+                {"planned_for": "You already have a plan for that day."}
+            ) from exc
+
+    @extend_schema(
+        summary="Which days in a range have a plan",
+        responses=PlanDaySerializer(many=True),
+    )
+    @action(detail=False, methods=["get"])
+    def calendar(self, request):
+        """One row per planned day, for drawing a month without its contents."""
+        plans = (
+            self.filter_queryset(self.get_queryset())
+            .annotate(items_in=Count("items"))
+            .order_by("planned_for")
+        )
+        return Response([
+            {
+                "date": plan.planned_for,
+                "label": plan.label,
+                "item_count": plan.items_in,
+                "is_confirmed": plan.is_confirmed,
+            }
+            for plan in plans
+        ])
+
+    @extend_schema(
+        summary="Confirm the plan was actually worn, which fills in the wear log",
+        request=None,
+        responses=ConfirmWornSerializer,
+    )
+    @action(detail=True, methods=["post"], url_path="wore-it")
+    def wore_it(self, request, pk=None):
+        plan = self.get_object()
+        if plan.planned_for > timezone.localdate():
+            raise ValidationError(
+                {"planned_for": "That day has not happened yet, so it cannot be confirmed."}
+            )
+        if not plan.items.exists():
+            raise ValidationError(
+                {"items": "There is nothing in this plan to record as worn."}
+            )
+
+        recorded = plan.confirm_worn()
+        return Response({
+            "recorded": recorded,
+            "plan": PlannedOutfitSerializer(plan, context={"request": request}).data,
         })

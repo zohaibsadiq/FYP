@@ -1,10 +1,14 @@
-"""Shapes for the weather reading and what it suggests wearing."""
+"""Shapes for the weather reading, what it suggests, and the day planner."""
 
 from __future__ import annotations
 
+from django.utils import timezone
 from rest_framework import serializers
 
+from apps.wardrobe.models import GarmentItem
 from apps.wardrobe.serializers import GarmentItemListSerializer
+
+from .models import PlannedOutfit
 
 
 class AdviceSerializer(serializers.Serializer):
@@ -52,3 +56,75 @@ class TodaySerializer(serializers.Serializer):
     weather = WeatherSerializer(allow_null=True)
     unavailable = UnavailableSerializer(allow_null=True)
     picks = PickSerializer(many=True)
+
+
+class PlannedOutfitSerializer(serializers.ModelSerializer):
+    """A day in the calendar, with enough of each item to draw it."""
+
+    items = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=GarmentItem.objects.none(),   # narrowed per account in __init__
+        required=False,
+    )
+    item_details = GarmentItemListSerializer(source="items", many=True, read_only=True)
+    is_confirmed = serializers.BooleanField(read_only=True)
+    days_away = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = PlannedOutfit
+        fields = [
+            "id", "planned_for", "label", "note",
+            "items", "item_details",
+            "is_confirmed", "worn_confirmed_at", "days_away",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "worn_confirmed_at", "created_at", "updated_at"]
+        # The one built from the unique constraint names the database columns
+        # back at the reader. validate_planned_for says it in words instead.
+        validators = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            self.fields["items"].child_relation.queryset = GarmentItem.objects.filter(
+                owner=request.user
+            )
+
+    def validate_items(self, value):
+        if len(value) > PlannedOutfit.MAX_ITEMS:
+            raise serializers.ValidationError(
+                f"A day can hold up to {PlannedOutfit.MAX_ITEMS} things."
+            )
+        if len({item.id for item in value}) != len(value):
+            raise serializers.ValidationError("The same thing is listed twice.")
+        return value
+
+    def validate_planned_for(self, value):
+        floor = timezone.localdate() - timezone.timedelta(days=365)
+        if value < floor:
+            raise serializers.ValidationError("That day is more than a year past.")
+
+        owner = self.context["request"].user
+        clash = PlannedOutfit.objects.filter(owner=owner, planned_for=value)
+        if self.instance:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError(
+                "You already have a plan for that day. Open it and change it instead."
+            )
+        return value
+
+
+class PlanDaySerializer(serializers.Serializer):
+    """One square of the month grid."""
+
+    date = serializers.DateField()
+    label = serializers.CharField()
+    item_count = serializers.IntegerField()
+    is_confirmed = serializers.BooleanField()
+
+
+class ConfirmWornSerializer(serializers.Serializer):
+    recorded = serializers.IntegerField(help_text="How many items this added to the wear log.")
+    plan = PlannedOutfitSerializer()

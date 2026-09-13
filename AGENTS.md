@@ -23,7 +23,7 @@ Lives in `frontend/src/lib/copy.ts`, not inline in components.
 
 - Sentences under 25 words, averaging 15. Paragraphs under 5 sentences.
 - Active voice. Short words: "buy" not "purchase", "about" not "approximately".
-- Avoid negative contractions ("can't", "don't") — they get misread.
+- Avoid negative contractions ("can't", "don't"), they get misread.
 - Never name a technology. No "JWT", "API", "sync", "upload failed".
 - Errors say what to do next, not what went wrong internally.
 

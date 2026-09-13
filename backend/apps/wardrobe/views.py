@@ -5,10 +5,12 @@ import logging
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,7 +19,7 @@ from apps.intelligence.colors import name_for_hex
 from apps.vision import storage
 from apps.vision.background import remove_background
 
-from .filters import GarmentItemFilter
+from .filters import GarmentItemFilter, SpellingTolerantSearch
 from .models import Category, GarmentItem, StorageLocation
 from .serializers import (
     BulkLocationSerializer,
@@ -151,6 +153,7 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
 class GarmentItemViewSet(viewsets.ModelViewSet):
     queryset = GarmentItem.objects.none()
     filterset_class = GarmentItemFilter
+    filter_backends = [DjangoFilterBackend, SpellingTolerantSearch, OrderingFilter]
     search_fields = ["name", "brand", "notes", "category__name", "primary_color_name"]
     ordering_fields = ["created_at", "name", "wear_count", "last_worn_date", "purchase_price"]
     ordering = ["-created_at"]

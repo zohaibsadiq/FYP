@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Plus, Search, Shirt, X } from "lucide-react";
+import { Lightbulb, Plus, Search, Shirt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/wardrobe/empty-state";
@@ -182,7 +182,17 @@ export default function ClosetPage() {
         />
       ) : (
         <>
-          {isFiltering ? (
+          {data?.spelling_guessed ? (
+            <p
+              aria-live="polite"
+              className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100"
+            >
+              <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                Nothing is spelled <strong>{search.trim()}</strong>. These look closest.
+              </span>
+            </p>
+          ) : isFiltering ? (
             <p aria-live="polite" className="text-sm text-muted-foreground">
               Showing {data?.count} of {stats?.total ?? data?.count}
             </p>

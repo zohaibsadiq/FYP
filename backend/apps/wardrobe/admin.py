@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Count
 from django.utils.html import format_html
 
 from .models import Category, GarmentItem, StorageLocation
@@ -18,10 +19,16 @@ class StorageLocationAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("name", "owner__email")
     autocomplete_fields = ("parent",)
+    # full_path walks up to three parents, and without this each step is its
+    # own query on every row of the list.
+    list_select_related = ("owner", "parent", "parent__parent", "parent__parent__parent")
 
-    @admin.display(description="Items")
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_items=Count("items"))
+
+    @admin.display(description="Items", ordering="_items")
     def item_count(self, obj):
-        return obj.items.count()
+        return obj._items
 
 
 @admin.register(GarmentItem)

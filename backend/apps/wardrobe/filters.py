@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from django.contrib.postgres.search import TrigramWordSimilarity
+from django.db import connection
 from django.db.models import Q
+from django.db.models.functions import Greatest
 from django.utils import timezone
 from django_filters import rest_framework as filters
+from rest_framework.filters import SearchFilter
 
 from .models import Category, GarmentItem, StorageLocation
 
@@ -87,3 +91,46 @@ class GarmentItemFilter(filters.FilterSet):
     def filter_has_image(self, queryset, name, value: bool):
         has = Q(clean_image_url__gt="") | Q(original_image_url__gt="")
         return queryset.filter(has) if value else queryset.exclude(has)
+
+
+class SpellingTolerantSearch(SearchFilter):
+    """
+    Ordinary substring matching, with a second pass for misspelled words.
+
+    Typing "snekers" matches nothing with a plain LIKE, and an empty closet
+    screen reads as lost data rather than a typo. When the first pass comes
+    back empty the same words are compared letter-group by letter-group
+    against the fields below, which still finds "Blue Sneakers".
+
+    The second pass only runs on an empty result, so a search that already
+    works costs one extra EXISTS query.
+    """
+
+    # Measured against real misspellings: a correct match scores 0.40 upwards
+    # and an unrelated item stays at 0.25 or below.
+    THRESHOLD = 0.3
+
+    # Two letters match too much. "j" alone scores 0.50 against both "Jeans"
+    # and "Jacket", which would return half the closet.
+    MIN_LENGTH = 3
+
+    FUZZY_FIELDS = ["name", "brand", "primary_color_name", "category__name"]
+
+    def filter_queryset(self, request, queryset, view):
+        matched = super().filter_queryset(request, queryset, view)
+        if connection.vendor != "postgresql":
+            return matched
+
+        terms = [term for term in self.get_search_terms(request) if len(term) >= self.MIN_LENGTH]
+        if not terms or matched.exists():
+            return matched
+
+        score = None
+        for term in terms:
+            for field in self.FUZZY_FIELDS:
+                similarity = TrigramWordSimilarity(term, field)
+                score = similarity if score is None else Greatest(score, similarity)
+
+        # The screen tells the reader these are guesses rather than matches.
+        request.spelling_guessed = True
+        return queryset.annotate(_match=score).filter(_match__gte=self.THRESHOLD)

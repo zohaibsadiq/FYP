@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -324,6 +325,17 @@ class GarmentItem(models.Model):
             models.Index(fields=["owner", "category"]),
             models.Index(fields=["owner", "last_worn_date"]),
             models.Index(fields=["owner", "storage_location"]),
+            # The closet list is newest-first, so this serves the owner filter
+            # and the sort together instead of sorting the whole table.
+            models.Index(fields=["owner", "-created_at"], name="garment_owner_recent"),
+            # seasons and occasions are matched with `contains`, a lookup a
+            # btree index cannot answer. GIN indexes the array entries.
+            GinIndex(fields=["seasons"], name="garment_seasons_gin"),
+            GinIndex(fields=["occasions"], name="garment_occasions_gin"),
+            # Backs the misspelling fallback in SpellingTolerantSearch, which
+            # would otherwise score every row in the table.
+            GinIndex(fields=["name"], name="garment_name_trgm", opclasses=["gin_trgm_ops"]),
+            GinIndex(fields=["brand"], name="garment_brand_trgm", opclasses=["gin_trgm_ops"]),
         ]
 
     def __str__(self):

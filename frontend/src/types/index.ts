@@ -42,6 +42,8 @@ export interface Paginated<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+  /** True when nothing matched what was typed and these are the nearest spellings. */
+  spelling_guessed?: boolean;
 }
 
 /** Validation errors arrive as {"field_name": ["message", ...]}. */

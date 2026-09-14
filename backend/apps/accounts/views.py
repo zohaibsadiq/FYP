@@ -7,7 +7,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 
 
-@extend_schema(tags=["Auth"])
+@extend_schema(
+    tags=["Auth"],
+    summary="Open an account and sign in straight away",
+    description=(
+        "Returns the access and refresh tokens along with the new account, so "
+        "the client never re-posts the credentials it has just sent."
+    ),
+)
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]

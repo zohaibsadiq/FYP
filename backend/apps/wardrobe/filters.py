@@ -13,6 +13,16 @@ from rest_framework.filters import SearchFilter
 from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
+# A date cannot hold more than about ten thousand years, and subtracting a
+# larger number of days raises OverflowError halfway through building the
+# query. Ten years back already reaches every row anyone will ever have.
+MAX_DAYS_BACK = 3650
+
+
+def _sane_days(value) -> int:
+    return max(0, min(int(value), MAX_DAYS_BACK))
+
+
 class GarmentItemFilter(filters.FilterSet):
     category = filters.NumberFilter(field_name="category_id")
     status = filters.ChoiceFilter(choices=GarmentItem.Status.choices)
@@ -80,7 +90,7 @@ class GarmentItemFilter(filters.FilterSet):
         return queryset.filter(Q(occasions__contains=[value.upper()]) | Q(occasions=[]))
 
     def filter_unworn_days(self, queryset, name, value):
-        cutoff = timezone.localdate() - timezone.timedelta(days=int(value))
+        cutoff = timezone.localdate() - timezone.timedelta(days=_sane_days(value))
         return queryset.filter(Q(last_worn_date__lt=cutoff) | Q(last_worn_date__isnull=True))
 
     def filter_wearable(self, queryset, name, value: bool):
@@ -150,5 +160,5 @@ class WearEventFilter(filters.FilterSet):
         fields = ["item", "slot", "on", "since", "until", "days"]
 
     def filter_days(self, queryset, name, value):
-        cutoff = timezone.localdate() - timezone.timedelta(days=int(value) - 1)
+        cutoff = timezone.localdate() - timezone.timedelta(days=_sane_days(value) - 1)
         return queryset.filter(worn_on__gte=cutoff)

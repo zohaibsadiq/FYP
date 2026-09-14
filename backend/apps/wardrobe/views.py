@@ -6,7 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -153,6 +153,24 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         )
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="The closet, filtered and searched",
+        description=(
+            "Search tolerates misspellings: when nothing matches the words "
+            "typed, the nearest spellings are returned and `spelling_guessed` "
+            "is set on the page."
+        ),
+    ),
+    create=extend_schema(summary="Add one garment to the closet"),
+    retrieve=extend_schema(summary="One garment, with every field"),
+    update=extend_schema(summary="Replace every field of one garment"),
+    partial_update=extend_schema(summary="Change some fields of one garment"),
+    destroy=extend_schema(
+        summary="Remove a garment, and its photos with it",
+        description="The Cloudinary uploads it points at are deleted too.",
+    ),
+)
 @extend_schema(tags=["Wardrobe"])
 class GarmentItemViewSet(viewsets.ModelViewSet):
     queryset = GarmentItem.objects.none()

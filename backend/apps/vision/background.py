@@ -71,16 +71,7 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
     except Exception:  # no EXIF block, or an unreadable one
         pass
 
-    source = source.convert("RGB")
-    source = _downscale(source, MAX_DIMENSION)
-
-    from rembg import remove
-
-    cutout = remove(source, session=_get_session())
-    if cutout.mode != "RGBA":
-        cutout = cutout.convert("RGBA")
-
-    cutout = _crop_to_subject(cutout)
+    cutout = cut_out_subject(source.convert("RGB"))
 
     buffer = io.BytesIO()
     cutout.save(buffer, format="PNG", optimize=True)
@@ -98,6 +89,21 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
         dominant_hex=dominant_hex,
         coverage=coverage,
     )
+
+
+def cut_out_subject(source: Image.Image) -> Image.Image:
+    """
+    The subject of a photograph on a transparent background, cropped to fit.
+
+    Shared so that one piece of code decides what counts as the subject,
+    whether the photo is of one garment or of somebody wearing several.
+    """
+    from rembg import remove
+
+    cutout = remove(_downscale(source, MAX_DIMENSION), session=_get_session())
+    if cutout.mode != "RGBA":
+        cutout = cutout.convert("RGBA")
+    return _crop_to_subject(cutout)
 
 
 def _downscale(image: Image.Image, max_side: int) -> Image.Image:

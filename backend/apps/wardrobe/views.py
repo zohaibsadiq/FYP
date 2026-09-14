@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from apps.intelligence.colors import name_for_hex
 from apps.vision import storage
+from apps.vision.uploads import read_upload
 from apps.vision.background import remove_background
 
 from .filters import GarmentItemFilter, SpellingTolerantSearch, WearEventFilter
@@ -55,8 +56,6 @@ def _save_unique(serializer, clash=None, **kwargs):
         raise ValidationError(clash or {"name": DUPLICATE_NAME}) from exc
 
 
-MAX_UPLOAD_BYTES = 12 * 1024 * 1024
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
 @extend_schema(tags=["Wardrobe"])
@@ -373,22 +372,7 @@ class GarmentImageUploadView(APIView):
     serializer_class = ImageUploadRequestSerializer
 
     def post(self, request):
-        upload = request.FILES.get("image")
-        if not upload:
-            raise ValidationError({"image": "No file was sent under the key 'image'."})
-
-        if upload.size > MAX_UPLOAD_BYTES:
-            raise ValidationError(
-                {"image": f"That image is {upload.size // 1024 // 1024} MB. The limit is 12 MB."}
-            )
-
-        content_type = (upload.content_type or "").lower()
-        if content_type not in ALLOWED_IMAGE_TYPES:
-            raise ValidationError(
-                {"image": f"'{content_type}' is not a supported image type. Use JPG, PNG or WebP."}
-            )
-
-        raw = upload.read()
+        raw = read_upload(request)
 
         try:
             cutout = remove_background(raw)

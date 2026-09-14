@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import colorsys
-
 # Deliberately short. The question a closet filter has to answer is "navy or
 # black", not which of 16 million hex values a photo averaged out to.
 NAMED_COLORS: list[tuple[str, str]] = [
@@ -53,40 +51,79 @@ def rgb_to_hex(r: int, g: int, b: int) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def name_for_hex(value: str) -> str:
-    """
-    Closest name in NAMED_COLORS, matched in HSV with hue weighted heaviest.
-    In RGB, #1b2f55 navy and #3d2314 chocolate sit close enough to swap names.
-    """
-    if not value:
-        return ""
+# D65, the white point sRGB is defined against.
+_WHITE = (0.95047, 1.0, 1.08883)
 
+
+def _lab(value: str) -> tuple[float, float, float] | None:
+    """
+    sRGB hex to CIE L*a*b*.
+
+    Distance in RGB or HSV does not match what a person sees: two blues a
+    long way apart in RGB can look almost the same, and two greys close
+    together can look clearly different. Lab is built so that the gap between
+    two colours is roughly the difference a person would report.
+    """
     try:
         r, g, b = hex_to_rgb(value)
     except (ValueError, IndexError):
-        return ""
+        return None
 
-    h1, s1, v1 = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+    def straighten(channel: float) -> float:
+        # sRGB stores brightness on a curve; the maths below needs it linear.
+        channel /= 255
+        return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
+
+    r, g, b = straighten(r), straighten(g), straighten(b)
+
+    x = r * 0.4124 + g * 0.3576 + b * 0.1805
+    y = r * 0.2126 + g * 0.7152 + b * 0.0722
+    z = r * 0.0193 + g * 0.1192 + b * 0.9505
+
+    def curve(t: float) -> float:
+        return t ** (1 / 3) if t > 0.008856 else (7.787 * t) + 16 / 116
+
+    fx, fy, fz = (curve(c / w) for c, w in zip((x, y, z), _WHITE))
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def distance(a: str, b: str) -> float:
+    """
+    How far apart two colours look. 0 is the same colour, and about 100 is as
+    far apart as two colours get.
+    """
+    first, second = _lab(a), _lab(b)
+    if first is None or second is None:
+        return float("inf")
+    return sum((p - q) ** 2 for p, q in zip(first, second)) ** 0.5
+
+
+# Measured against pairs a person would be asked to judge: two whites land
+# around 7, two different blues around 33, and pink against red around 60.
+# Past this the two are simply different colours and the number stops meaning
+# anything useful.
+UNRELATED = 70.0
+
+
+def closeness(a: str, b: str) -> int:
+    """The same comparison as a percentage, for showing to a reader."""
+    gap = distance(a, b)
+    if gap == float("inf"):
+        return 0
+    return max(0, min(100, round(100 * (1 - gap / UNRELATED))))
+
+
+def name_for_hex(value: str) -> str:
+    """Closest name in NAMED_COLORS."""
+    if not value or _lab(value) is None:
+        return ""
 
     best_name = ""
     best_distance = float("inf")
-
     for name, ref_hex in NAMED_COLORS:
-        rr, rg, rb = hex_to_rgb(ref_hex)
-        h2, s2, v2 = colorsys.rgb_to_hsv(rr / 255, rg / 255, rb / 255)
-
-        # hue wraps at 1.0
-        hue_gap = abs(h1 - h2)
-        hue_gap = min(hue_gap, 1 - hue_gap)
-
-        if s1 < 0.12 and s2 < 0.12:
-            # colorsys returns an arbitrary hue below this saturation
-            distance = abs(v1 - v2)
-        else:
-            distance = (hue_gap * 2.2) ** 2 + (s1 - s2) ** 2 + (v1 - v2) ** 2
-
-        if distance < best_distance:
-            best_distance = distance
+        gap = distance(value, ref_hex)
+        if gap < best_distance:
+            best_distance = gap
             best_name = name
 
     return best_name

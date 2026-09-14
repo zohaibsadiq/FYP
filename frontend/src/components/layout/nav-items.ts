@@ -34,13 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
     locked: true,
     lockedReason: "Add a photo of yourself to use this",
   },
-  {
-    href: "/steal-the-look",
-    label: "Copy a Look",
-    icon: Sparkles,
-    locked: true,
-    lockedReason: "Add a few clothes first",
-  },
+  { href: "/copy-look", label: "Copy a Look", icon: Sparkles },
   {
     href: "/marketplace",
     label: "Buy and Sell",

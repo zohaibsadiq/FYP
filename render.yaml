@@ -1,0 +1,90 @@
+# How Closette runs once it is hosted.
+#
+# Render reads this file and creates everything in it. The two services here
+# are deliberately separate:
+#
+#   closette-api     the website, awake whenever somebody is using it
+#   closette-prices  a timer that refreshes shop prices twice a day
+#
+# Keeping the timer as its own service is the point. It wakes up on schedule,
+# does its two minutes of work and stops, whether or not anybody has opened
+# the site. A timer living inside the website would sleep when the website
+# sleeps, and the prices would quietly go stale.
+#
+# Times are UTC, as they are for every hosted scheduler. Pakistan is five
+# hours ahead and does not move for daylight saving, so:
+#
+#   01:00 UTC = 6 in the morning
+#   13:00 UTC = 6 in the evening
+
+databases: []   # the database lives on Neon, so Render does not create one
+
+envVarGroups:
+  - name: closette-secrets
+    envVars:
+      # Filled in once, by hand, in the Render dashboard. Nothing secret is
+      # written in this file, because this file is in the repository.
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+
+services:
+  - type: web
+    name: closette-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: >-
+      pip install -r requirements/base.txt &&
+      python manage.py collectstatic --no-input &&
+      python manage.py migrate
+    startCommand: gunicorn config.wsgi:application
+    healthCheckPath: /api/health/
+    envVars:
+      - fromGroup: closette-secrets
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        sync: false           # the address Render gives this service
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false           # where the frontend is served from
+      - key: PYTHON_VERSION
+        # Render now starts new services on 3.14, where the background
+        # removal library has no ready-built package yet. This is the version
+        # the project is developed against; the newest 3.13 patch is used.
+        value: "3.13"
+
+  - type: cron
+    name: closette-prices
+    runtime: python
+    # Cron is not one of the free service types on Render. This is the
+    # smallest machine they sell, billed by the second while it runs, with a
+    # one dollar a month floor. Two minutes twice a day sits far under that
+    # floor, so the floor is the whole bill.
+    plan: 0.5c-512mb
+    rootDir: backend
+    schedule: "0 1,13 * * *"
+    buildCommand: pip install -r requirements/base.txt
+    startCommand: python manage.py sync_deals --quiet
+    envVars:
+      # The same database and the same settings as the website, because it
+      # writes into the very tables the website reads.
+      - fromGroup: closette-secrets
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "localhost"    # nothing reaches this service over the web
+      - key: PYTHON_VERSION
+        # Render now starts new services on 3.14, where the background
+        # removal library has no ready-built package yet. This is the version
+        # the project is developed against; the newest 3.13 patch is used.
+        value: "3.13"

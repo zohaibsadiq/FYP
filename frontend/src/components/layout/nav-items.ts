@@ -4,8 +4,8 @@ import {
   MapPin,
   Scan,
   Shirt,
-  Sparkles,
   Store,
+  Tag,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -34,12 +34,11 @@ export const NAV_ITEMS: NavItem[] = [
     locked: true,
     lockedReason: "Add a photo of yourself to use this",
   },
-  { href: "/copy-look", label: "Copy a Look", icon: Sparkles },
+  { href: "/shop", label: "Sales", icon: Tag, primary: true },
   {
     href: "/marketplace",
     label: "Buy and Sell",
     icon: Store,
-    primary: true,
     locked: true,
     lockedReason: "Add a few clothes first",
   },

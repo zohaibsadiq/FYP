@@ -47,6 +47,7 @@ LOCAL_APPS = [
     "apps.wardrobe",
     "apps.outfits",
     "apps.planner",
+    "apps.shopping",
     "apps.intelligence",
     "apps.vision",
     "apps.community",

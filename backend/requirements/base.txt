@@ -11,6 +11,11 @@ django-cors-headers==4.9.0
 # Settings from environment
 django-environ==0.12.0
 
+# Outgoing HTTP: the weather lookup and the shop catalogue reader.
+# Named here rather than relied on: it arrives anyway as something else's
+# dependency, and would vanish the day that package drops it.
+requests==2.34.2
+
 # Postgres
 psycopg[binary]==3.2.10
 dj-database-url==3.0.1

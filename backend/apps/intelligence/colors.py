@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import lru_cache
+
 # Deliberately short. The question a closet filter has to answer is "navy or
 # black", not which of 16 million hex values a photo averaged out to.
 NAMED_COLORS: list[tuple[str, str]] = [
@@ -55,6 +57,7 @@ def rgb_to_hex(r: int, g: int, b: int) -> str:
 _WHITE = (0.95047, 1.0, 1.08883)
 
 
+@lru_cache(maxsize=2048)
 def _lab(value: str) -> tuple[float, float, float] | None:
     """
     sRGB hex to CIE L*a*b*.
@@ -63,6 +66,10 @@ def _lab(value: str) -> tuple[float, float, float] | None:
     long way apart in RGB can look almost the same, and two greys close
     together can look clearly different. Lab is built so that the gap between
     two colours is roughly the difference a person would report.
+
+    Held on to once worked out. Comparing a closet against a page of shop
+    prices asks for the same few hundred colours over and over, and the sum
+    below is the same answer every time.
     """
     try:
         r, g, b = hex_to_rgb(value)

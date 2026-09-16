@@ -1,0 +1,47 @@
+# Everything the app needs to answer a request or run a scheduled job.
+#
+# Split out from base.txt so the price refresh, which only reads shop
+# catalogues over HTTP and writes rows, does not have to install the
+# background-removal stack. That stack is a third of a gigabyte and none of it
+# is loaded on the refresh path.
+
+# Core
+Django==5.2.6
+djangorestframework==3.16.1
+
+# Auth
+djangorestframework-simplejwt==5.5.1
+
+# CORS
+django-cors-headers==4.9.0
+
+# Settings from environment
+django-environ==0.12.0
+
+# Outgoing HTTP: the weather lookup and the shop catalogue reader.
+# Named here rather than relied on: it arrives anyway as something else's
+# dependency, and would vanish the day that package drops it.
+requests==2.34.2
+
+# Postgres
+psycopg[binary]==3.2.10
+dj-database-url==3.0.1
+
+# Images.
+# Held at the version rembg asks for. Pinning an older one made the two
+# impossible to install together, which is how this file first failed to
+# install on a clean machine.
+Pillow==12.3.0
+
+# API filtering
+django-filter==25.1
+
+# OpenAPI schema and docs page
+drf-spectacular==0.28.0
+
+# Production server and static files
+whitenoise==6.11.0
+gunicorn==23.0.0
+
+# Image hosting
+cloudinary==1.44.1

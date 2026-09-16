@@ -73,7 +73,10 @@ services:
     plan: 0.5c-512mb
     rootDir: backend
     schedule: "0 1,13 * * *"
-    buildCommand: pip install -r requirements/base.txt
+    # core.txt, not base.txt. Reading shop catalogues never touches an image,
+    # so the background-removal stack is a third of a gigabyte this job would
+    # download, install and then never import.
+    buildCommand: pip install -r requirements/core.txt
     startCommand: python manage.py sync_deals --quiet
     envVars:
       # The same database and the same settings as the website, because it

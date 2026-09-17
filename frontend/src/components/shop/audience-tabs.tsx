@@ -50,9 +50,12 @@ export function AudienceTabs({
             onClick={() => onChange(tab.value)}
             className={cn(
               "flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm transition-colors",
+              // The same solid colour the quick choices below use, so a
+              // chosen thing looks the same wherever it is on the page. White
+              // on near-white was barely a difference at all.
               selected
-                ? "bg-card font-semibold text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+                ? "bg-primary font-semibold text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-card hover:text-foreground",
             )}
           >
             {tab.label}

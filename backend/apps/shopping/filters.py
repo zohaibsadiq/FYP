@@ -8,7 +8,6 @@ from django_filters import rest_framework as filters
 
 from apps.wardrobe.models import Category
 
-from . import advice
 from .models import Deal
 
 # A price drop stops being news after a week, and a shop that refreshes daily
@@ -35,6 +34,10 @@ class DealFilter(filters.FilterSet):
         label="Where it is worn: TOP, BOTTOM, FOOTWEAR and so on",
     )
     category = filters.NumberFilter(field_name="category_id", label="Category id")
+    audience = filters.ChoiceFilter(
+        choices=Deal.Audience.choices,
+        label="Who it is for: WOMEN, MEN, KIDS",
+    )
     color = filters.CharFilter(
         field_name="color_name",
         lookup_expr="iexact",
@@ -57,15 +60,6 @@ class DealFilter(filters.FilterSet):
         label=f"Only prices that fell in the last {JUST_DROPPED_DAYS} days",
     )
 
-    fills_gap = filters.BooleanFilter(
-        method="filter_fills_gap",
-        label="Only things for a part of the closet that is empty",
-    )
-    hide_owned = filters.BooleanFilter(
-        method="filter_hide_owned",
-        label="Leave out anything close to something already owned",
-    )
-
     dropped_days = filters.NumberFilter(
         method="filter_dropped_days",
         label="Prices that fell in the last N days",
@@ -74,9 +68,9 @@ class DealFilter(filters.FilterSet):
     class Meta:
         model = Deal
         fields = [
-            "shop", "slot", "category", "color", "size",
+            "shop", "slot", "category", "color", "size", "audience",
             "min_price", "max_price", "min_discount",
-            "on_sale", "in_stock", "just_dropped", "fills_gap", "hide_owned",
+            "on_sale", "in_stock", "just_dropped",
         ]
 
     def filter_size(self, queryset, name, value):
@@ -103,35 +97,3 @@ class DealFilter(filters.FilterSet):
             return queryset
         since = timezone.now() - timezone.timedelta(days=_sane_days(value))
         return queryset.filter(price_fell_at__gte=since)
-
-    def filter_fills_gap(self, queryset, name, value):
-        if not value:
-            return queryset
-        slots = advice.empty_slots(self._closet())
-        # Nothing is a gap for somebody who owns something everywhere, and an
-        # empty answer is the honest one.
-        return queryset.filter(slot__in=slots) if slots else queryset.none()
-
-    def filter_hide_owned(self, queryset, name, value):
-        if not value:
-            return queryset
-        unwanted = Q()
-        for slot, names in advice.owned_color_names(self._closet()).items():
-            unwanted |= Q(slot=slot, color_name__in=names)
-        return queryset.exclude(unwanted) if unwanted else queryset
-
-    def _closet(self):
-        """
-        Read once even when both closet filters are used together.
-
-        The schema generator builds this class without a request, so an empty
-        closet is the answer there rather than an error.
-        """
-        if not hasattr(self, "_closet_cache"):
-            user = getattr(self.request, "user", None)
-            self._closet_cache = (
-                advice.closet_for(user)
-                if user is not None and user.is_authenticated
-                else advice.Closet([])
-            )
-        return self._closet_cache

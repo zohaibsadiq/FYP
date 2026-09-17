@@ -41,6 +41,9 @@ SHOPS = [
     {
         "name": "Beechtree",
         "slug": "beechtree",
+        # Their catalogue carries no menswear at all, and their children's line
+        # labels itself, so anything left unsaid is womenswear.
+        "default_audience": "WOMEN",
         "site_url": "https://beechtree.pk",
         "sort_order": 50,
         # Their robots file asks for ten seconds between requests.
@@ -50,6 +53,8 @@ SHOPS = [
     {
         "name": "Generation",
         "slug": "generation",
+        # A womenswear label. Nothing in their catalogue reads as menswear.
+        "default_audience": "WOMEN",
         "site_url": "https://generation.com.pk",
         "sort_order": 60,
     },
@@ -68,6 +73,7 @@ SHOPS = [
 ]
 
 DEFAULTS = {
+    "default_audience": "",     # assume nothing unless the shop above says so
     "feed_kind": Shop.Feed.SHOPIFY,
     "currency": "PKR",
     "is_active": True,

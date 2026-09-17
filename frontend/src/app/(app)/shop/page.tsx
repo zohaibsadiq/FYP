@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SlidersHorizontal, Store, X } from "lucide-react";
 
+import { AudienceTabs } from "@/components/shop/audience-tabs";
 import { DealCard } from "@/components/shop/deal-card";
 import { FilterPanel } from "@/components/shop/filter-panel";
 import { FreshnessBar } from "@/components/shop/freshness-bar";
@@ -21,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDeals, useFilterOptions, useFreshness } from "@/hooks/use-shopping";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { SORT_OPTIONS, type DealFilters } from "@/types/shopping";
+import { SORT_OPTIONS, type Audience, type DealFilters } from "@/types/shopping";
 
 // Long enough that typing a word does not send a request per letter, short
 // enough that the grid does not feel stuck.
@@ -31,7 +32,7 @@ const STARTING_FILTERS: DealFilters = { on_sale: true, ordering: "-discount_perc
 
 // Filters whose default is on, so the reset button does not count them as
 // something the person switched on themselves.
-const BY_DEFAULT = new Set(["on_sale", "ordering"]);
+const BY_DEFAULT = new Set(["on_sale", "ordering", "audience"]);
 
 export default function ShopPage() {
   const [filters, setFilters] = useState<DealFilters>(STARTING_FILTERS);
@@ -69,7 +70,19 @@ export default function ShopPage() {
 
   function clearAll() {
     setTyped("");
-    setFilters(STARTING_FILTERS);
+    setFilters((current) => ({ ...STARTING_FILTERS, audience: current.audience }));
+  }
+
+  function changeAudience(audience: Audience | "") {
+    // The narrower filters are dropped on purpose. A size or a colour that
+    // exists in menswear may not exist in the children's range, and a page
+    // that goes empty on a tap looks broken.
+    setFilters((current) => ({
+      ...STARTING_FILTERS,
+      ordering: current.ordering,
+      search: current.search,
+      audience: audience || undefined,
+    }));
   }
 
   const nothingLoaded = (freshness?.deals_listed ?? 0) === 0;
@@ -79,9 +92,8 @@ export default function ShopPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sales</h1>
         <p className="mt-2 max-w-prose text-muted-foreground">
-          What is reduced right now at {freshness?.shops_total ?? "several"} shops, checked
-          against the clothes you already own. Tap anything to buy it on the shop&apos;s own
-          site.
+          What is reduced right now at {freshness?.shops_total ?? "several"} shops, read
+          from what each shop publishes. Tap anything to buy it on the shop&apos;s own site.
         </p>
       </header>
 
@@ -91,12 +103,24 @@ export default function ShopPage() {
         <NothingLoadedYet />
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <Label htmlFor="deal-search" className="mb-2 block">
-                Search the sales
-              </Label>
-              <div className="relative">
+          <AudienceTabs
+            value={filters.audience ?? ""}
+            counts={options?.audiences}
+            total={freshness?.deals_listed}
+            onChange={changeAudience}
+          />
+
+          {/* Aligned from the TOP, not the bottom. Both sides are a label, an
+              eight-pixel gap and a 44px control, so their tops match exactly.
+              Aligning bottoms instead let the few invisible pixels an <input>
+              leaves under itself push one side out of line. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="deal-search">Search the sales</Label>
+              {/* flex, so the input is a flex item and stops leaving baseline
+                  space beneath it. The wrapper is then exactly the input's
+                  height. */}
+              <div className="relative flex">
                 <Search
                   className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
@@ -139,7 +163,11 @@ export default function ShopPage() {
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger
                 render={
-                  <Button type="button" variant="outline" className="h-11 gap-2 lg:hidden">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 gap-2 sm:self-end lg:hidden"
+                  >
                     <SlidersHorizontal className="size-4" aria-hidden />
                     Filters
                     {activeCount > 0 ? (
@@ -254,16 +282,6 @@ function QuickChips({
   onChange: (patch: Partial<DealFilters>) => void;
 }) {
   const chips = [
-    {
-      label: "Only what I am missing",
-      on: Boolean(filters.fills_gap),
-      toggle: () => onChange({ fills_gap: !filters.fills_gap }),
-    },
-    {
-      label: "Hide what I already own",
-      on: Boolean(filters.hide_owned),
-      toggle: () => onChange({ hide_owned: !filters.hide_owned }),
-    },
     {
       label: "Half price or better",
       on: filters.min_discount === 50,

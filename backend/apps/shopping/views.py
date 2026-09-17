@@ -14,7 +14,6 @@ from rest_framework.views import APIView
 
 from apps.wardrobe.models import Category
 
-from . import advice
 from .filters import DealFilter
 from .models import Deal, Shop
 from .serializers import (
@@ -61,8 +60,7 @@ def _ago(when) -> str:
             "refreshed on a schedule. Nothing is fetched from a shop while the "
             "request is being answered, so a shop being down slows nothing "
             "down and every row carries the moment it was really checked.\n\n"
-            "`fills_gap` and `already_owned` are worked out against the "
-            "signed-in person's own clothes."
+            "Every row carries the moment it was really checked."
         ),
     ),
     retrieve=extend_schema(tags=["Shopping"], summary="One product, as last seen"),
@@ -79,12 +77,6 @@ class DealViewSet(viewsets.ReadOnlyModelViewSet):
         # somebody a link to a page a shop has taken down is worse than showing
         # them nothing.
         return Deal.objects.listed().select_related("shop", "category")
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        if self.request.user.is_authenticated:
-            context["closet"] = advice.closet_for(self.request.user)
-        return context
 
     @extend_schema(
         tags=["Shopping"],
@@ -162,6 +154,17 @@ class FilterOptionsView(APIView):
     def get(self, request):
         listed = Deal.objects.listed()
 
+        # Everything, women, men, kids. Counted so a tab that would show an
+        # empty page can say so before it is tapped.
+        audiences = [
+            {
+                "value": row["audience"],
+                "label": Deal.Audience(row["audience"]).label,
+                "count": row["n"],
+            }
+            for row in listed.values("audience").annotate(n=Count("id")).order_by("-n")
+        ]
+
         slots = [
             {"value": row["slot"], "label": _slot_label(row["slot"]), "count": row["n"]}
             for row in listed.values("slot").annotate(n=Count("id")).order_by("-n")
@@ -206,9 +209,9 @@ class FilterOptionsView(APIView):
         ]
 
         span = listed.aggregate(low=Min("price"), high=Max("price"))
-        closet = advice.closet_for(request.user)
 
         return Response({
+            "audiences": audiences,
             "slots": slots,
             "categories": categories,
             "shops": shops,
@@ -216,7 +219,6 @@ class FilterOptionsView(APIView):
             "sizes": sizes,
             "price_floor": int(span["low"] or 0),
             "price_ceiling": int(span["high"] or 0),
-            "empty_slots": advice.empty_slots(closet),
         })
 
 

@@ -58,6 +58,8 @@ function deal(overrides: Partial<Deal> = {}): Deal {
     slot_label: "Top",
     color_name: "Navy",
     color_hex: "#1b2f55",
+    audience: "MEN",
+    audience_label: "Men",
     price: "1490.00",
     was_price: "5990.00",
     discount_percent: 75,
@@ -67,16 +69,16 @@ function deal(overrides: Partial<Deal> = {}): Deal {
     checked_at: "2026-09-15T08:00:00Z",
     price_fell_at: null,
     just_dropped: false,
-    fills_gap: false,
-    already_owned: false,
-    owned_count: 0,
-    owned_item_id: null,
-    closet_note: "",
     ...overrides,
   };
 }
 
 const OPTIONS: FilterOptions = {
+  audiences: [
+    { value: "WOMEN", label: "Women", count: 4815 },
+    { value: "MEN", label: "Men", count: 1335 },
+    { value: "KIDS", label: "Kids", count: 1053 },
+  ],
   slots: [{ value: "TOP", label: "Tops", count: 1400 }],
   categories: [{ value: "2", label: "Shirt", count: 470 }],
   shops: [{ value: "outfitters", label: "Outfitters", count: 967 }],
@@ -84,7 +86,6 @@ const OPTIONS: FilterOptions = {
   sizes: [{ value: "M", label: "M", count: 792 }],
   price_floor: 119,
   price_ceiling: 144155,
-  empty_slots: ["FOOTWEAR", "OUTERWEAR"],
 };
 
 const FRESHNESS: Freshness = {
@@ -149,20 +150,27 @@ describe("Sales page", () => {
 
   it("turns a quick choice into a real filter", async () => {
     render(<ShopPage />);
-    await userEvent.click(screen.getByRole("button", { name: /only what i am missing/i }));
-    expect(lastFilters().fills_gap).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: /in stock only/i }));
+    expect(lastFilters().in_stock).toBe(true);
   });
 
   it("marks a quick choice that is on, so it can be seen and undone", async () => {
     render(<ShopPage />);
-    const chip = screen.getByRole("button", { name: /hide what i already own/i });
+    const chip = screen.getByRole("button", { name: /in stock only/i });
     expect(chip).toHaveAttribute("aria-pressed", "false");
 
     await userEvent.click(chip);
     expect(chip).toHaveAttribute("aria-pressed", "true");
 
     await userEvent.click(chip);
-    expect(lastFilters().hide_owned).toBe(false);
+    expect(lastFilters().in_stock).toBe(false);
+  });
+
+  it("never offers to match against the closet", () => {
+    render(<ShopPage />);
+    expect(screen.queryByText(/what i am missing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/already own/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/match to my closet/i)).not.toBeInTheDocument();
   });
 
   it("offers half price in one tap", async () => {
@@ -173,21 +181,66 @@ describe("Sales page", () => {
 
   it("says how many filters are on and clears them all at once", async () => {
     render(<ShopPage />);
-    await userEvent.click(screen.getByRole("button", { name: /only what i am missing/i }));
+    await userEvent.click(screen.getByRole("button", { name: /half price or better/i }));
     await userEvent.click(screen.getByRole("button", { name: /in stock only/i }));
 
     const reset = screen.getAllByRole("button", { name: /clear 2 filters/i })[0];
     await userEvent.click(reset);
 
-    expect(lastFilters().fills_gap).toBeUndefined();
+    expect(lastFilters().min_discount).toBeUndefined();
     expect(lastFilters().in_stock).toBeUndefined();
     // The page's own starting point is not counted as a filter somebody set.
     expect(lastFilters().on_sale).toBe(true);
   });
 
-  it("tells somebody which parts of their closet are empty", () => {
+  it("starts on everyone, so nothing is hidden before a choice is made", () => {
     render(<ShopPage />);
-    expect(screen.getAllByText(/you own nothing for 2 parts of an outfit/i).length).toBeGreaterThan(0);
+    expect(lastFilters().audience).toBeUndefined();
+    expect(screen.getByRole("tab", { name: /everyone/i })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("narrows to one audience when a tab is tapped", async () => {
+    render(<ShopPage />);
+    await userEvent.click(screen.getByRole("tab", { name: /women/i }));
+    expect(lastFilters().audience).toBe("WOMEN");
+  });
+
+  it("drops the narrower filters when the audience changes", async () => {
+    // A size that exists in menswear may not exist in the kids range, and a
+    // page that goes empty on a tap looks broken.
+    render(<ShopPage />);
+    await userEvent.click(screen.getByRole("button", { name: /half price or better/i }));
+    expect(lastFilters().min_discount).toBe(50);
+
+    await userEvent.click(screen.getByRole("tab", { name: /kids/i }));
+    expect(lastFilters().audience).toBe("KIDS");
+    expect(lastFilters().min_discount).toBeUndefined();
+  });
+
+  it("keeps what was typed when the audience changes", async () => {
+    render(<ShopPage />);
+    await userEvent.type(screen.getByLabelText(/search the sales/i), "kurta");
+    await waitFor(() => expect(lastFilters().search).toBe("kurta"));
+
+    await userEvent.click(screen.getByRole("tab", { name: /^men/i }));
+    expect(lastFilters().search).toBe("kurta");
+    expect(lastFilters().audience).toBe("MEN");
+  });
+
+  it("does not count the chosen audience as a filter to clear", async () => {
+    render(<ShopPage />);
+    await userEvent.click(screen.getByRole("tab", { name: /women/i }));
+    expect(screen.getAllByRole("button", { name: /no filters are on/i }).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the audience when the filters are cleared", async () => {
+    render(<ShopPage />);
+    await userEvent.click(screen.getByRole("tab", { name: /^men/i }));
+    await userEvent.click(screen.getByRole("button", { name: /in stock only/i }));
+
+    await userEvent.click(screen.getAllByRole("button", { name: /clear 1 filter/i })[0]);
+    expect(lastFilters().in_stock).toBeUndefined();
+    expect(lastFilters().audience).toBe("MEN");
   });
 
   it("loads more rather than making somebody guess at page numbers", async () => {
@@ -206,11 +259,11 @@ describe("Sales page", () => {
   it("offers a way out when nothing matched", async () => {
     dealsState = { ...dealsState, results: [], count: 0 };
     render(<ShopPage />);
-    await userEvent.click(screen.getByRole("button", { name: /only what i am missing/i }));
+    await userEvent.click(screen.getByRole("button", { name: /in stock only/i }));
 
     expect(screen.getByText(/nothing matched/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /clear the filters/i }));
-    expect(lastFilters().fills_gap).toBeUndefined();
+    expect(lastFilters().in_stock).toBeUndefined();
   });
 
   it("explains an empty database rather than showing an empty grid", () => {

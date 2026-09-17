@@ -41,34 +41,8 @@ export function FilterPanel({
   onClear,
   activeCount,
 }: FilterPanelProps) {
-  const missing = options?.empty_slots ?? [];
-
   return (
     <div className="space-y-6">
-      <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold">Match to my closet</legend>
-
-        <SwitchRow
-          id="fills-gap"
-          label="Only what I have nothing for"
-          hint={
-            missing.length
-              ? `You own nothing for ${missing.length} ${missing.length === 1 ? "part" : "parts"} of an outfit.`
-              : "You already own something for every part of an outfit."
-          }
-          checked={Boolean(filters.fills_gap)}
-          onChange={(fills_gap) => onChange({ fills_gap })}
-        />
-
-        <SwitchRow
-          id="hide-owned"
-          label="Hide things like what I own"
-          hint="Leaves out anything close to a colour you already have there."
-          checked={Boolean(filters.hide_owned)}
-          onChange={(hide_owned) => onChange({ hide_owned })}
-        />
-      </fieldset>
-
       <fieldset className="space-y-4">
         <legend className="text-sm font-semibold">Price</legend>
 

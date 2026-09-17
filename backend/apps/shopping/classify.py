@@ -273,12 +273,27 @@ _COLOR_PATTERNS = [
 ]
 
 
+# Who a thing is meant for. The shops say so themselves, usually in their tags
+# and in the vendor line, so this is read rather than guessed. Anything that
+# does not say stays UNKNOWN and shows only under "everything", because putting
+# a man's shirt in the women's tab is worse than leaving it out of both.
+KIDS_WORDS = ["kid", "junior", "toddler", "boy", "girl", "baby", "infant",
+              "child", "children", "btk", "btkids"]
+MEN_WORDS = ["men", "man", "gents", "gentlemen", "male", "mens", "menswear"]
+WOMEN_WORDS = ["women", "woman", "ladies", "lady", "female", "womens", "womenswear"]
+
+_KIDS_PATTERNS = [_pattern(w) for w in KIDS_WORDS]
+_MEN_PATTERNS = [_pattern(w) for w in MEN_WORDS]
+_WOMEN_PATTERNS = [_pattern(w) for w in WOMEN_WORDS]
+
+
 @dataclass(frozen=True)
 class Reading:
     category_name: str
     slot: str
     color_name: str
     color_hex: str
+    audience: str = "UNKNOWN"
 
 
 def is_clothing(text: str) -> bool:
@@ -315,6 +330,41 @@ def read_kind(text: str) -> tuple[str, str]:
     return "", Slot.OTHER
 
 
+def read_audience(product) -> str:
+    """
+    Who the shop says a thing is for.
+
+    Children come first on purpose: "Girls Junior" and "Boys Toddler" are the
+    children's half of a shop that also sells to adults, and the child is the
+    fact that matters. After that, women are tested before men on each piece
+    of text, because "womenswear" would otherwise be read as menswear by
+    anything looking for the shorter word.
+
+    Tags carry this better than anything else, because a shop files a product
+    under its own department before it writes a title.
+    """
+    sources = [
+        " ".join(product.tags or []),
+        product.vendor,
+        product.shop_category,
+        product.title,
+    ]
+
+    for text in sources:
+        flat = _flatten(text)
+        if any(p.search(flat) for p in _KIDS_PATTERNS):
+            return "KIDS"
+
+    for text in sources:
+        flat = _flatten(text)
+        if any(p.search(flat) for p in _WOMEN_PATTERNS):
+            return "WOMEN"
+        if any(p.search(flat) for p in _MEN_PATTERNS):
+            return "MEN"
+
+    return "UNKNOWN"
+
+
 def read(product) -> Reading | None:
     """
     Everything we can tell about one product from its own words, or None when
@@ -333,8 +383,10 @@ def read(product) -> Reading | None:
 
     color_name, color_hex = read_color(product.title)
 
+    audience = read_audience(product)
+
     if is_unstitched(plain):
-        return Reading(UNSTITCHED_CATEGORY, Slot.OTHER, color_name, color_hex)
+        return Reading(UNSTITCHED_CATEGORY, Slot.OTHER, color_name, color_hex, audience)
 
     category_name, slot = read_kind(product.shop_category)
     if slot == Slot.OTHER:
@@ -342,7 +394,7 @@ def read(product) -> Reading | None:
     if slot == Slot.OTHER and product.tags:
         category_name, slot = read_kind(" ".join(product.tags))
 
-    return Reading(category_name, slot, color_name, color_hex)
+    return Reading(category_name, slot, color_name, color_hex, audience)
 
 
 def system_categories() -> dict[str, Category]:

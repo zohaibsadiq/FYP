@@ -39,6 +39,17 @@ class Shop(models.Model):
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveSmallIntegerField(default=100)
 
+    # Some shops sell to one half of the market only and never say so on the
+    # product itself. Set this for those, and leave it empty for any shop that
+    # sells to more than one, where assuming would put a man's shirt in the
+    # women's tab. It is only ever used when the product's own words say
+    # nothing.
+    default_audience = models.CharField(
+        max_length=10,
+        blank=True,
+        help_text="Who this shop sells to, when a product does not say. Leave empty if it sells to everyone.",
+    )
+
     # Some shops ask for a gap between requests in their robots file. Honouring
     # it is the difference between reading a catalogue and hammering a server.
     request_gap_seconds = models.FloatField(
@@ -101,6 +112,12 @@ class Deal(models.Model):
     times is not a useful page. The sizes still in stock ride along.
     """
 
+    class Audience(models.TextChoices):
+        WOMEN = "WOMEN", "Women"
+        MEN = "MEN", "Men"
+        KIDS = "KIDS", "Kids"
+        UNKNOWN = "UNKNOWN", "Not stated"
+
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="deals")
 
     # The shop's own id for the product. Paired with the shop it is unique, and
@@ -134,6 +151,13 @@ class Deal(models.Model):
 
     color_name = models.CharField(max_length=40, blank=True)
     color_hex = models.CharField(max_length=7, blank=True)
+
+    audience = models.CharField(
+        max_length=10,
+        choices=Audience.choices,
+        default=Audience.UNKNOWN,
+        help_text="Who the shop says it is for. Unknown when the shop did not say.",
+    )
 
     price = models.DecimalField(max_digits=10, decimal_places=2)
     was_price = models.DecimalField(
@@ -174,6 +198,7 @@ class Deal(models.Model):
             models.Index(fields=["is_listed", "-discount_percent"], name="deal_best_discount"),
             models.Index(fields=["is_listed", "price"], name="deal_cheapest"),
             models.Index(fields=["is_listed", "slot"], name="deal_by_slot"),
+            models.Index(fields=["is_listed", "audience"], name="deal_by_audience"),
             models.Index(fields=["is_listed", "-price_fell_at"], name="deal_just_dropped"),
         ]
 

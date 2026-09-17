@@ -8,7 +8,6 @@ from rest_framework import serializers
 
 from apps.wardrobe.models import Category
 
-from . import advice
 from .filters import JUST_DROPPED_DAYS
 from .models import Deal, Shop
 
@@ -38,16 +37,9 @@ class DealSerializer(serializers.ModelSerializer):
 
     category_name = serializers.SerializerMethodField()
     slot_label = serializers.SerializerMethodField()
+    audience_label = serializers.CharField(source="get_audience_display", read_only=True)
     saving = serializers.SerializerMethodField()
     just_dropped = serializers.SerializerMethodField()
-
-    # What this particular product means for the person looking at it. Filled
-    # from a single reading of their closet held in the serializer context.
-    fills_gap = serializers.SerializerMethodField()
-    already_owned = serializers.SerializerMethodField()
-    owned_count = serializers.SerializerMethodField()
-    owned_item_id = serializers.SerializerMethodField()
-    closet_note = serializers.SerializerMethodField()
 
     class Meta:
         model = Deal
@@ -55,11 +47,10 @@ class DealSerializer(serializers.ModelSerializer):
             "id", "title", "url", "image_url", "vendor",
             "shop_name", "shop_slug", "currency",
             "shop_category", "category", "category_name", "slot", "slot_label",
-            "color_name", "color_hex",
+            "color_name", "color_hex", "audience", "audience_label",
             "price", "was_price", "discount_percent", "saving",
             "sizes", "in_stock",
             "checked_at", "price_fell_at", "just_dropped",
-            "fills_gap", "already_owned", "owned_count", "owned_item_id", "closet_note",
         ]
 
     @extend_schema_field(serializers.CharField)
@@ -83,37 +74,6 @@ class DealSerializer(serializers.ModelSerializer):
         if obj.price_fell_at is None:
             return False
         return obj.price_fell_at >= timezone.now() - timezone.timedelta(days=JUST_DROPPED_DAYS)
-
-    def _verdict(self, obj) -> dict:
-        closet = self.context.get("closet")
-        if closet is None:
-            return {"fills_gap": False, "already_owned": False, "owned_count": 0,
-                    "owned_item_id": None, "note": ""}
-
-        cache = self.context.setdefault("_verdicts", {})
-        if obj.pk not in cache:
-            cache[obj.pk] = advice.verdict_for(obj, closet)
-        return cache[obj.pk]
-
-    @extend_schema_field(serializers.BooleanField)
-    def get_fills_gap(self, obj) -> bool:
-        return self._verdict(obj)["fills_gap"]
-
-    @extend_schema_field(serializers.BooleanField)
-    def get_already_owned(self, obj) -> bool:
-        return self._verdict(obj)["already_owned"]
-
-    @extend_schema_field(serializers.IntegerField)
-    def get_owned_count(self, obj) -> int:
-        return self._verdict(obj)["owned_count"]
-
-    @extend_schema_field(serializers.IntegerField(allow_null=True))
-    def get_owned_item_id(self, obj):
-        return self._verdict(obj)["owned_item_id"]
-
-    @extend_schema_field(serializers.CharField)
-    def get_closet_note(self, obj) -> str:
-        return self._verdict(obj)["note"]
 
 
 class PriceChangeSerializer(serializers.Serializer):
@@ -150,6 +110,7 @@ class FacetSerializer(serializers.Serializer):
 class FiltersSerializer(serializers.Serializer):
     """Everything the filter panel needs, counted against what is actually listed."""
 
+    audiences = FacetSerializer(many=True)
     slots = FacetSerializer(many=True)
     categories = FacetSerializer(many=True)
     shops = FacetSerializer(many=True)
@@ -157,7 +118,3 @@ class FiltersSerializer(serializers.Serializer):
     sizes = FacetSerializer(many=True)
     price_floor = serializers.IntegerField()
     price_ceiling = serializers.IntegerField()
-    empty_slots = serializers.ListField(
-        child=serializers.CharField(),
-        help_text="Slots this person owns nothing for, so the screen can offer to show only those.",
-    )

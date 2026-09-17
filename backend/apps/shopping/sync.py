@@ -33,6 +33,7 @@ REFRESHED = [
     "slot",
     "color_name",
     "color_hex",
+    "audience",
     "price",
     "was_price",
     "discount_percent",
@@ -56,6 +57,11 @@ def _apply(deal: Deal, product: RawProduct, reading, shop: Shop, categories: dic
     deal.slot = reading.slot
     deal.color_name = reading.color_name
     deal.color_hex = reading.color_hex
+    # The shop's house default fills in only where the product itself was
+    # silent, so anything the product did say always wins.
+    deal.audience = reading.audience
+    if reading.audience == Deal.Audience.UNKNOWN and shop.default_audience:
+        deal.audience = shop.default_audience
     deal.price = product.price
     deal.was_price = product.was_price
     deal.discount_percent = product.discount_percent

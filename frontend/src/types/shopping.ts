@@ -1,5 +1,15 @@
 import type { Slot } from "./wardrobe";
 
+export type Audience = "WOMEN" | "MEN" | "KIDS" | "UNKNOWN";
+
+/** The tabs across the top of the page. "" means everything. */
+export const AUDIENCE_TABS: { value: Audience | ""; label: string }[] = [
+  { value: "", label: "Everyone" },
+  { value: "WOMEN", label: "Women" },
+  { value: "MEN", label: "Men" },
+  { value: "KIDS", label: "Kids" },
+];
+
 /** One product in one shop, at the price it was last seen at. */
 export interface Deal {
   id: number;
@@ -23,6 +33,10 @@ export interface Deal {
   color_name: string;
   color_hex: string;
 
+  /** Who the shop says it is for. UNKNOWN when the shop did not say. */
+  audience: Audience;
+  audience_label: string;
+
   price: string;
   /** The price it was cut from. Null when the shop is not calling it a sale. */
   was_price: string | null;
@@ -35,15 +49,6 @@ export interface Deal {
   checked_at: string;
   price_fell_at: string | null;
   just_dropped: boolean;
-
-  /** True when nothing in the closet is worn where this would be. */
-  fills_gap: boolean;
-  /** True when something close to this is already owned. */
-  already_owned: boolean;
-  owned_count: number;
-  owned_item_id: number | null;
-  /** Ready to print, e.g. "You already own 2 in this colour, including Blue jeans." */
-  closet_note: string;
 }
 
 export interface PriceChange {
@@ -85,6 +90,7 @@ export interface Facet {
 }
 
 export interface FilterOptions {
+  audiences: Facet[];
   slots: Facet[];
   categories: Facet[];
   shops: Facet[];
@@ -92,12 +98,11 @@ export interface FilterOptions {
   sizes: Facet[];
   price_floor: number;
   price_ceiling: number;
-  /** Slots this person owns nothing for. */
-  empty_slots: Slot[];
 }
 
 export interface DealFilters {
   search?: string;
+  audience?: Audience | "";
   slot?: Slot | "";
   category?: string;
   shop?: string;
@@ -109,8 +114,6 @@ export interface DealFilters {
   on_sale?: boolean;
   in_stock?: boolean;
   just_dropped?: boolean;
-  fills_gap?: boolean;
-  hide_owned?: boolean;
   ordering?: string;
   page?: number;
 }

@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowDown, ExternalLink, Shirt, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowDown, ExternalLink, Shirt } from "lucide-react";
 
 import { PriceHistory } from "@/components/shop/price-history";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +19,9 @@ export function DealCard({ deal }: { deal: Deal }) {
   return (
     <article
       className={cn(
-        "flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md",
+        // h-full so every card in a row is the same height. Without it each
+        // one shrinks to its own text and the grid looks ragged.
+        "flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md",
         !deal.in_stock && "opacity-75",
       )}
     >
@@ -66,7 +67,10 @@ export function DealCard({ deal }: { deal: Deal }) {
           {deal.shop_name}
         </p>
 
-        <h3 className="line-clamp-2 text-sm font-medium leading-snug" title={deal.title}>
+        <h3
+          className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug"
+          title={deal.title}
+        >
           {deal.title}
         </h3>
 
@@ -112,53 +116,20 @@ export function DealCard({ deal }: { deal: Deal }) {
           <PriceHistory dealId={deal.id} currency={deal.currency} />
         ) : null}
 
-        <ClosetNote deal={deal} />
-
         <a
           href={deal.url}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-auto inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Buy at {deal.shop_name}
+          {/* The whole spoken label lives in one place. Split across a text
+              node and a hidden span, the two ran together as "Buyat Outfitters"
+              with no space between them. */}
+          <span aria-hidden>Buy</span>
           <ExternalLink className="size-4" aria-hidden />
-          <span className="sr-only">(opens the shop in a new tab)</span>
+          <span className="sr-only">Buy at {deal.shop_name} (opens the shop in a new tab)</span>
         </a>
       </div>
     </article>
-  );
-}
-
-/**
- * The one thing a shop's own page cannot tell somebody. Only printed when it
- * was actually worked out from their clothes, never as a filler line.
- */
-function ClosetNote({ deal }: { deal: Deal }) {
-  if (!deal.closet_note) return null;
-
-  if (deal.fills_gap) {
-    return (
-      <p className="flex items-start gap-1.5 rounded-lg bg-primary/10 p-2 text-xs text-foreground">
-        <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
-        {deal.closet_note}
-      </p>
-    );
-  }
-
-  return (
-    <p className="flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-xs text-foreground">
-      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600" aria-hidden />
-      <span>
-        {deal.closet_note}{" "}
-        {deal.owned_item_id ? (
-          <Link
-            href={`/closet/${deal.owned_item_id}`}
-            className="font-medium text-primary underline-offset-2 hover:underline"
-          >
-            See it
-          </Link>
-        ) : null}
-      </span>
-    </p>
   );
 }

@@ -21,6 +21,8 @@ function deal(overrides: Partial<Deal> = {}): Deal {
     slot_label: "Top",
     color_name: "Navy",
     color_hex: "#1b2f55",
+    audience: "MEN",
+    audience_label: "Men",
     price: "1490.00",
     was_price: "5990.00",
     discount_percent: 75,
@@ -30,11 +32,6 @@ function deal(overrides: Partial<Deal> = {}): Deal {
     checked_at: "2026-09-15T08:00:00Z",
     price_fell_at: null,
     just_dropped: false,
-    fills_gap: false,
-    already_owned: false,
-    owned_count: 0,
-    owned_item_id: null,
-    closet_note: "",
     ...overrides,
   };
 }
@@ -102,34 +99,13 @@ describe("DealCard", () => {
     expect(screen.getByText(/price just dropped/i)).toBeInTheDocument();
   });
 
-  it("points out something the closet has nothing for", () => {
-    render(
-      <DealCard
-        deal={deal({ fills_gap: true, closet_note: "You have nothing in your closet for this." })}
-      />,
-    );
-    expect(screen.getByText(/nothing in your closet for this/i)).toBeInTheDocument();
-  });
-
-  it("warns when something close is already owned, and links to it", () => {
-    render(
-      <DealCard
-        deal={deal({
-          already_owned: true,
-          owned_count: 2,
-          owned_item_id: 7,
-          closet_note: "You already own 2 in this colour, including Navy shirt.",
-        })}
-      />,
-    );
-    expect(screen.getByText(/already own 2 in this colour/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /see it/i })).toHaveAttribute("href", "/closet/7");
-  });
-
-  it("says nothing about the closet when nothing was worked out", () => {
+  it("says nothing at all about the closet", () => {
+    // Matching against what somebody owns was taken off the cards; the card
+    // shows the shop's own facts and nothing inferred.
     render(<DealCard deal={deal()} />);
+    expect(screen.queryByText(/closet/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/already own/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/nothing in your closet/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /see it/i })).not.toBeInTheDocument();
   });
 
   it("shows what kind of thing it is and its colour", () => {

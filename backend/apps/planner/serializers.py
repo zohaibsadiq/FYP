@@ -96,6 +96,17 @@ class PlannedOutfitSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"A day can hold up to {PlannedOutfit.MAX_ITEMS} things."
             )
+
+        # A plan is for clothes somebody has. Naming the item beats a bare
+        # "invalid" when the reason is that they sold it last week.
+        gone = [i for i in value if i.status in GarmentItem.GONE_STATUSES]
+        if gone:
+            names = ", ".join(i.name for i in gone)
+            raise serializers.ValidationError(
+                f"{names} is not in your closet any more, so it cannot be planned."
+                if len(gone) == 1
+                else f"{names} are not in your closet any more, so they cannot be planned."
+            )
         if len({item.id for item in value}) != len(value):
             raise serializers.ValidationError("The same thing is listed twice.")
         return value

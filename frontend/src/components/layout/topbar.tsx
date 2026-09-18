@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { LogOut, Settings, Shirt } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -69,9 +71,9 @@ export function Topbar() {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem disabled>
+          <DropdownMenuItem render={<Link href="/profile" />}>
             <Settings className="size-4" />
-            Profile settings
+            My details
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

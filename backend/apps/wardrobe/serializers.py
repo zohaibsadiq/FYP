@@ -12,6 +12,11 @@ from rest_framework import serializers
 from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
+def _still_owned(items):
+    """Counts describe what somebody has, so sold and put-away things are out."""
+    return items.exclude(status__in=GarmentItem.GONE_STATUSES)
+
+
 def _item_count(obj, related) -> int:
     """
     The list views annotate item_count. A row that has just been created has not
@@ -20,7 +25,7 @@ def _item_count(obj, related) -> int:
     between POST and GET.
     """
     annotated = getattr(obj, "item_count", None)
-    return annotated if annotated is not None else related.count()
+    return annotated if annotated is not None else _still_owned(related).count()
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -141,8 +146,12 @@ class StorageLocationTreeSerializer(serializers.ModelSerializer):
         ).data
 
     def get_item_count(self, obj: StorageLocation) -> int:
-        """Items directly in this location, not counting sub-locations."""
-        return obj.items.count()
+        """
+        Items directly in this location, not counting sub-locations. The view
+        prefetches these already filtered, so len() reads the cache rather than
+        firing one more query for every branch of the tree.
+        """
+        return len(obj.items.all())
 
 
 class GarmentItemListSerializer(serializers.ModelSerializer):

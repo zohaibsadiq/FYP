@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  Archive,
   ArrowLeft,
   Check,
   Heart,
@@ -43,6 +44,7 @@ import {
   useGarment,
   useRecordWear,
   useStorageLocations,
+  useToggleArchived,
   useToggleFavorite,
   useToggleLaundry,
   useUpdateGarment,
@@ -137,10 +139,12 @@ function Details({
   const recordWear = useRecordWear();
   const toggleLaundry = useToggleLaundry();
   const toggleFavorite = useToggleFavorite();
+  const toggleArchived = useToggleArchived();
   const remove = useDeleteGarment();
   const [confirming, setConfirming] = useState(false);
 
   const inWash = item.status === "IN_LAUNDRY";
+  const putAway = item.status === "ARCHIVED";
 
   function run(action: { mutate: (id: number, opts: object) => void }, message: string) {
     action.mutate(item.id, {
@@ -295,6 +299,31 @@ function Details({
         <Button type="button" onClick={onEdit} className="h-11 gap-2 px-5">
           <Pencil className="size-4" aria-hidden />
           Change details
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={toggleArchived.isPending}
+          onClick={() =>
+            toggleArchived.mutate(
+              { id: item.id, archived: !putAway },
+              {
+                onSuccess: () =>
+                  toast.success(
+                    putAway
+                      ? "Back in your closet."
+                      : "Put away. You will find it under Sold and put away.",
+                  ),
+                onError: (e: unknown) =>
+                  toast.error(getErrorMessage(e, "That did not save. Try again.")),
+              },
+            )
+          }
+          className="h-11 gap-2 px-5"
+        >
+          <Archive className="size-4" aria-hidden />
+          {putAway ? "Bring it back" : "Put it away"}
         </Button>
 
         <Button

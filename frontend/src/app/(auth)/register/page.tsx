@@ -10,8 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegister } from "@/hooks/use-auth";
 import { getErrorMessage, getFieldErrors } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { SHOPPING_FOR, SHOPPING_FOR_LABELS, type ShoppingFor } from "@/types";
 
 export default function RegisterPage() {
+  const [shoppingFor, setShoppingFor] = useState<ShoppingFor>("EVERYTHING");
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -44,6 +47,7 @@ export default function RegisterPage() {
     register.mutate(
       {
         ...form,
+        shopping_for: shoppingFor,
         email: form.email.trim().toLowerCase(),
         // The signup endpoint requires a country and PK is the only market so far.
         country_code: "PK",
@@ -110,6 +114,32 @@ export default function RegisterPage() {
           error={fieldErrors.city}
           required
         />
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Whose clothes do you want to see?</legend>
+          <p className="text-xs text-muted-foreground">
+            Only decides which section each page opens on. You can change it whenever you
+            like.
+          </p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            {SHOPPING_FOR.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setShoppingFor(option)}
+                aria-pressed={shoppingFor === option}
+                className={cn(
+                  "min-h-11 rounded-lg border px-3 text-sm transition-colors",
+                  shoppingFor === option
+                    ? "border-primary bg-primary/10 font-medium"
+                    : "border-border hover:border-primary hover:bg-accent",
+                )}
+              >
+                {SHOPPING_FOR_LABELS[option]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
         <Field
           id="password"

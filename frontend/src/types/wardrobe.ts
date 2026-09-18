@@ -238,6 +238,8 @@ export interface GarmentPayload {
 
 /** Query params accepted by apps/wardrobe/filters.py. */
 export interface GarmentFilters {
+  /** Only things sold or put away, which the list otherwise leaves out. */
+  gone?: boolean;
   search?: string;
   slot?: Slot;
   category?: number;
@@ -261,6 +263,8 @@ export interface WardrobeStats {
   total: number;
   in_wardrobe: number;
   in_laundry: number;
+  /** Sold or put away. Deliberately not part of `total`, which is what you still own. */
+  gone: number;
   favorites: number;
   unplaced: number;
   never_worn: number;

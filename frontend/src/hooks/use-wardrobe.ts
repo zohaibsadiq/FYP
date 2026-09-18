@@ -223,6 +223,31 @@ function useItemAction(path: string, touchesHistory = false) {
   });
 }
 
+/**
+ * Puts something away, or brings it back.
+ *
+ * A thing put away is still owned but is out of the wardrobe: it leaves the
+ * clothes list, stops being suggested and stops being counted. It changes the
+ * status rather than calling an action of its own, because the status is the
+ * whole of what it means.
+ */
+export function useToggleArchived() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, archived }: { id: number; archived: boolean }) => {
+      const { data } = await api.patch<Garment>(`/wardrobe/items/${id}/`, {
+        status: archived ? "ARCHIVED" : "IN_WARDROBE",
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(wardrobeKeys.item(data.id), data);
+      queryClient.invalidateQueries({ queryKey: wardrobeKeys.items() });
+      queryClient.invalidateQueries({ queryKey: wardrobeKeys.stats() });
+    },
+  });
+}
+
 export const useMarkWorn = () => useItemAction("mark-worn", true);
 export const useToggleLaundry = () => useItemAction("toggle-laundry");
 export const useToggleFavorite = () => useItemAction("toggle-favorite");

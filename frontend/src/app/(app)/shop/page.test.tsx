@@ -18,6 +18,12 @@ let dealsState: {
 let freshnessState: Freshness | undefined;
 let optionsState: FilterOptions | undefined;
 
+let shoppingFor = "EVERYTHING";
+
+vi.mock("@/hooks/use-auth", () => ({
+  useCurrentUser: () => ({ data: { shopping_for: shoppingFor } }),
+}));
+
 vi.mock("@/hooks/use-shopping", () => ({
   useDeals: (filters: DealFilters) => {
     seenFilters.push(filters);
@@ -105,6 +111,7 @@ function lastFilters(): DealFilters {
 }
 
 beforeEach(() => {
+  shoppingFor = "EVERYTHING";
   fetchNextPage.mockReset();
   seenFilters.length = 0;
   dealsState = { results: [deal()], count: 4325, isPending: false, isError: false, hasNextPage: true };
@@ -197,6 +204,32 @@ describe("Sales page", () => {
     render(<ShopPage />);
     expect(lastFilters().audience).toBeUndefined();
     expect(screen.getByRole("tab", { name: /everyone/i })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("opens on whatever the person usually shops for", () => {
+    shoppingFor = "MEN";
+    render(<ShopPage />);
+    expect(lastFilters().audience).toBe("MEN");
+    expect(screen.getByRole("tab", { name: /^men/i })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("opens on everything for somebody who did not pick a side", () => {
+    shoppingFor = "EVERYTHING";
+    render(<ShopPage />);
+    expect(lastFilters().audience).toBeUndefined();
+  });
+
+  it("lets the preference be overridden, and keeps the override", async () => {
+    shoppingFor = "WOMEN";
+    render(<ShopPage />);
+    expect(lastFilters().audience).toBe("WOMEN");
+
+    await userEvent.click(screen.getByRole("tab", { name: /everyone/i }));
+    expect(lastFilters().audience).toBeUndefined();
+    expect(screen.getByRole("tab", { name: /everyone/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("narrows to one audience when a tab is tapped", async () => {

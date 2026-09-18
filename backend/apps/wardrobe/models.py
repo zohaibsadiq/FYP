@@ -218,9 +218,16 @@ class GarmentItem(models.Model):
         LENT_OUT = "LENT_OUT", "Lent to a friend"
         FOR_SALE = "FOR_SALE", "Listed for sale"
         SOLD = "SOLD", "Sold"
-        ARCHIVED = "ARCHIVED", "Archived"
+        # "Put away" rather than "Archived": the whole app says put away, and
+        # this label is what every screen and refusal message reads out.
+        ARCHIVED = "ARCHIVED", "Put away"
 
     WEARABLE_STATUSES = [Status.IN_WARDROBE]
+
+    # Things somebody no longer has. They stay as rows so a sale keeps its
+    # history and a wear log does not develop holes, but they are not part of
+    # the wardrobe any more and are left out of it unless asked for by name.
+    GONE_STATUSES = [Status.SOLD, Status.ARCHIVED]
 
     class Season(models.TextChoices):
         SUMMER = "SUMMER", "Summer"

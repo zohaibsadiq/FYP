@@ -27,6 +27,7 @@ urlpatterns = [
     path("api/wardrobe/", include("apps.wardrobe.urls")),
     path("api/planner/", include("apps.planner.urls")),
     path("api/shopping/", include("apps.shopping.urls")),
+    path("api/market/", include("apps.community.urls")),
 ]
 
 if settings.DEBUG:

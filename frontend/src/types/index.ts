@@ -1,5 +1,16 @@
 // A field added to a serializer belongs here in the same commit.
 
+/** Which part of a clothes shop to open on. Not a claim about anybody. */
+export const SHOPPING_FOR = ["WOMEN", "MEN", "KIDS", "EVERYTHING"] as const;
+export type ShoppingFor = (typeof SHOPPING_FOR)[number];
+
+export const SHOPPING_FOR_LABELS: Record<ShoppingFor, string> = {
+  WOMEN: "Women's clothes",
+  MEN: "Men's clothes",
+  KIDS: "Children's clothes",
+  EVERYTHING: "Everything",
+};
+
 export interface User {
   id: number;
   email: string;
@@ -7,6 +18,10 @@ export interface User {
   display_name: string;
   city: string;
   country_code: string;
+  /** Which clothes to show first. Every page can still be switched. */
+  shopping_for: ShoppingFor;
+  /** Given to one person only, when a sale is agreed. Never listed publicly. */
+  phone: string;
   body_photo_url: string;
   has_body_photo: boolean;
   date_joined: string;
@@ -34,6 +49,7 @@ export interface RegisterPayload {
   password_confirm: string;
   city?: string;
   country_code?: string;
+  shopping_for?: ShoppingFor;
 }
 
 /** Envelope around every list endpoint; page size is set in settings.py. */

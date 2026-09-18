@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-auth";
 import { useDeals, useFilterOptions, useFreshness } from "@/hooks/use-shopping";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,17 @@ const STARTING_FILTERS: DealFilters = { on_sale: true, ordering: "-discount_perc
 const BY_DEFAULT = new Set(["on_sale", "ordering", "audience"]);
 
 export default function ShopPage() {
+  const { data: me } = useCurrentUser();
+
+  // Opens on whatever this person usually shops for. "Everything" and a
+  // profile that has not loaded both mean no narrowing, which is the safe
+  // way round: showing too much is recoverable, hiding things is not.
+  const preferred =
+    me?.shopping_for && me.shopping_for !== "EVERYTHING"
+      ? (me.shopping_for as Audience)
+      : undefined;
+  const [touchedAudience, setTouchedAudience] = useState(false);
+
   const [filters, setFilters] = useState<DealFilters>(STARTING_FILTERS);
   const [typed, setTyped] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -47,10 +59,12 @@ export default function ShopPage() {
     return () => clearTimeout(timer);
   }, [typed]);
 
+  const audience = touchedAudience ? filters.audience : (filters.audience ?? preferred);
+
   const { data: freshness } = useFreshness();
   const { data: options } = useFilterOptions();
   const { data, isPending, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useDeals(filters);
+    useDeals({ ...filters, audience });
 
   const deals = useMemo(() => data?.pages.flatMap((page) => page.results) ?? [], [data]);
   const total = data?.pages[0]?.count ?? 0;
@@ -74,6 +88,7 @@ export default function ShopPage() {
   }
 
   function changeAudience(audience: Audience | "") {
+    setTouchedAudience(true);
     // The narrower filters are dropped on purpose. A size or a colour that
     // exists in menswear may not exist in the children's range, and a page
     // that goes empty on a tap looks broken.
@@ -104,7 +119,7 @@ export default function ShopPage() {
       ) : (
         <>
           <AudienceTabs
-            value={filters.audience ?? ""}
+            value={audience ?? ""}
             counts={options?.audiences}
             total={freshness?.deals_listed}
             onChange={changeAudience}
@@ -225,6 +240,12 @@ export default function ShopPage() {
                   : `${total.toLocaleString("en-US")} ${total === 1 ? "thing" : "things"} found`}
               </p>
 
+              {/* Keyed on the chosen audience so switching Men/Women/Kids eases
+                  the new results in rather than swapping them in one frame. */}
+              <div
+                key={audience ?? "all"}
+                className="duration-200 animate-in fade-in slide-in-from-bottom-1"
+              >
               {isError ? (
                 <p
                   role="alert"
@@ -265,6 +286,7 @@ export default function ShopPage() {
                   )}
                 </>
               )}
+              </div>
             </section>
           </div>
         </>

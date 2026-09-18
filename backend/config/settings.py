@@ -162,6 +162,15 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Two models both call their field "status", and left alone the generator
+    # settles the clash by hashing: "Status74aEnum". Anyone generating a client
+    # from this schema would get that name, and it would change the moment a
+    # third status appeared. Naming them here keeps the schema readable and
+    # stable.
+    "ENUM_NAME_OVERRIDES": {
+        "GarmentStatusEnum": "apps.wardrobe.models.GarmentItem.Status",
+        "ListingStatusEnum": "apps.community.models.Listing.Status",
+    },
 }
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")

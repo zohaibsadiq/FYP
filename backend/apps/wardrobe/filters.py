@@ -58,6 +58,11 @@ class GarmentItemFilter(filters.FilterSet):
         label="Only items available to wear right now",
     )
 
+    gone = filters.BooleanFilter(
+        method="filter_gone",
+        label="Only things sold or put away, which the list otherwise leaves out",
+    )
+
     has_image = filters.BooleanFilter(method="filter_has_image")
     no_location = filters.BooleanFilter(
         field_name="storage_location", lookup_expr="isnull",
@@ -66,7 +71,14 @@ class GarmentItemFilter(filters.FilterSet):
 
     class Meta:
         model = GarmentItem
-        fields = ["category", "status", "brand", "is_favorite", "slot"]
+        fields = ["category", "status", "brand", "is_favorite", "slot", "gone"]
+
+    def filter_gone(self, queryset, name, value):
+        if value is None:
+            return queryset
+        if value:
+            return queryset.filter(status__in=GarmentItem.GONE_STATUSES)
+        return queryset.exclude(status__in=GarmentItem.GONE_STATUSES)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

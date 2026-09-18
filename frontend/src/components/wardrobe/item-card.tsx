@@ -18,7 +18,13 @@ interface Props {
   busy?: boolean;
 }
 
-export function ItemCard({ item, onWear, onToggleLaundry, onToggleFavorite, busy }: Props) {
+export function ItemCard({
+  item,
+  onWear,
+  onToggleLaundry,
+  onToggleFavorite,
+  busy,
+}: Props) {
   const inWash = item.status === "IN_LAUNDRY";
   const worn = lastWorn(item);
 
@@ -104,7 +110,7 @@ export function ItemCard({ item, onWear, onToggleLaundry, onToggleFavorite, busy
         </p>
 
         {(onWear || onToggleLaundry) && (
-          <div className="relative z-10 mt-3 flex gap-2">
+          <div className="relative z-10 mt-3 flex flex-wrap gap-2">
             {onWear ? (
               <Button
                 type="button"

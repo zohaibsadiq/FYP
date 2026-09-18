@@ -47,6 +47,32 @@ class User(AbstractUser):
         help_text="Two-letter country code, e.g. 'PK'",
     )
 
+    # Which part of a clothes shop somebody wants to see. Asked as a
+    # preference rather than as an identity, because a woman may be buying for
+    # her son and a man may be selling his sister's kurta; what the app needs
+    # is which section to open on, nothing more.
+    class ShoppingFor(models.TextChoices):
+        WOMEN = "WOMEN", "Women's clothes"
+        MEN = "MEN", "Men's clothes"
+        KIDS = "KIDS", "Children's clothes"
+        EVERYTHING = "EVERYTHING", "Everything"
+
+    shopping_for = models.CharField(
+        max_length=12,
+        choices=ShoppingFor.choices,
+        default=ShoppingFor.EVERYTHING,
+        help_text="Which clothes to show first. Every page can still be switched to anything else.",
+    )
+
+    # Never listed, never searchable, and never sent with a listing. It is
+    # handed over to exactly one person, at the moment a seller accepts their
+    # offer, so the two of them can arrange the handover.
+    phone = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text="Shown to one buyer or seller only, once you have agreed to deal with them.",
+    )
+
     body_photo_url = models.URLField(
         blank=True,
         help_text="Full-body front-facing photo. The try-on model draws clothes onto this.",

@@ -35,13 +35,7 @@ export const NAV_ITEMS: NavItem[] = [
     lockedReason: "Add a photo of yourself to use this",
   },
   { href: "/shop", label: "Sales", icon: Tag, primary: true },
-  {
-    href: "/marketplace",
-    label: "Buy and Sell",
-    icon: Store,
-    locked: true,
-    lockedReason: "Add a few clothes first",
-  },
+  { href: "/marketplace", label: "Buy and Sell", icon: Store, primary: true },
   {
     href: "/swaps",
     label: "Borrow from Friends",

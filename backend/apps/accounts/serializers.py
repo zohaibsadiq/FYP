@@ -19,6 +19,10 @@ class UserSerializer(serializers.ModelSerializer):
             "display_name",
             "city",
             "country_code",
+            "shopping_for",
+            # Only ever returned on your own profile. Nothing in the
+            # marketplace serializes another person through this.
+            "phone",
             "body_photo_url",
             "has_body_photo",
             "date_joined",
@@ -39,7 +43,10 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "full_name", "password", "password_confirm", "city", "country_code"]
+        fields = [
+            "email", "full_name", "password", "password_confirm",
+            "city", "country_code", "shopping_for",
+        ]
 
     def validate_email(self, value):
         email = value.lower().strip()

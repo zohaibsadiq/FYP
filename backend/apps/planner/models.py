@@ -76,9 +76,15 @@ class PlannedOutfit(models.Model):
         Writes every item in the plan into the wear log for that day and
         returns how many were newly recorded. Running it twice adds nothing,
         because a wearing is one per item per day.
+
+        A plan can outlive the clothes in it. Anything sold or put away between
+        making the plan and confirming it is skipped, so confirming never
+        records somebody wearing a thing they no longer have.
         """
         recorded = 0
         for item in self.items.all():
+            if item.status in GarmentItem.GONE_STATUSES:
+                continue
             _, created = item.mark_worn(self.planned_for, self.label)
             recorded += int(created)
 

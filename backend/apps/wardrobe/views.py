@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -22,6 +22,15 @@ from apps.vision.background import remove_background
 
 from .filters import GarmentItemFilter, SpellingTolerantSearch, WearEventFilter
 from .models import Category, GarmentItem, StorageLocation, WearEvent
+
+# Sold and put-away things stay in the database for their history, but they
+# are not part of "what I have", so every count of a wardrobe leaves them out.
+STILL_OWNED = ~Q(status__in=GarmentItem.GONE_STATUSES)
+
+
+def still_owned_items() -> object:
+    """The items a count should see: everything except sold and put away."""
+    return GarmentItem.objects.exclude(status__in=GarmentItem.GONE_STATUSES)
 from .serializers import (
     BulkLocationSerializer,
     CategorySerializer,
@@ -71,7 +80,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return (
             Category.objects.filter(Q(owner__isnull=True) | Q(owner=self.request.user))
             .annotate(
-                item_count=Count("items", filter=Q(items__owner=self.request.user))
+                item_count=Count(
+                    "items",
+                    filter=Q(items__owner=self.request.user)
+                    & ~Q(items__status__in=GarmentItem.GONE_STATUSES),
+                )
             )
             .order_by("sort_order", "name")
         )
@@ -107,7 +120,11 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         return (
             StorageLocation.objects.filter(owner=self.request.user)
             .select_related("parent")
-            .annotate(item_count=Count("items"))
+            .annotate(
+                item_count=Count(
+                    "items", filter=~Q(items__status__in=GarmentItem.GONE_STATUSES)
+                )
+            )
         )
 
     def perform_create(self, serializer):
@@ -128,7 +145,16 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
     def tree(self, request):
         roots = (
             StorageLocation.objects.filter(owner=request.user, parent__isnull=True)
-            .prefetch_related("children__children__children", "items")
+            .prefetch_related(
+                "children__children__children",
+                Prefetch("items", queryset=still_owned_items()),
+                Prefetch("children__items", queryset=still_owned_items()),
+                Prefetch("children__children__items", queryset=still_owned_items()),
+                Prefetch(
+                    "children__children__children__items",
+                    queryset=still_owned_items(),
+                ),
+            )
             .order_by("name")
         )
         return Response(
@@ -143,6 +169,7 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
             GarmentItem.objects.filter(
                 owner=request.user, storage_location_id__in=location.descendant_ids()
             )
+            .exclude(status__in=GarmentItem.GONE_STATUSES)
             .with_last_occasion()
             .select_related("category", "storage_location")
             .order_by("name")
@@ -182,11 +209,22 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # Owner filtering here is the only thing stopping cross-account reads:
         # detail routes resolve against this queryset, so a guessed id gives a 404.
-        return (
+        mine = (
             GarmentItem.objects.filter(owner=self.request.user)
             .with_last_occasion()
             .select_related("category", "storage_location", "storage_location__parent")
         )
+
+        # Something sold or archived is not in the wardrobe any more, so the
+        # list of clothes leaves it out. Asking for it by status still finds
+        # it, and so does opening it directly, because the row is still there
+        # and its history still means something.
+        params = self.request.query_params
+        asked_by_status = params.get("status") in GarmentItem.GONE_STATUSES
+        asked_for_gone = params.get("gone") in ("true", "True", "1")
+        if self.action == "list" and not (asked_by_status or asked_for_gone):
+            mine = mine.exclude(status__in=GarmentItem.GONE_STATUSES)
+        return mine
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -207,6 +245,11 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="mark-worn")
     def mark_worn(self, request, pk=None):
         item = self.get_object()
+        if item.status in GarmentItem.GONE_STATUSES:
+            raise ValidationError(
+                f"{item.name} is {item.get_status_display().lower()}, so wearing it "
+                "cannot be recorded."
+            )
         payload = MarkWornSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
 
@@ -301,19 +344,28 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         qs = GarmentItem.objects.filter(owner=request.user)
 
+        # "total" is what somebody still owns. Counting things they have sold
+        # would tell them they have more clothes than they do.
+        kept = STILL_OWNED
         totals = qs.aggregate(
-            total=Count("id"),
+            total=Count("id", filter=kept),
             in_wardrobe=Count("id", filter=Q(status=GarmentItem.Status.IN_WARDROBE)),
             in_laundry=Count("id", filter=Q(status=GarmentItem.Status.IN_LAUNDRY)),
-            favorites=Count("id", filter=Q(is_favorite=True)),
-            unplaced=Count("id", filter=Q(storage_location__isnull=True)),
-            never_worn=Count("id", filter=Q(wear_count=0)),
-            total_spent=Sum("purchase_price"),
+            favorites=Count("id", filter=Q(is_favorite=True) & kept),
+            unplaced=Count("id", filter=Q(storage_location__isnull=True) & kept),
+            never_worn=Count("id", filter=Q(wear_count=0) & kept),
+            # What the closet page needs to decide whether the "sold and put
+            # away" button is worth showing at all.
+            gone=Count("id", filter=Q(status__in=GarmentItem.GONE_STATUSES)),
+            total_spent=Sum("purchase_price", filter=STILL_OWNED),
             total_wears=Sum("wear_count"),
         )
 
+        # Counted the same way as "total", so the slot breakdown adds up to it
+        # instead of quietly exceeding it once somebody has sold something.
         by_slot = list(
-            qs.values("category__slot")
+            qs.exclude(status__in=GarmentItem.GONE_STATUSES)
+            .values("category__slot")
             .annotate(count=Count("id"))
             .order_by("-count")
         )
@@ -329,7 +381,7 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             .count()
         )
         forgotten = qs.filter(
-            Q(last_worn_date__lt=stale) | Q(last_worn_date__isnull=True)
+            (Q(last_worn_date__lt=stale) | Q(last_worn_date__isnull=True)) & STILL_OWNED
         ).count()
 
         return Response(

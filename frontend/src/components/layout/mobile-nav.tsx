@@ -5,10 +5,17 @@ import { usePathname } from "next/navigation";
 import { Lock } from "lucide-react";
 
 import { PRIMARY_NAV_ITEMS } from "./nav-items";
+import { useWaiting } from "@/hooks/use-friends";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { data: waiting } = useWaiting();
+
+  const counts: Record<string, number> = {
+    "/friends": (waiting?.friend_requests ?? 0) + (waiting?.borrow_asks ?? 0),
+    "/marketplace": waiting?.buy_requests ?? 0,
+  };
 
   return (
     <nav
@@ -45,7 +52,15 @@ export function MobileNav() {
                     isActive ? "font-semibold text-primary" : "text-muted-foreground",
                   )}
                 >
-                  <Icon className="size-6" aria-hidden />
+                  <span className="relative">
+                    <Icon className="size-6" aria-hidden />
+                    {counts[href] > 0 ? (
+                      <span className="absolute -right-2 -top-1 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground tabular-nums">
+                        {counts[href] > 9 ? "9+" : counts[href]}
+                        <span className="sr-only">waiting for you</span>
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="text-center leading-tight">{label}</span>
                 </Link>
               )}

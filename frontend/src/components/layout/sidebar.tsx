@@ -5,10 +5,18 @@ import { usePathname } from "next/navigation";
 import { Lock, Shirt } from "lucide-react";
 
 import { NAV_ITEMS } from "./nav-items";
+import { useWaiting } from "@/hooks/use-friends";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: waiting } = useWaiting();
+
+  // Which page a number belongs on. Anything not listed never shows one.
+  const counts: Record<string, number> = {
+    "/friends": (waiting?.friend_requests ?? 0) + (waiting?.borrow_asks ?? 0),
+    "/marketplace": waiting?.buy_requests ?? 0,
+  };
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
@@ -60,7 +68,20 @@ export function Sidebar() {
               )}
             >
               <Icon className="size-5 shrink-0" aria-hidden />
-              {label}
+              <span className="flex-1">{label}</span>
+              {counts[href] > 0 ? (
+                <span
+                  className={cn(
+                    "flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums",
+                    isActive
+                      ? "bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {counts[href]}
+                  <span className="sr-only">waiting for you</span>
+                </span>
+              ) : null}
             </Link>
           );
         })}

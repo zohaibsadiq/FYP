@@ -19,6 +19,7 @@ function item(over: Partial<GarmentListItem> = {}): GarmentListItem {
     status: "IN_WARDROBE",
     status_label: "In wardrobe",
     is_favorite: false,
+    is_lendable: true,
     storage_location: null,
     location_path: "",
     wear_count: 0,

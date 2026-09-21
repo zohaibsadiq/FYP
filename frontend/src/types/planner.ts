@@ -1,4 +1,4 @@
-import type { GarmentListItem, Season, Slot } from "./wardrobe";
+import type { GarmentListItem, Season } from "./wardrobe";
 
 export interface WeatherAdvice {
   /** A word or two: Mild, Warm, Very hot. */
@@ -36,16 +36,10 @@ export interface WeatherUnavailable {
   reason: string;
 }
 
-export interface SlotPick {
-  slot: Slot;
-  slot_label: string;
-  items: GarmentListItem[];
-}
 
 export interface TodayPlan {
   weather: Weather | null;
   unavailable: WeatherUnavailable | null;
-  picks: SlotPick[];
 }
 
 /** One day in the calendar and the clothes set aside for it. */

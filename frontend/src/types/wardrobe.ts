@@ -164,6 +164,8 @@ export interface GarmentListItem {
   status: ItemStatus;
   status_label: string;
   is_favorite: boolean;
+  /** Off means friends never see this one, even when your closet is shared. */
+  is_lendable: boolean;
   storage_location: number | null;
   location_path: string;
   wear_count: number;
@@ -225,6 +227,7 @@ export interface GarmentPayload {
   occasions?: Occasion[];
   warmth_level?: number;
   is_waterproof?: boolean;
+  is_lendable?: boolean;
   storage_location?: number | null;
   purchase_price?: string | null;
   currency?: string;

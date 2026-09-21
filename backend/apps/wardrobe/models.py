@@ -224,6 +224,11 @@ class GarmentItem(models.Model):
 
     WEARABLE_STATUSES = [Status.IN_WARDROBE]
 
+    # Not physically with you: sold, packed away, or at a friend's house. You
+    # still own a lent thing, so it is not "gone", but you cannot wear it,
+    # wash it or sell it while somebody else has it.
+    AWAY_STATUSES = [Status.SOLD, Status.ARCHIVED, Status.LENT_OUT]
+
     # Things somebody no longer has. They stay as rows so a sale keeps its
     # history and a wear log does not develop holes, but they are not part of
     # the wardrobe any more and are left out of it unless asked for by name.
@@ -311,6 +316,14 @@ class GarmentItem(models.Model):
     clean_image_public_id = models.CharField(max_length=200, blank=True)
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
+
+    # Friends only ever see a closet whose owner has switched sharing on, and
+    # then only the things left on. Underwear, a wedding dress, anything you
+    # would not hand over: turn this off and it stops existing for them.
+    is_lendable = models.BooleanField(
+        default=True,
+        help_text="Off means friends never see this one, even when your closet is shared.",
+    )
     is_favorite = models.BooleanField(default=False)
 
     purchase_price = models.DecimalField(

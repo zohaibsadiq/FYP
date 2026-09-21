@@ -245,7 +245,7 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="mark-worn")
     def mark_worn(self, request, pk=None):
         item = self.get_object()
-        if item.status in GarmentItem.GONE_STATUSES:
+        if item.status in GarmentItem.AWAY_STATUSES:
             raise ValidationError(
                 f"{item.name} is {item.get_status_display().lower()}, so wearing it "
                 "cannot be recorded."

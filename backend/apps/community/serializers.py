@@ -121,6 +121,14 @@ class ListingWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("No such item in your closet.")
         if item.status == GarmentItem.Status.SOLD:
             raise serializers.ValidationError("That one is already sold.")
+        if item.status == GarmentItem.Status.LENT_OUT:
+            raise serializers.ValidationError(
+                "A friend has that one right now. Get it back before you sell it."
+            )
+        if item.status == GarmentItem.Status.ARCHIVED:
+            raise serializers.ValidationError(
+                "That one is put away. Bring it back to your closet before selling it."
+            )
 
         already = Listing.objects.filter(item=item, status__in=Listing.OPEN_STATUSES)
         if self.instance:

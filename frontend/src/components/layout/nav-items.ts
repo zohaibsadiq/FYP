@@ -36,13 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { href: "/shop", label: "Sales", icon: Tag, primary: true },
   { href: "/marketplace", label: "Buy and Sell", icon: Store, primary: true },
-  {
-    href: "/swaps",
-    label: "Borrow from Friends",
-    icon: Users,
-    locked: true,
-    lockedReason: "Add a friend to start",
-  },
+  { href: "/friends", label: "Borrow from Friends", icon: Users, primary: true },
 ];
 
 export const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((item) => item.primary);

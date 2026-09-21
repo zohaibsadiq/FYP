@@ -20,13 +20,13 @@ const PILLARS = [
   },
   {
     icon: CloudSun,
-    title: "Dressed for the day",
-    body: "Closette reads today's forecast first, then leaves out clothes that are too warm or too thin.",
+    title: "Know before you dress",
+    body: "Today's temperature, rain and wind for your city, in one line you can read at a glance.",
   },
   {
     icon: Sparkles,
-    title: "Fresh picks",
-    body: "Anything you wore in the last few days drops down the list, so the same shirt waits its turn.",
+    title: "What you actually wear",
+    body: "Every wearing is logged, so you can see what earns its place and what has sat untouched for months.",
   },
   {
     icon: Scan,

@@ -44,18 +44,11 @@ class UnavailableSerializer(serializers.Serializer):
     reason = serializers.CharField(help_text="Already written for the reader.")
 
 
-class PickSerializer(serializers.Serializer):
-    slot = serializers.CharField()
-    slot_label = serializers.CharField()
-    items = GarmentItemListSerializer(many=True)
-
-
 class TodaySerializer(serializers.Serializer):
     """Null weather and a filled `unavailable` both mean the same thing."""
 
     weather = WeatherSerializer(allow_null=True)
     unavailable = UnavailableSerializer(allow_null=True)
-    picks = PickSerializer(many=True)
 
 
 class PlannedOutfitSerializer(serializers.ModelSerializer):

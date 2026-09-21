@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import {
   Cloud,
@@ -13,7 +11,6 @@ import {
   Loader2,
   MapPin,
   Moon,
-  Shirt,
   Snowflake,
   Sun,
   Umbrella,
@@ -29,7 +26,6 @@ import { useCurrentUser, useUpdateProfile } from "@/hooks/use-auth";
 import { usePlannerToday } from "@/hooks/use-planner";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { lastWorn, lastWornSentence } from "@/lib/wear";
 import type { Weather } from "@/types/planner";
 
 // Built once rather than picked as a component inside render, which would
@@ -119,63 +115,6 @@ export function WeatherCard() {
         </p>
       </div>
 
-      {today.picks.length > 0 ? (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            From your closet, for this weather
-          </h3>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {today.picks.map((group) => (
-              <div key={group.slot} className="rounded-xl border border-border p-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {group.slot_label}
-                </p>
-                <ul className="space-y-1.5">
-                  {group.items.slice(0, 3).map((item) => {
-                    const worn = lastWorn(item);
-                    return (
-                      <li key={item.id}>
-                        <Link
-                          href={`/closet/${item.id}`}
-                          className="flex items-center gap-2 rounded-lg p-1 text-sm transition-colors hover:bg-accent"
-                        >
-                          <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                            {item.display_image_url ? (
-                              <Image
-                                src={item.display_image_url}
-                                alt=""
-                                fill
-                                sizes="36px"
-                                className="object-contain p-0.5"
-                              />
-                            ) : (
-                              <Shirt className="size-4 text-muted-foreground" aria-hidden />
-                            )}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate">{item.name}</span>
-                            <span
-                              className={cn(
-                                "block truncate text-xs",
-                                worn.recent
-                                  ? "text-amber-700 dark:text-amber-400"
-                                  : "text-muted-foreground",
-                              )}
-                            >
-                              {lastWornSentence(worn)}
-                            </span>
-                          </span>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -256,7 +195,7 @@ function NoWeather({ code, reason }: { code?: string; reason?: string }) {
         <p className="mt-1 text-sm text-muted-foreground">
           {code === "unknown_city"
             ? reason
-            : "Once we know, this box shows today's weather and picks out what to wear for it."}
+            : "Once we know, this box shows today's weather and what it means for getting dressed."}
         </p>
       </div>
 

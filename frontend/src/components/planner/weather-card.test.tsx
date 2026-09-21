@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WeatherCard } from "./weather-card";
 import type { TodayPlan, Weather } from "@/types/planner";
-import type { GarmentListItem } from "@/types/wardrobe";
 
 let plan: TodayPlan;
 let pending = false;
@@ -48,16 +47,12 @@ function weather(overrides: Partial<Weather> = {}): Weather {
   };
 }
 
-function item(id: number, name: string): GarmentListItem {
-  return { id, name, display_image_url: "" } as GarmentListItem;
-}
-
 beforeEach(() => {
   updateMutate.mockReset();
   pending = false;
   failed = false;
   user = { city: "", country_code: "" };
-  plan = { weather: weather(), unavailable: null, picks: [] };
+  plan = { weather: weather(), unavailable: null };
 });
 
 describe("WeatherCard", () => {
@@ -79,32 +74,16 @@ describe("WeatherCard", () => {
     expect(screen.getByText("34 C")).toBeInTheDocument();
   });
 
-  it("lists what the closet offers for this weather", () => {
-    plan = {
-      ...plan,
-      picks: [
-        { slot: "TOP", slot_label: "Top", items: [item(1, "Cotton shirt")] },
-        { slot: "FOOTWEAR", slot_label: "Shoes", items: [item(2, "Sandals")] },
-      ],
-    };
-    render(<WeatherCard />);
-    expect(screen.getByRole("link", { name: /cotton shirt/i })).toHaveAttribute(
-      "href",
-      "/closet/1",
-    );
-    expect(screen.getByText("Shoes")).toBeInTheDocument();
-  });
-
-  it("leaves out the suggestion block when the closet has nothing to offer", () => {
+  it("never suggests clothes from the closet", () => {
     render(<WeatherCard />);
     expect(screen.queryByText(/from your closet/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /closet/i })).not.toBeInTheDocument();
   });
 
   it("asks for a city instead of showing a blank box", () => {
     plan = {
       weather: null,
       unavailable: { code: "no_city", reason: "Tell us your city." },
-      picks: [],
     };
     render(<WeatherCard />);
     expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
@@ -114,7 +93,6 @@ describe("WeatherCard", () => {
     plan = {
       weather: null,
       unavailable: { code: "no_city", reason: "Tell us your city." },
-      picks: [],
     };
     render(<WeatherCard />);
 
@@ -134,7 +112,6 @@ describe("WeatherCard", () => {
     plan = {
       weather: null,
       unavailable: { code: "unknown_city", reason: "That city was not found." },
-      picks: [],
     };
     render(<WeatherCard />);
     expect(screen.getByLabelText("City")).toHaveValue("Lahor");
@@ -145,7 +122,6 @@ describe("WeatherCard", () => {
     plan = {
       weather: null,
       unavailable: { code: "timeout", reason: "The weather service did not answer in time." },
-      picks: [],
     };
     render(<WeatherCard />);
     expect(screen.queryByLabelText("City")).not.toBeInTheDocument();

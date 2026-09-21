@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Archive, Lightbulb, Plus, Search, Shirt, X } from "lucide-react";
+import { Archive, ArrowLeft, Lightbulb, Plus, Search, Shirt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/wardrobe/empty-state";
@@ -190,7 +190,24 @@ export default function ClosetPage() {
 
       <div key={view} className="space-y-6 duration-200 animate-in fade-in slide-in-from-bottom-1">
         {view === "GONE" ? (
-          <GoneList search={search.trim()} />
+          <div className="space-y-4">
+            {/* A plain way out. The button in the header toggles too, but it
+                reads as a filter, and an empty closet hides the row of sorts
+                that would otherwise lead back. */}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setView("ALL")}
+              className="-ml-3 h-11 gap-2"
+            >
+              <ArrowLeft className="size-4" aria-hidden />
+              Back to my clothes
+            </Button>
+
+            <h2 className="text-lg font-semibold tracking-tight">Sold and put away</h2>
+
+            <GoneList search={search.trim()} />
+          </div>
         ) : isError ? (
           <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
             {getErrorMessage(error, "Your clothes could not be loaded just now.")}

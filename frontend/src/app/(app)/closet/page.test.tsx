@@ -145,6 +145,21 @@ describe("ClosetPage", () => {
     expect(goneButton()).not.toBeInTheDocument();
   });
 
+  it("always offers a way back out of the sold and put-away list", async () => {
+    // An empty closet hides the row of sorts, so this is the only way back.
+    owned = [];
+    stats = counts({ total: 0, gone: 1 });
+    gone = [item({ id: 9, name: "Winter Coat", status: "ARCHIVED", status_label: "Put away" })];
+    render(<ClosetPage />);
+
+    await userEvent.click(goneButton() as HTMLElement);
+    expect(screen.getByText("Winter Coat")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /back to my clothes/i }));
+    expect(screen.queryByText("Winter Coat")).not.toBeInTheDocument();
+    expect(screen.getByText(/nothing in your closet right now/i)).toBeInTheDocument();
+  });
+
   it("hides the row of sorts when there is nothing to sort", () => {
     owned = [];
     stats = counts({ total: 0, gone: 1 });

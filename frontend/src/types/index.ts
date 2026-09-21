@@ -22,6 +22,8 @@ export interface User {
   shopping_for: ShoppingFor;
   /** Given to one person only, when a sale is agreed. Never listed publicly. */
   phone: string;
+  /** Off until turned on. Friends see nothing of yours until then. */
+  shares_closet: boolean;
   body_photo_url: string;
   has_body_photo: boolean;
   date_joined: string;

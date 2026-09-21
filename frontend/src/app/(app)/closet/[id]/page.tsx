@@ -8,6 +8,7 @@ import {
   Archive,
   ArrowLeft,
   Check,
+  HandHeart,
   Heart,
   Loader2,
   MapPin,
@@ -293,6 +294,8 @@ function Details({
         </dl>
       ) : null}
 
+      <LendingSwitch item={item} />
+
       <WearHistory item={item} />
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -360,6 +363,54 @@ function Details({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+/**
+ * Whether friends are shown this one at all.
+ *
+ * It lives on the item page, not on every card, because it is decided once and
+ * then almost never changed - and because it only matters for the handful of
+ * things somebody would refuse to hand over.
+ */
+function LendingSwitch({ item }: { item: Garment }) {
+  const update = useUpdateGarment();
+  const shared = item.is_lendable;
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 font-medium">
+          <HandHeart className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          Friends can ask to borrow this
+        </p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          {shared
+            ? "Shown to your friends, but only while your closet is shared."
+            : "Hidden from your friends, even when your closet is shared."}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={update.isPending}
+        aria-pressed={shared}
+        onClick={() =>
+          update.mutate(
+            { id: item.id, is_lendable: !shared },
+            {
+              onSuccess: () =>
+                toast.success(shared ? "Hidden from your friends." : "Your friends can see it."),
+              onError: (error: unknown) =>
+                toast.error(getErrorMessage(error, "That did not save. Try again.")),
+            },
+          )
+        }
+        className="h-11 shrink-0"
+      >
+        {shared ? "Do not lend this one" : "Allow lending"}
+      </Button>
+    </div>
   );
 }
 

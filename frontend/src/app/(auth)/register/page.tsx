@@ -110,7 +110,7 @@ export default function RegisterPage() {
           onChange={update}
           placeholder="Lahore"
           autoComplete="address-level2"
-          hint="Outfit picks follow the weather where you live."
+          hint="Used for your local weather, and to find things for sale near you."
           error={fieldErrors.city}
           required
         />

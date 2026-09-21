@@ -23,6 +23,9 @@ class UserSerializer(serializers.ModelSerializer):
             # Only ever returned on your own profile. Nothing in the
             # marketplace serializes another person through this.
             "phone",
+            # Off until the person turns it on, so a new account shares nothing
+            # with anybody by accident.
+            "shares_closet",
             "body_photo_url",
             "has_body_photo",
             "date_joined",

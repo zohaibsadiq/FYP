@@ -1,5 +1,3 @@
-"""Shapes for what is on sale, and for how old that answer is."""
-
 from __future__ import annotations
 
 from django.utils import timezone

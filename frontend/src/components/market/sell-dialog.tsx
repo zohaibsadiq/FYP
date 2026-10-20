@@ -25,11 +25,9 @@ import { AUDIENCE_TABS, CONDITIONS, type Audience, type Condition } from "@/type
 import type { GarmentListItem } from "@/types/wardrobe";
 
 /**
- * Putting one of your own clothes up for sale.
- *
- * Two steps on purpose. Everything the listing needs - the photo, the name,
- * the brand, the size, the colour - is already saved against the garment, so
- * the only things left to ask are how worn it is and what you want for it.
+ * Offers only wearable items: anything sold, archived or lent out is filtered
+ * out before the picker renders. Condition and price are the only fields the
+ * closet cannot already answer.
  */
 export function SellDialog({
   open,
@@ -51,7 +49,7 @@ export function SellDialog({
   const { data: me } = useCurrentUser();
 
   // Only things actually in the wardrobe. Something already for sale, sold or
-  // lent out is not yours to offer today.
+  // lent out cannot be offered.
   const { data, isPending } = useGarments({ status: "IN_WARDROBE" });
   const { data: suggestion } = usePriceSuggestion(open ? (item?.id ?? null) : null, condition);
   const create = useCreateListing();

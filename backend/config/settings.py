@@ -24,6 +24,36 @@ if not DEBUG and SECRET_KEY == "insecure-development-key":
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
+if not DEBUG:
+    # Render terminates TLS at its proxy and forwards plain HTTP, so Django sees
+    # an insecure request unless it is told which header carries the real scheme.
+    # Without this, SECURE_SSL_REDIRECT loops forever.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    # Render probes the service port directly over HTTP. A 301 from the redirect
+    # reads as unhealthy and fails the deploy.
+    SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "Lax"
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+
+# A garment photo off a modern phone is 3-8 MB. Ten times that leaves room for
+# the multipart envelope while still refusing a body meant to exhaust memory.
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=20 * 1024 * 1024)
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
+
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -40,6 +70,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",                 # query-param filtering on list endpoints
     "drf_spectacular",                # OpenAPI schema generation
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 LOCAL_APPS = [
@@ -146,12 +177,34 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Exactly one proxy sits in front of this service. Left unset, DRF derives
+    # the throttle key from the whole X-Forwarded-For chain, which the caller
+    # controls and can therefore rotate to sidestep the limit.
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=None if DEBUG else 1),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("THROTTLE_ANON", default="2000/hour" if DEBUG else "120/hour"),
+        "user": env("THROTTLE_USER", default="20000/hour" if DEBUG else "2000/hour"),
+        # Guessing a password, an email, or an eight-character friend code all
+        # look like ordinary traffic one request at a time. These are the rates
+        # that make the thousandth attempt impossible.
+        "login": env("THROTTLE_LOGIN", default="2000/hour" if DEBUG else "10/min"),
+        "signup": env("THROTTLE_SIGNUP", default="2000/hour" if DEBUG else "10/hour"),
+        "friend-code": env("THROTTLE_FRIEND_CODE", default="2000/hour" if DEBUG else "20/hour"),
+    },
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
+    # Without this a rotated-away refresh token stays valid for its full seven
+    # days, so a stolen one survives the rotation meant to retire it.
+    "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",

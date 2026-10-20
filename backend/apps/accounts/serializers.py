@@ -20,8 +20,8 @@ class UserSerializer(serializers.ModelSerializer):
             "city",
             "country_code",
             "shopping_for",
-            # Only ever returned on your own profile. Nothing in the
-            # marketplace serializes another person through this.
+            # Reachable only through MeView, which resolves to request.user.
+            # No marketplace or friends serializer renders another account here.
             "phone",
             # Off until the person turns it on, so a new account shares nothing
             # with anybody by accident.

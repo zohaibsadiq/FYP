@@ -1,11 +1,7 @@
 """
-What travels between friends.
-
-The item serializer here is written from scratch rather than borrowed from the
-closet. The closet one carries what a thing cost, what each wearing has cost so
-far, how often it was worn and which drawer it lives in. None of that is a
-friend's business, and reusing it would leak all four the day somebody adds a
-field to it.
+GarmentToBorrowSerializer deliberately repeats fields the closet serializer
+already declares. Subclassing it would inherit purchase_price, cost_per_wear,
+wear_count and location_path, and would re-inherit whatever is added to it next.
 """
 
 from __future__ import annotations
@@ -24,7 +20,7 @@ User = get_user_model()
 
 
 class FriendPersonSerializer(serializers.ModelSerializer):
-    """A friend as they appear to you: your label for them, and little else."""
+    """The subset of an account that a friend is allowed to read."""
 
     # Declared rather than inferred: it is a property on the model, so the
     # schema generator has no field to read a type from.
@@ -73,7 +69,7 @@ class FriendSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "person", "shares_closet", "items_to_borrow", "created_at"]
 
     def get_shares_closet(self, friend: Friend) -> bool:
-        """Whether THEY have opened their closet to you, not the other way round."""
+        """Reports the other account's sharing switch, not the owner's."""
         return bool(friend.person.shares_closet) and not friend.blocked
 
     def get_items_to_borrow(self, friend: Friend) -> int:
@@ -172,8 +168,9 @@ class SendRequestSerializer(serializers.Serializer):
         me = self.context["request"].user
         them = self.context["them"]
 
-        # They asked you first: saying yes to their code is the same as saying
-        # yes to their request, so it is not left sitting in both inboxes.
+        # Entering the code of somebody who already asked resolves their
+        # pending request instead of opening a second one in the other
+        # direction.
         theirs = FriendRequest.objects.filter(
             from_user=them, to_user=me, status=FriendRequest.Status.SENT
         ).first()
@@ -200,7 +197,7 @@ class AcceptRequestSerializer(serializers.Serializer):
 
 
 class MyCodeSerializer(serializers.Serializer):
-    """The code you hand out, and whether anything of yours is shared at all."""
+    """The owner's friend code, and whether their closet is shared at all."""
 
     code = serializers.CharField()
     shares_closet = serializers.BooleanField(required=False)
@@ -250,9 +247,9 @@ class LoanSerializer(serializers.ModelSerializer):
 
     def get_their_name(self, loan: Loan) -> str:
         """
-        Your own label for whoever is on the other side, so a list of loans
-        reads the same way as your list of friends and two people with the
-        same real name still cannot be confused.
+        The requesting account's own label for the other side, so loans read
+        the same way as the friend list and two identical display names stay
+        distinguishable.
         """
         me = self.context["request"].user
         other_id = loan.borrower_id if loan.lender_id == me.pk else loan.lender_id

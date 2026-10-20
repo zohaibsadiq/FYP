@@ -9,10 +9,8 @@ import { friendlyDay } from "@/lib/dates";
 import type { Loan } from "@/types/friends";
 
 /**
- * One loan, from either side.
- *
- * The other person is always shown under your own name for them, never their
- * account name, so a list of loans reads the same way as your list of friends.
+ * Renders `their_name`, the viewer's own label for the other side, rather than
+ * the account's display name, so two identical names stay distinguishable.
  */
 export function LoanCard({
   loan,

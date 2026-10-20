@@ -1,5 +1,3 @@
-"""What is on sale in real shops, read out of our own tables."""
-
 from __future__ import annotations
 
 from collections import Counter

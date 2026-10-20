@@ -1,9 +1,3 @@
-"""
-Every read here is scoped to the signed-in account first and filtered second.
-A friend is not a key to somebody's closet: each request re-checks that the
-friendship still exists, is not blocked, and that the owner still shares.
-"""
-
 from __future__ import annotations
 
 from django.db import IntegrityError, transaction
@@ -98,6 +92,8 @@ class MyCodeView(APIView):
 class FriendRequestViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = FriendRequestSerializer
     queryset = FriendRequest.objects.none()
+    # Declared so the per-action override below is a recognised init kwarg.
+    throttle_scope = None
 
     def get_queryset(self):
         return (
@@ -113,7 +109,12 @@ class FriendRequestViewSet(viewsets.ReadOnlyModelViewSet):
         request=SendRequestSerializer,
         responses={201: FriendRequestSerializer},
     )
-    @action(detail=False, methods=["post"], url_path="by-code")
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="by-code",
+        throttle_scope="friend-code",
+    )
     def by_code(self, request):
         payload = SendRequestSerializer(data=request.data, context={"request": request})
         payload.is_valid(raise_exception=True)
@@ -211,8 +212,8 @@ class FriendViewSet(viewsets.ModelViewSet):
             raise ValidationError(
                 {"detail": f"{friend.nickname} has not opened their closet to friends yet."}
             )
-        # They may have blocked you without saying so. Nothing is shown, and the
-        # wording is the same as the line above so it gives nothing away.
+        # Same wording as the line above, so a block cannot be distinguished
+        # from a closet that was never opened.
         if Friend.objects.filter(owner=friend.person, person=request.user, blocked=True).exists():
             raise ValidationError(
                 {"detail": f"{friend.nickname} has not opened their closet to friends yet."}

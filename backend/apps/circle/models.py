@@ -1,11 +1,8 @@
 """
-Friends, and clothes lent between them.
-
-Two rules shape everything here. Friends are added by handing over a private
-code, never by searching for a name, because a name search cannot tell a real
-person from somebody using their name. And a friend is always shown under a
-label that is unique inside your own list, so two people called Ali Khan can
-never be mistaken for one another when you are deciding who gets your jacket.
+A name search cannot distinguish a real person from somebody reusing their
+name, so friendships start from a private code instead. The per-owner unique
+constraint on Friend.nickname is the other half of that: two accounts both
+called "Ali Khan" cannot occupy one label in the same list.
 """
 
 from __future__ import annotations
@@ -19,7 +16,7 @@ from apps.wardrobe.models import GarmentItem
 
 
 class FriendRequest(models.Model):
-    """Somebody typed your code in. Nothing is shared until you say yes."""
+    """Nothing is shared between the two accounts until this is accepted."""
 
     class Status(models.TextChoices):
         SENT = "SENT", "Waiting for an answer"
@@ -40,8 +37,8 @@ class FriendRequest(models.Model):
         db_table = "friend_requests"
         ordering = ["-created_at"]
         constraints = [
-            # One pending ask at a time. Somebody declined can ask again later;
-            # somebody waiting cannot fill your screen with the same request.
+            # Declining clears the row, so a later attempt is allowed; a pending
+            # one blocks repeats of the same ask.
             models.UniqueConstraint(
                 fields=["from_user", "to_user"],
                 condition=models.Q(status="SENT"),
@@ -59,9 +56,8 @@ class FriendRequest(models.Model):
 
 class Friend(models.Model):
     """
-    One side of a friendship. Accepting a request writes two of these, one each
-    way, so each person keeps their own label for the other and their own
-    decision to share or to block. Neither can see what the other chose.
+    One direction of a friendship. Accepting writes two rows, so each side
+    keeps its own label and its own block flag, and neither reads the other's.
     """
 
     owner = models.ForeignKey(
@@ -70,9 +66,6 @@ class Friend(models.Model):
     person = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="known_by"
     )
-    # The whole point of the unique constraint below. Two friends called Ali
-    # Khan cannot both sit in your list under that name, so you can never lend
-    # a coat to the wrong Ali.
     nickname = models.CharField(
         max_length=60,
         help_text="What you call them. Only you ever see it.",
@@ -97,11 +90,9 @@ class Friend(models.Model):
 
 class Loan(models.Model):
     """
-    One thing, lent from one friend to another and then given back.
-
-    The item never changes hands in the database: it stays the lender's, and
-    only its status moves to "Lent to a friend", so it still counts as theirs
-    and still cannot be worn, planned, sold or put away while it is away.
+    The garment row never changes owner. Only its status moves to LENT_OUT,
+    which keeps it inside the lender's totals while blocking wear, laundry,
+    planning and sale for as long as the loan is open.
     """
 
     class Status(models.TextChoices):
@@ -134,8 +125,7 @@ class Loan(models.Model):
         db_table = "loans"
         ordering = ["-created_at"]
         constraints = [
-            # A thing can only be in one place. Without this, two friends could
-            # both be told they are getting the same jacket on Friday.
+            # Without this, two overlapping requests could each be agreed to.
             models.UniqueConstraint(
                 fields=["item"],
                 condition=models.Q(status__in=["ASKED", "AGREED"]),
@@ -167,7 +157,7 @@ class Loan(models.Model):
 
     @transaction.atomic
     def agree(self) -> None:
-        """Yes. The item leaves the lender's wardrobe without leaving their closet."""
+
         self.status = self.Status.AGREED
         self.answered_at = timezone.now()
         self.save(update_fields=["status", "answered_at"])

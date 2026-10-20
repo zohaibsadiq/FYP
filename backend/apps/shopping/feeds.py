@@ -25,12 +25,12 @@ TIMEOUT_SECONDS = 25
 MAX_SIZES_KEPT = 12
 
 # Shops answer a plain request. Saying who is asking is basic manners and lets
-# a shop block us cleanly rather than having to guess.
+# a shop refuse the request cleanly rather than having to guess.
 USER_AGENT = "Closette/1.0 (wardrobe app; reads public catalogue pages)"
 
 
 class FeedUnavailable(Exception):
-    """A shop could not be read this time. Never a reason to lose what we have."""
+    """Raised when a shop cannot be read. Stored rows are left untouched."""
 
     def __init__(self, reason: str, code: str = "unavailable"):
         super().__init__(reason)
@@ -40,7 +40,7 @@ class FeedUnavailable(Exception):
 
 @dataclass
 class RawProduct:
-    """One product as the shop published it, before any of our own guessing."""
+    """One product exactly as the feed published it, before classification."""
 
     external_id: str
     title: str

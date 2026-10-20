@@ -1,10 +1,7 @@
 """
-Bringing one shop's catalogue into our own tables.
-
-The rule this follows is that a failed refresh must never make the app worse
-than it was. If a shop cannot be read, what we already hold stays exactly as
-it was, still stamped with the time it was really checked, and the screen is
-told the truth about its age. Nothing is invented to fill the gap.
+A failed refresh leaves the stored rows untouched, still carrying the timestamp
+of the last successful read, so the freshness shown on screen stays truthful
+rather than being reset by a failure.
 """
 
 from __future__ import annotations

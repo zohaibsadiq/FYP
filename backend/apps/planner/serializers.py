@@ -1,5 +1,3 @@
-"""Shapes for the weather reading, what it suggests, and the day planner."""
-
 from __future__ import annotations
 
 from django.utils import timezone

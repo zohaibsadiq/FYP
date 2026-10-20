@@ -229,7 +229,7 @@ export default function MarketplacePage() {
   );
 }
 
-/** A short line about your own side of the marketplace, with a way into it. */
+/** The seller-side summary, and the link into it. */
 function MyBits({ stats }: { stats?: { my_listings: number; enquiries_waiting_on_me: number; my_enquiries_answered: number } }) {
   if (!stats) return null;
   const nothingYet =

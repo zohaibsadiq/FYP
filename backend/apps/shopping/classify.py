@@ -1,9 +1,8 @@
 """
 Turning a shop's own wording into something the closet understands.
 
-Shops name things for their own catalogue, not for us. Real values coming back
-from live feeds include "BTK-EAST", "Women Fabric", "Heartilicious", "PRET"
-and "3 Piece". None of that can be shown as a filter, so each product is read
+Live feeds return product_type values such as "BTK-EAST", "Women Fabric",
+"Heartilicious", "PRET" and "3 Piece". None of that can be shown as a filter, so each product is read
 for three things: whether it is clothing at all, where on the body it is worn,
 and what colour it is.
 
@@ -206,7 +205,7 @@ NOT_CLOTHING = [
     "boxer",
 ]
 
-# Words shops use for colours that our own list spells differently.
+# Colour words that live feeds spell differently from COLOUR_NAMES.
 COLOR_ALIASES: dict[str, str] = {
     "ivory": "Off White",
     "offwhite": "Off White",
@@ -367,14 +366,13 @@ def read_audience(product) -> str:
 
 def read(product) -> Reading | None:
     """
-    Everything we can tell about one product from its own words, or None when
-    it is not clothing and should not be carried at all.
+    Returns None when the product is not clothing and should not be stored.
 
-    The shop's own category is trusted ahead of the title, because "Kameez
-    Shalwar" in the category is a fact while the same words in a title might
-    be describing what the thing goes with. Tags are read last and only to
-    find a kind: they are full of stray words like "sales tax 15%" and are not
-    safe to rule anything out on.
+    product_type outranks the title: "Kameez Shalwar" in the category is a
+    statement about the garment, while the same words in a title may describe
+    what it is worn with. Tags are read last and only to identify a kind,
+    because they carry stray values such as "sales tax 15%" and cannot safely
+    rule anything out.
     """
     plain = f"{product.shop_category} {product.title}"
 

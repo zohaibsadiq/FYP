@@ -14,7 +14,7 @@ export const AUDIENCE_TABS: { value: Audience | ""; label: string }[] = [
 export interface Deal {
   id: number;
   title: string;
-  /** The shop's own product page. Opened in a new tab; we never sell anything. */
+  /** The shop's own product page. Opened in a new tab. */
   url: string;
   image_url: string;
   vendor: string;

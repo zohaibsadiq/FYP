@@ -1,13 +1,3 @@
-"""
-Shapes for the marketplace.
-
-The important one here is GarmentForSaleSerializer. The closet already has a
-serializer for a garment, but it carries where the thing is kept in somebody's
-house, what they paid for it, how many times they have worn it and what for.
-None of that belongs in front of a stranger, so this file describes the
-garment again, from scratch, with only what a buyer needs.
-"""
-
 from __future__ import annotations
 
 from decimal import Decimal

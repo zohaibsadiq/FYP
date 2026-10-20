@@ -10,12 +10,9 @@ import { Initials } from "@/components/friends/initials";
 import type { FriendRequest } from "@/types/friends";
 
 /**
- * Somebody asked to be your friend.
- *
- * The name is settled here, before anything is shared, because this is the one
- * moment you actually know who they are. Two friends called Ali Khan cannot
- * both sit in your list under that name, so a clash is caught at the moment it
- * happens rather than when you are deciding who to lend a jacket to.
+ * The label is chosen here, before anything is shared. Friend.nickname carries
+ * a per-owner unique constraint, so a clash is caught at this point rather
+ * than surfacing later as a database error.
  */
 export function RequestCard({
   request,

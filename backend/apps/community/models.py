@@ -1,10 +1,7 @@
 """
-Selling something out of your own wardrobe, and asking to buy somebody else's.
-
-No money passes through this app. A buyer asks, a seller agrees, and the two
-of them settle it between themselves the way people already do here. That
-keeps card details out of the project entirely, and it is what everybody
-already expects from a listings site.
+No payment is taken anywhere in this module. A buyer asks, a seller agrees,
+and the two settle it between themselves, which keeps card data out of the
+project and out of scope for PCI DSS.
 
 The other rule is that nobody's contact details are published. A listing shows
 the garment and the price. Only once a seller accepts a particular buyer do the
@@ -72,11 +69,8 @@ class ListingQuerySet(models.QuerySet):
 
     def visible_to(self, user):
         """
-        What one person can browse.
-
-        Their own things are left out, because seeing your own shirt among the
-        things you could buy is confusing and it already sits under your
-        listings. So is anything from somebody either of them has blocked.
+        Excludes the viewer's own listings, which already appear under their
+        selling page, and anything on either side of a block.
         """
         blocked_by_me = Block.objects.filter(blocker=user).values("blocked_id")
         blocked_me = Block.objects.filter(blocked=user).values("blocker_id")
@@ -341,12 +335,9 @@ class Enquiry(models.Model):
 
 class Block(models.Model):
     """
-    One person choosing not to deal with another.
-
-    It cuts both ways on purpose. Blocking somebody hides their listings from
-    you and yours from them, and stops either of you asking the other to buy
-    anything. Somebody who has made a person uncomfortable should not be able
-    to keep appearing in their app.
+    Symmetric by design: one row hides each account's listings from the other
+    and refuses enquiries in both directions. A one-way block would leave the
+    blocked account still able to appear in the blocker's app.
     """
 
     blocker = models.ForeignKey(

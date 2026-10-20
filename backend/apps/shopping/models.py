@@ -1,10 +1,7 @@
 """
-Clothes for sale in real shops, kept as a copy of what those shops publish.
-
-Nothing here is fetched while somebody is waiting. A refresh runs on its own
-schedule, writes what it found into these tables, and the screen reads the
-tables. That keeps the page fast, keeps a shop being down from breaking it,
-and means every price can be shown with the moment it was checked.
+No shop is contacted while a request is in flight. sync_deals writes these
+tables on a schedule and the API only ever reads them, so a shop being down
+costs a stale timestamp rather than a failed page.
 """
 
 from __future__ import annotations

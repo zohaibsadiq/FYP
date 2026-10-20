@@ -164,7 +164,7 @@ export interface GarmentListItem {
   status: ItemStatus;
   status_label: string;
   is_favorite: boolean;
-  /** Off means friends never see this one, even when your closet is shared. */
+  /** False hides the item from friends even while the closet is shared. */
   is_lendable: boolean;
   storage_location: number | null;
   location_path: string;
@@ -266,7 +266,7 @@ export interface WardrobeStats {
   total: number;
   in_wardrobe: number;
   in_laundry: number;
-  /** Sold or put away. Deliberately not part of `total`, which is what you still own. */
+  /** Sold or archived. Deliberately excluded from `total`. */
   gone: number;
   favorites: number;
   unplaced: number;

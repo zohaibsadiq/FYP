@@ -21,6 +21,7 @@ from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "signup"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -44,6 +45,7 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = "login"
 
 
 @extend_schema(tags=["Auth"])
@@ -110,8 +112,7 @@ class WaitingView(APIView):
             "buy_requests": buy_requests,
             "overdue": loans["overdue"],
         }
-        # "total" is what the one badge in the corner shows. Being late giving
-        # something back is not somebody waiting on you, so it is reported but
-        # left out of the count.
+        # Overdue loans are reported separately: nobody is waiting on an answer
+        # for them, so they do not belong in the badge count.
         waiting["total"] = friend_requests + loans["asks"] + buy_requests
         return Response(waiting)

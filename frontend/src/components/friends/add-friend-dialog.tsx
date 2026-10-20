@@ -18,12 +18,9 @@ import { useAskToBeFriends, useMyFriendCode, useNewFriendCode } from "@/hooks/us
 import { getErrorMessage } from "@/lib/api";
 
 /**
- * Two halves of the same job: the code you hand out, and the box you type
- * somebody else's into.
- *
- * There is deliberately no search box. A name search cannot tell your friend
- * from somebody using their name, and searching by email would tell anybody
- * holding an address whether it has an account here.
+ * There is deliberately no search field. A name search cannot distinguish an
+ * account from one reusing its name, and an email search would confirm whether
+ * a given address is registered.
  */
 export function AddFriendDialog({
   open,

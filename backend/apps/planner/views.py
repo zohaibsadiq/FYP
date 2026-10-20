@@ -1,5 +1,3 @@
-"""Today outside, what in the closet suits it, and the days ahead."""
-
 from __future__ import annotations
 
 from django.db import IntegrityError, transaction

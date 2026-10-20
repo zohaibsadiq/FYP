@@ -260,7 +260,7 @@ export default function FriendsPage() {
   );
 }
 
-/** The one switch that decides whether friends see anything of yours at all. */
+/** Gates every friend-facing read of this account's closet. */
 function SharingSwitch({
   on,
   busy,

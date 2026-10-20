@@ -1,5 +1,3 @@
-"""What someone intends to wear on a given day."""
-
 from __future__ import annotations
 
 from django.conf import settings

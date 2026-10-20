@@ -53,3 +53,7 @@ yarn-error.log*
 Thumbs.db
 Desktop.ini
 *.swp
+
+# Scratch audit output, and the rules file `next dev` regenerates on each run.
+.audit/
+frontend/AGENTS.md

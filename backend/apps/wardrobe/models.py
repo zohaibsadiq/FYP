@@ -224,9 +224,8 @@ class GarmentItem(models.Model):
 
     WEARABLE_STATUSES = [Status.IN_WARDROBE]
 
-    # Not physically with you: sold, packed away, or at a friend's house. You
-    # still own a lent thing, so it is not "gone", but you cannot wear it,
-    # wash it or sell it while somebody else has it.
+    # Sold, archived, or out on loan. A lent item is still owned, so it stays
+    # out of GONE_STATUSES while remaining unusable until it comes back.
     AWAY_STATUSES = [Status.SOLD, Status.ARCHIVED, Status.LENT_OUT]
 
     # Things somebody no longer has. They stay as rows so a sale keeps its
@@ -317,9 +316,8 @@ class GarmentItem(models.Model):
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
 
-    # Friends only ever see a closet whose owner has switched sharing on, and
-    # then only the things left on. Underwear, a wedding dress, anything you
-    # would not hand over: turn this off and it stops existing for them.
+    # Read by apps.circle.serializers.lendable_items. False removes the row
+    # from a friend's view even when the owner's closet is shared.
     is_lendable = models.BooleanField(
         default=True,
         help_text="Off means friends never see this one, even when your closet is shared.",

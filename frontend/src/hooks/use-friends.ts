@@ -166,12 +166,9 @@ export function useAnswerLoan() {
 }
 
 /**
- * The one call the whole app polls: how many things are waiting for an answer.
- *
- * Kept deliberately small - counts only, no names - because it runs every
- * minute for everybody and the answer is almost always zero. It is the only
- * query in the app that refetches on its own, since a friend asking to borrow
- * something is the one thing that happens while you are looking elsewhere.
+ * Polled every minute and on window focus, and the only query in the app that
+ * refetches on its own. Counts only, no names: it runs for every signed-in
+ * session and almost always answers zero.
  */
 export function useWaiting() {
   return useQuery({

@@ -205,7 +205,7 @@ export function useAnswerEnquiry() {
 }
 
 /**
- * Changing your mind removes the request rather than marking it, so the
+ * Withdrawing deletes the row rather than marking it, so the
  * listing offers its button again and the same person can ask another day.
  */
 export function useWithdrawEnquiry() {

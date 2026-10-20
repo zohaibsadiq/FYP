@@ -1,9 +1,5 @@
-"""
-What counts as an acceptable photograph, in one place.
-
-Every endpoint that takes an image checks the same things, so a file refused
-by one is refused by all of them with the same words.
-"""
+"""Every endpoint that accepts an image validates through this module, so a
+file refused by one is refused by all of them with the same message."""
 
 from __future__ import annotations
 

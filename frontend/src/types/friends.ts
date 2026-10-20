@@ -1,4 +1,4 @@
-/** Borrow from Friends. Friends are added by code; names are yours alone. */
+/** Borrow from Friends. Accounts are linked by code, and labels are per-owner. */
 
 export type FriendRequestStatus = "SENT" | "ACCEPTED" | "DECLINED";
 export type LoanStatus = "ASKED" | "AGREED" | "RETURNED" | "DECLINED" | "CANCELLED";
@@ -11,11 +11,11 @@ export interface FriendPerson {
 
 export interface Friend {
   id: number;
-  /** Your own private label for them. They never see it. */
+  /** The owner's private label. Never sent to the account it names. */
   nickname: string;
   blocked: boolean;
   person: FriendPerson;
-  /** Whether THEY have opened their closet to you. */
+  /** The other account's sharing switch, not the viewer's. */
   shares_closet: boolean;
   items_to_borrow: number;
   created_at: string;
@@ -61,7 +61,7 @@ export interface Loan {
   item: LoanItem;
   lender: FriendPerson;
   borrower: FriendPerson;
-  /** Your own name for whoever is on the other side of this loan. */
+  /** The viewer's own label for the other side of this loan. */
   their_name: string;
   status: LoanStatus;
   status_label: string;
@@ -94,7 +94,7 @@ export interface Waiting {
   friend_requests: number;
   borrow_asks: number;
   buy_requests: number;
-  /** Things YOU are late giving back. Reported, but left out of `total`. */
+  /** Loans past their return date. Reported, but left out of `total`. */
   overdue: number;
   total: number;
 }

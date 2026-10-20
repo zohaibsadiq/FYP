@@ -1,5 +1,3 @@
-"""Buying and selling between people who use the app."""
-
 from __future__ import annotations
 
 from django.db import IntegrityError, transaction
@@ -58,8 +56,9 @@ def _with_my_enquiry(queryset, user):
     retrieve=extend_schema(tags=["Marketplace"], summary="One listing"),
 )
 class ListingViewSet(viewsets.ReadOnlyModelViewSet):
-    """The browse side. Selling your own things is the other viewset."""
+    """Read-only browse. MyListingViewSet handles the selling side."""
 
+    queryset = Listing.objects.none()
     serializer_class = ListingSerializer
     filterset_class = ListingFilter
     search_fields = ["item__name", "item__brand", "note"]
@@ -133,6 +132,7 @@ class ListingViewSet(viewsets.ReadOnlyModelViewSet):
 class MyListingViewSet(viewsets.ModelViewSet):
     """A seller's own listings. Never shows anybody else's."""
 
+    queryset = Listing.objects.none()
     filterset_fields = ["status"]
     ordering_fields = ["created_at", "asking_price"]
     ordering = ["-created_at"]
@@ -259,6 +259,7 @@ class PriceSuggestionView(APIView):
 class MyEnquiryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """The buyer's side: what I asked for, and what came of it."""
 
+    queryset = Enquiry.objects.none()
     serializer_class = EnquirySerializer
     filterset_fields = ["status"]
     ordering = ["-created_at"]
@@ -302,6 +303,7 @@ class MyEnquiryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 class ReceivedEnquiryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """The seller's side: who wants what, and answering them."""
 
+    queryset = Enquiry.objects.none()
     serializer_class = EnquirySerializer
     filterset_fields = ["status"]
     ordering = ["-created_at"]
@@ -344,7 +346,9 @@ class BlockViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Blocking hides their things from you and yours from them, both ways."""
+    """A block hides listings in both directions and refuses enquiries."""
+
+    queryset = Block.objects.none()
 
     serializer_class = BlockSerializer
 

@@ -2,20 +2,24 @@
 
 ## Comments
 
-Before writing a comment, name the thing outside the function that makes it
-true: a ticket, an HTTP status, a library version, a vendor bug, a measured
-number. If there is nothing to name, the comment is restating the code. Delete
-it.
+Comments are written for somebody who does not program. A judge, a new team
+member, or the author a year from now should be able to read one and
+understand what the code is for and why it is the way it is.
 
-- No second person. No "note that", "remember", "simply".
-- No explanations of Django, React or Tailwind. The reader knows the stack.
-- No banner rules (`# ====`, `// ----`). A bare label line is fine in a long file.
-- No module-top docstrings that summarise what the file obviously is.
-- Docstrings belong on public API surface and non-obvious invariants.
+- Plain English. Short sentences. No jargon where an ordinary word will do:
+  "picture" not "asset", "web address" not "URI".
+- Say why, not what. The code already says what it does.
+- Give an example where the rule is not obvious: "Ali plans a kurta for
+  Friday, sells it on Thursday, then confirms the plan. The kurta is skipped."
+- Name the outside fact that makes the comment true when there is one: a
+  measured number, a library's behaviour, a host's limit.
+- No banner lines (`# ====`, `// ----`). A bare label line is fine in a long
+  file.
 - ASCII only.
 
-Most code needs no comment at all. Long silences with the occasional earned
-paragraph beat a label on every block.
+Not everything needs a comment. A long stretch of code with none, then a real
+paragraph where something is surprising, reads better than a label on every
+block.
 
 ## User-facing copy
 

@@ -1,7 +1,8 @@
 """
-Cloudinary is written when a photo is uploaded, which is before the item form is
-submitted. An abandoned form leaves files behind that nothing points at, and
-Cloudinary charges for stored bytes either way.
+A photo is sent to Cloudinary the moment it is uploaded, which is before the
+item form is saved. When somebody abandons the form, the files stay behind with
+nothing pointing at them, and Cloudinary charges for stored bytes either way.
+This command finds those leftover files.
 """
 
 from django.conf import settings

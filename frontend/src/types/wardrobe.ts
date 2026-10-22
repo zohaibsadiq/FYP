@@ -1,4 +1,5 @@
-// Values mirror the TextChoices in apps/wardrobe/models.py.
+// These lists copy the choices in apps/wardrobe/models.py. The backend's
+// test_contract.py checks they still match.
 export const SLOTS = [
   "TOP",
   "BOTTOM",
@@ -22,15 +23,13 @@ export const SLOT_LABELS: Record<Slot, string> = {
   OTHER: "Other",
 };
 
-export const ITEM_STATUSES = [
-  "IN_WARDROBE",
-  "IN_LAUNDRY",
-  "LENT_OUT",
-  "FOR_SALE",
-  "SOLD",
-  "ARCHIVED",
-] as const;
-export type ItemStatus = (typeof ITEM_STATUSES)[number];
+export type ItemStatus =
+  | "IN_WARDROBE"
+  | "IN_LAUNDRY"
+  | "LENT_OUT"
+  | "FOR_SALE"
+  | "SOLD"
+  | "ARCHIVED";
 
 export const SEASONS = ["SUMMER", "WINTER", "SPRING", "AUTUMN"] as const;
 export type Season = (typeof SEASONS)[number];
@@ -89,14 +88,14 @@ export const STORAGE_KINDS = [
 ] as const;
 export type StorageKind = (typeof STORAGE_KINDS)[number];
 
-/** Mirrors StorageLocation.MAX_DEPTH in apps/wardrobe/models.py. */
-export const MAX_STORAGE_DEPTH = 4;
+/** The same number as StorageLocation.MAX_DEPTH in apps/wardrobe/models.py. */
+const MAX_STORAGE_DEPTH = 4;
 
 /**
  * Whether a place at this depth has room for something `levels` deep. A brand
- * new place is 1 level; moving a wardrobe that already holds drawers is more.
- * StorageLocation.clean() rejects anything deeper, so the picker greys these
- * out rather than letting a form be filled in and then refused.
+ * new place is 1 level; a wardrobe that already holds drawers is 2. The server
+ * refuses anything deeper than four levels, so the picker greys those places
+ * out instead of letting a form be filled in and then refused.
  */
 export function hasRoomInside(depth: number, levels = 1): boolean {
   return depth + levels <= MAX_STORAGE_DEPTH - 1;
@@ -150,7 +149,7 @@ export interface StorageNode {
   children: StorageNode[];
 }
 
-/** Trimmed shape the closet grid lists; the detail view uses Garment. */
+/** The short version the closet grid shows. Opening an item loads the full Garment. */
 export interface GarmentListItem {
   id: number;
   name: string;
@@ -197,7 +196,7 @@ export interface Garment extends Omit<GarmentListItem, "category_slot"> {
   updated_at: string;
 }
 
-/** Response from POST /api/wardrobe/upload/ once rembg has cut the background out. */
+/** What POST /api/wardrobe/upload/ answers once the background has been cut out. */
 export interface ImageUploadResult {
   original_image_url: string;
   original_image_public_id: string;
@@ -266,7 +265,7 @@ export interface WardrobeStats {
   total: number;
   in_wardrobe: number;
   in_laundry: number;
-  /** Sold or archived. Deliberately excluded from `total`. */
+  /** Sold or put away. Left out of `total` on purpose. */
   gone: number;
   favorites: number;
   unplaced: number;
@@ -290,10 +289,4 @@ export interface WearEvent {
   note: string;
   days_ago: number;
   created_at: string;
-}
-
-/** How many things were worn on one day, for drawing a month grid. */
-export interface WearDay {
-  date: string;
-  count: number;
 }

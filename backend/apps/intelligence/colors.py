@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-# Deliberately short. The question a closet filter has to answer is "navy or
-# black", not which of 16 million hex values a photo averaged out to.
+# Kept short on purpose. A closet filter needs to answer "navy or black?", not
+# which of 16 million colour codes a photo averaged out to.
 NAMED_COLORS: list[tuple[str, str]] = [
     ("Black", "#000000"),
     ("Charcoal", "#36454f"),
@@ -49,27 +49,23 @@ def hex_to_rgb(value: str) -> tuple[int, int, int]:
     return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
 
 
-def rgb_to_hex(r: int, g: int, b: int) -> str:
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-
-# D65, the white point sRGB is defined against.
+# The reference white that screen colours are measured against, known as D65.
 _WHITE = (0.95047, 1.0, 1.08883)
 
 
 @lru_cache(maxsize=2048)
 def _lab(value: str) -> tuple[float, float, float] | None:
     """
-    sRGB hex to CIE L*a*b*.
+    Turns a screen colour code like "#1b2f55" into Lab, a way of writing
+    colours that matches how people see them.
 
-    Distance in RGB or HSV does not match what a person sees: two blues a
-    long way apart in RGB can look almost the same, and two greys close
-    together can look clearly different. Lab is built so that the gap between
-    two colours is roughly the difference a person would report.
+    Plain colour codes do not: two blues far apart in code can look almost the
+    same, and two greys close together in code can look clearly different. In
+    Lab, the gap between two colours is roughly the difference a person would
+    notice.
 
-    Held on to once worked out. Comparing a closet against a page of shop
-    prices asks for the same few hundred colours over and over, and the sum
-    below is the same answer every time.
+    The answer is remembered once worked out. Comparing a closet against a page
+    of shop prices asks about the same few hundred colours again and again.
     """
     try:
         r, g, b = hex_to_rgb(value)
@@ -77,7 +73,8 @@ def _lab(value: str) -> tuple[float, float, float] | None:
         return None
 
     def straighten(channel: float) -> float:
-        # sRGB stores brightness on a curve; the maths below needs it linear.
+        # Screens store brightness on a curve. The maths below needs it on a
+        # straight line.
         channel /= 255
         return channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4
 
@@ -105,21 +102,6 @@ def distance(a: str, b: str) -> float:
     return sum((p - q) ** 2 for p, q in zip(first, second)) ** 0.5
 
 
-# Measured against pairs a person would be asked to judge: two whites land
-# around 7, two different blues around 33, and pink against red around 60.
-# Past this the two are simply different colours and the number stops meaning
-# anything useful.
-UNRELATED = 70.0
-
-
-def closeness(a: str, b: str) -> int:
-    """The same comparison as a percentage, for showing to a reader."""
-    gap = distance(a, b)
-    if gap == float("inf"):
-        return 0
-    return max(0, min(100, round(100 * (1 - gap / UNRELATED))))
-
-
 def name_for_hex(value: str) -> str:
     """Closest name in NAMED_COLORS."""
     if not value or _lab(value) is None:
@@ -135,10 +117,3 @@ def name_for_hex(value: str) -> str:
 
     return best_name
 
-
-def is_neutral(value: str) -> bool:
-    """Neutrals pair with anything, so harmony scoring treats them as always safe."""
-    return name_for_hex(value) in {
-        "Black", "Charcoal", "Grey", "Light Grey", "White", "Off White",
-        "Cream", "Beige", "Tan", "Camel", "Navy", "Denim", "Khaki",
-    }

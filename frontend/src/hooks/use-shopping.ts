@@ -12,9 +12,9 @@ import type {
   PriceChange,
 } from "@/types/shopping";
 
-// Hierarchical, so invalidating ["shopping"] clears everything below it while
-// invalidating ["shopping","deals"] leaves the filter choices cached.
-export const shoppingKeys = {
+// Keys are nested like folders. Clearing ["shopping"] clears everything below
+// it; clearing ["shopping", "deals"] leaves the filter choices alone.
+const shoppingKeys = {
   all: ["shopping"] as const,
   deals: () => [...shoppingKeys.all, "deals"] as const,
   dealList: (filters: DealFilters) => [...shoppingKeys.deals(), filters] as const,
@@ -24,8 +24,8 @@ export const shoppingKeys = {
   filters: () => [...shoppingKeys.all, "filters"] as const,
 };
 
-// Prices are refreshed by a job that runs a couple of times a day, so asking
-// again the moment a tab regains focus would only burn a request.
+// Prices are refreshed by a job that runs twice a day, so asking again the
+// moment a tab comes back into focus would only waste a request.
 const HALF_AN_HOUR = 30 * 60 * 1000;
 
 function cleanParams(filters: DealFilters) {
@@ -46,11 +46,11 @@ export function useDeals(filters: DealFilters = {}) {
       return data;
     },
     initialPageParam: 1,
-    // The envelope gives a link rather than a number, so the page after the
-    // one just loaded is however many have been loaded, plus one.
+    // The server says "there is a next page" with a link, not a number, so
+    // the next page number is however many pages are loaded so far, plus one.
     getNextPageParam: (last, loaded) => (last.next ? loaded.length + 1 : undefined),
-    // Without this the grid empties on every filter change and the page jumps
-    // back to the top while the next answer is on its way.
+    // Keeps the old list on screen while the new one loads. Without this the
+    // grid empties on every filter change and the page jumps back to the top.
     placeholderData: keepPreviousData,
     staleTime: HALF_AN_HOUR,
   });

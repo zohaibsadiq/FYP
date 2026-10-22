@@ -89,8 +89,9 @@ export function PlaceField({
     [options, typed, alreadyThere],
   );
 
-  // Combobox.Item carries the id while the list filters and renders the trail,
-  // so the collection has to say which part of an option is which.
+  // Each option has two parts: the id, which is what gets saved, and the trail
+  // such as "Bedroom > Wardrobe > Drawer 2", which is what gets shown and
+  // searched. The list has to be told which part is which.
   const items = useMemo(
     () =>
       Combobox.createItems(shown, {
@@ -102,8 +103,8 @@ export function PlaceField({
 
   // The box shows the chosen trail. A place created from inside the list
   // arrives as a new value rather than a click, and would otherwise leave the
-  // "Add ..." text sitting in the input. Adjusted during render rather than in
-  // an effect so the input never paints the stale text first.
+  // "Add ..." text sitting in the box. The text is corrected while drawing,
+  // not afterwards, so the old text never flashes on screen first.
   const [lastSelectedLabel, setLastSelectedLabel] = useState(selectedLabel);
   if (lastSelectedLabel !== selectedLabel) {
     setLastSelectedLabel(selectedLabel);

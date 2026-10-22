@@ -20,11 +20,11 @@ class UserSerializer(serializers.ModelSerializer):
             "city",
             "country_code",
             "shopping_for",
-            # Reachable only through MeView, which resolves to request.user.
-            # No marketplace or friends serializer renders another account here.
+            # Only the account's own page (MeView) uses this serializer, so the
+            # phone number is only ever shown to the person it belongs to.
             "phone",
-            # Off until the person turns it on, so a new account shares nothing
-            # with anybody by accident.
+            # Starts off. A new account shares nothing with anybody until the
+            # person switches it on.
             "shares_closet",
             "body_photo_url",
             "has_body_photo",
@@ -72,19 +72,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(TokenObtainPairSerializer):
     """
-    Subclassed to authenticate on email rather than username, and to inline the
-    user in the token response. simplejwt returns {access, refresh} alone, which
-    leaves the client unable to render anything until a second /me/ round trip
-    completes.
+    Signs people in with their email instead of a username, and sends the
+    account details back together with the tokens.
+
+    The library on its own returns only the two tokens. The browser would then
+    need a second request just to learn the person's name before it can draw
+    the page. Sending the account along saves that round trip.
     """
 
     username_field = "email"
 
     def validate(self, attrs):
-        # RegisterSerializer stores the address lowercased, and authenticate()
-        # matches it exactly. A phone keyboard capitalises the first letter of
-        # an email by default, which would otherwise lock people out of their
-        # own account with "No active account found".
+        # Emails are stored in lower case and the login check compares them
+        # exactly. A phone keyboard often capitalises the first letter, so
+        # "Ali@example.com" must still match "ali@example.com". Without this,
+        # people would be locked out of their own account with a "No active
+        # account found" message.
         if attrs.get(self.username_field):
             attrs[self.username_field] = attrs[self.username_field].lower().strip()
 

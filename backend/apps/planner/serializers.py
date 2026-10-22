@@ -43,7 +43,7 @@ class UnavailableSerializer(serializers.Serializer):
 
 
 class TodaySerializer(serializers.Serializer):
-    """Null weather and a filled `unavailable` both mean the same thing."""
+    """Either weather is filled in or unavailable is, never both."""
 
     weather = WeatherSerializer(allow_null=True)
     unavailable = UnavailableSerializer(allow_null=True)
@@ -54,7 +54,7 @@ class PlannedOutfitSerializer(serializers.ModelSerializer):
 
     items = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=GarmentItem.objects.none(),   # narrowed per account in __init__
+        queryset=GarmentItem.objects.none(),   # replaced with the person's own clothes in __init__
         required=False,
     )
     item_details = GarmentItemListSerializer(source="items", many=True, read_only=True)
@@ -70,8 +70,8 @@ class PlannedOutfitSerializer(serializers.ModelSerializer):
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "worn_confirmed_at", "created_at", "updated_at"]
-        # The one built from the unique constraint names the database columns
-        # back at the reader. validate_planned_for says it in words instead.
+        # The automatic check would name database columns at the person.
+        # validate_planned_for says the same thing in plain words instead.
         validators = []
 
     def __init__(self, *args, **kwargs):
@@ -88,8 +88,9 @@ class PlannedOutfitSerializer(serializers.ModelSerializer):
                 f"A day can hold up to {PlannedOutfit.MAX_ITEMS} things."
             )
 
-        # A plan is for clothes somebody has. Naming the item beats a bare
-        # "invalid" when the reason is that they sold it last week.
+        # A plan is for clothes the person still has. Naming the item is more
+        # helpful than a bare "invalid" when the reason is that they sold it
+        # last week.
         gone = [i for i in value if i.status in GarmentItem.GONE_STATUSES]
         if gone:
             names = ", ".join(i.name for i in gone)

@@ -5,7 +5,7 @@ from django.db.models import Count, OuterRef, Q, Subquery
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -31,10 +31,11 @@ ITEM_JOINS = ["item", "item__category", "seller"]
 
 def _with_my_enquiry(queryset, user):
     """
-    Carries whether this person has already asked about each listing.
+    Adds whether this person has already asked about each listing, so the page
+    can show "Asked" instead of offering the button again.
 
-    A subquery rather than a query per row: the browse page shows a page of
-    listings at a time and each one needs the same answer.
+    Done inside the main query rather than one query per listing. The browse
+    page shows 24 listings at a time and each one needs the same answer.
     """
     mine = Enquiry.objects.filter(listing_id=OuterRef("pk"), buyer=user).order_by("-created_at")
     return queryset.annotate(my_enquiry_status=Subquery(mine.values("status")[:1]))
@@ -94,8 +95,9 @@ class ListingViewSet(viewsets.ReadOnlyModelViewSet):
                     listing=listing, buyer=request.user, **form.validated_data
                 )
         except IntegrityError as exc:
-            # Two taps arriving together both pass the check above and one then
-            # meets the constraint, so it gets the same answer rather than a 500.
+            # Two taps arriving at the same moment both pass the check above,
+            # and the second one hits the database rule. It gets the same
+            # readable answer instead of a crash.
             raise ValidationError(
                 {"listing": "You have already asked about this one."}
             ) from exc
@@ -159,7 +161,7 @@ class MyListingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # The city defaults to the seller's own, because most people are
-        # selling something that is where they are.
+        # selling something that is wherever they are.
         city = serializer.validated_data.get("city") or (self.request.user.city or "")
 
         # Most people sell their own clothes, so the seller's usual section is
@@ -250,7 +252,9 @@ class PriceSuggestionView(APIView):
         if item is None:
             raise ValidationError({"item": "No such item in your closet."})
 
-        return Response(suggestion_for(item, condition))
+        # Through the serializer so the money fields arrive as strings such as
+        # "1000.00", exactly as the API docs promise, not as bare numbers.
+        return Response(PriceSuggestionSerializer(suggestion_for(item, condition)).data)
 
 
 @extend_schema_view(

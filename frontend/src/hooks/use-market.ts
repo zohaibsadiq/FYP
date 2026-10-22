@@ -22,9 +22,9 @@ import type {
   PriceSuggestion,
 } from "@/types/market";
 
-// Hierarchical, so invalidating ["market"] after a sale clears the browse
-// page, my listings and both sides' requests in one go.
-export const marketKeys = {
+// Keys are nested like folders, so clearing ["market"] after a sale refreshes
+// the browse page, my listings and both sides' requests in one go.
+const marketKeys = {
   all: ["market"] as const,
   listings: () => [...marketKeys.all, "listings"] as const,
   listingList: (filters: ListingFilters) => [...marketKeys.listings(), filters] as const,
@@ -56,7 +56,8 @@ export function useListings(filters: ListingFilters = {}) {
     },
     initialPageParam: 1,
     getNextPageParam: (last, loaded) => (last.next ? loaded.length + 1 : undefined),
-    // Without this the grid empties on every filter change and the page jumps.
+    // Keeps the old list on screen while the new one loads. Without this the
+    // grid empties on every filter change and the page jumps.
     placeholderData: keepPreviousData,
   });
 }
@@ -103,16 +104,6 @@ export function useMarketStats() {
   });
 }
 
-export function useBlocks() {
-  return useQuery({
-    queryKey: marketKeys.blocks(),
-    queryFn: async () => {
-      const { data } = await api.get<Paginated<Block>>("/market/blocks/");
-      return data.results;
-    },
-  });
-}
-
 /** What a garment might fetch. Only asked for once a condition has been chosen. */
 export function usePriceSuggestion(item: number | null, condition: Condition) {
   return useQuery({
@@ -141,17 +132,6 @@ export function useCreateListing() {
   return useMutation({
     mutationFn: async (payload: ListingPayload) => {
       const { data } = await api.post<MyListing>("/market/my-listings/", payload);
-      return data;
-    },
-    onSuccess: refresh,
-  });
-}
-
-export function useUpdateListing() {
-  const refresh = useRefreshEverything();
-  return useMutation({
-    mutationFn: async ({ id, ...payload }: Partial<ListingPayload> & { id: number }) => {
-      const { data } = await api.patch<MyListing>(`/market/my-listings/${id}/`, payload);
       return data;
     },
     onSuccess: refresh,
@@ -205,8 +185,8 @@ export function useAnswerEnquiry() {
 }
 
 /**
- * Withdrawing deletes the row rather than marking it, so the
- * listing offers its button again and the same person can ask another day.
+ * Withdrawing deletes the request rather than marking it, so the listing offers
+ * its button again and the same person can ask another day.
  */
 export function useWithdrawEnquiry() {
   const refresh = useRefreshEverything();

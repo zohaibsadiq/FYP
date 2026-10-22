@@ -19,5 +19,6 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "eslint.workingDirectories": ["frontend"],
-  "tailwindCSS.experimental.configFile": "frontend/src/app/globals.css"
+  "tailwindCSS.experimental.configFile": "frontend/src/app/globals.css",
+  "python.terminal.useEnvFile": true
 }

@@ -10,9 +10,9 @@ import { Initials } from "@/components/friends/initials";
 import type { FriendRequest } from "@/types/friends";
 
 /**
- * The label is chosen here, before anything is shared. Friend.nickname carries
- * a per-owner unique constraint, so a clash is caught at this point rather
- * than surfacing later as a database error.
+ * The nickname is chosen here, before anything is shared. Each person's
+ * nicknames must be unique, so somebody who already has a friend called "Ali
+ * Khan" is told so now and asked for another name, such as "Ali Khan (uni)".
  */
 export function RequestCard({
   request,
@@ -42,7 +42,7 @@ export function RequestCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{them.display_name}</p>
           <p className="truncate text-sm text-muted-foreground">
-            {them.city || "No city saved"} · wants to be your friend
+            {them.city || "No city saved"} - wants to be your friend
           </p>
         </div>
       </div>

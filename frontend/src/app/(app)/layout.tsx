@@ -10,15 +10,17 @@ import { Topbar } from "@/components/layout/topbar";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { tokens } from "@/lib/tokens";
 
-// Access control lives on the server, where every endpoint requires a valid
-// token. The redirect below only keeps signed-out visitors off an empty shell.
+// The real door is on the server: every API address refuses a request without
+// a valid token. The redirect below only stops a signed-out visitor seeing an
+// empty page frame with nothing in it.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isError } = useCurrentUser();
 
-  // These routes are prerendered, so the token can only be read once the
-  // browser takes over. Subscribing rather than reading once also signs this
-  // tab out when another one does.
+  // These pages are built before the browser gets them, and the token lives
+  // in the browser, so it can only be read once the browser is running the
+  // page. Listening for changes, rather than reading once, also signs this tab
+  // out when another tab signs out.
   const signedIn = useSyncExternalStore(tokens.subscribe, tokens.isLoggedIn, () => false);
 
   useEffect(() => {

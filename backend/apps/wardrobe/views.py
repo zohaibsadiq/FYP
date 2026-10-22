@@ -22,15 +22,6 @@ from apps.vision.background import remove_background
 
 from .filters import GarmentItemFilter, SpellingTolerantSearch, WearEventFilter
 from .models import Category, GarmentItem, StorageLocation, WearEvent
-
-# Sold and put-away things stay in the database for their history, but they
-# are not part of "what I have", so every count of a wardrobe leaves them out.
-STILL_OWNED = ~Q(status__in=GarmentItem.GONE_STATUSES)
-
-
-def still_owned_items() -> object:
-    """The items a count should see: everything except sold and put away."""
-    return GarmentItem.objects.exclude(status__in=GarmentItem.GONE_STATUSES)
 from .serializers import (
     BulkLocationSerializer,
     CategorySerializer,
@@ -47,16 +38,25 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
+# Sold and put-away things stay in the database for their history, but they
+# are not part of "what I have", so every count of a wardrobe leaves them out.
+STILL_OWNED = ~Q(status__in=GarmentItem.GONE_STATUSES)
+
+
+def still_owned_items():
+    """The items a count should see: everything except sold and put away."""
+    return GarmentItem.objects.exclude(status__in=GarmentItem.GONE_STATUSES)
+
 
 DUPLICATE_NAME = "You have just added something with that name. Please use a different one."
 
 
 def _save_unique(serializer, clash=None, **kwargs):
     """
-    The serializers check for a clash first, which is what produces a readable
-    message. Two requests arriving together both pass that check and one then
-    hits the database constraint, so the same answer is given again rather than
-    a 500.
+    The serializers already check for a duplicate name and give a readable
+    message. But two requests can arrive at the same moment, both pass that
+    check, and the second one then hits the database rule. This catches that
+    case and gives the same readable message instead of a crash.
     """
     try:
         with transaction.atomic():
@@ -65,15 +65,13 @@ def _save_unique(serializer, clash=None, **kwargs):
         raise ValidationError(clash or {"name": DUPLICATE_NAME}) from exc
 
 
-
-
 @extend_schema(tags=["Wardrobe"])
 class CategoryViewSet(viewsets.ModelViewSet):
     """Built-in categories, which are read-only, plus any the account has added."""
 
     serializer_class = CategorySerializer
-    # Placeholder so drf-spectacular can resolve the model; get_queryset() is
-    # what serves requests.
+    # Never used to answer a request; get_queryset() does that. It is here so
+    # the API docs generator can tell which table this view is about.
     queryset = Category.objects.none()
 
     def get_queryset(self):
@@ -111,7 +109,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 @extend_schema(tags=["Wardrobe"])
 class StorageLocationViewSet(viewsets.ModelViewSet):
-    """Places where garments are kept, nestable to four levels."""
+    """Places where clothes are kept, up to four levels deep: Bedroom > Wardrobe > Drawer > Box."""
 
     serializer_class = StorageLocationSerializer
     queryset = StorageLocation.objects.none()
@@ -134,7 +132,10 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
         _save_unique(serializer)
 
     def perform_destroy(self, instance: StorageLocation):
-        """Child locations cascade; their items survive with storage_location NULL."""
+        """
+        Deleting a place also deletes the places inside it. The clothes survive;
+        they simply have no recorded place any more.
+        """
         instance.delete()
 
     @extend_schema(
@@ -207,18 +208,19 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        # Owner filtering here is the only thing stopping cross-account reads:
-        # detail routes resolve against this queryset, so a guessed id gives a 404.
+        # Filtering by owner here is what stops one person reading another's
+        # clothes. Opening /items/57/ looks for 57 inside this list only, so a
+        # guessed id from somebody else's account answers "not found".
         mine = (
             GarmentItem.objects.filter(owner=self.request.user)
             .with_last_occasion()
             .select_related("category", "storage_location", "storage_location__parent")
         )
 
-        # Something sold or archived is not in the wardrobe any more, so the
-        # list of clothes leaves it out. Asking for it by status still finds
-        # it, and so does opening it directly, because the row is still there
-        # and its history still means something.
+        # Something sold or put away is not in the wardrobe any more, so the
+        # closet list leaves it out. Asking for it by status still finds it,
+        # and so does opening it directly, because the row is still there and
+        # its history still means something.
         params = self.request.query_params
         asked_by_status = params.get("status") in GarmentItem.GONE_STATUSES
         asked_for_gone = params.get("gone") in ("true", "True", "1")
@@ -235,7 +237,10 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
     def perform_destroy(self, instance: GarmentItem):
-        """Cloudinary keeps uploads until they are deleted by public_id."""
+        """
+        Deleting the row does not delete the pictures. Cloudinary keeps them
+        until told otherwise, so both are removed here first.
+        """
         for public_id in (instance.clean_image_public_id, instance.original_image_public_id):
             if public_id:
                 storage.delete_image(public_id)
@@ -257,8 +262,9 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             payload.validated_data.get("date"),
             payload.validated_data.get("note", ""),
         )
-        # Read back through the annotated queryset: the last occasion is worked
-        # out in the query, so the copy in memory still holds the one before.
+        # Re-read the item through get_queryset(). The "last worn" note is
+        # worked out by the database, so the copy already in memory still shows
+        # the previous one.
         return Response(
             GarmentItemSerializer(
                 self.get_queryset().get(pk=item.pk), context={"request": request}
@@ -332,7 +338,8 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             raise ValidationError({"storage_location": "That location belongs to another account."})
 
         with transaction.atomic():
-            # update() skips save(), and with it the auto_now on updated_at.
+            # A bulk update skips the normal save, so the "updated at" time has
+            # to be set by hand.
             updated = GarmentItem.objects.filter(
                 owner=request.user, id__in=payload.validated_data["item_ids"]
             ).update(storage_location=location, updated_at=timezone.now())
@@ -344,8 +351,8 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         qs = GarmentItem.objects.filter(owner=request.user)
 
-        # "total" is what somebody still owns. Counting things they have sold
-        # would tell them they have more clothes than they do.
+        # "total" is what the person still owns. Counting things they have sold
+        # would tell them they have more clothes than they really do.
         kept = STILL_OWNED
         totals = qs.aggregate(
             total=Count("id", filter=kept),
@@ -354,15 +361,15 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             favorites=Count("id", filter=Q(is_favorite=True) & kept),
             unplaced=Count("id", filter=Q(storage_location__isnull=True) & kept),
             never_worn=Count("id", filter=Q(wear_count=0) & kept),
-            # What the closet page needs to decide whether the "sold and put
+            # The closet page uses this to decide whether the "sold and put
             # away" button is worth showing at all.
             gone=Count("id", filter=Q(status__in=GarmentItem.GONE_STATUSES)),
             total_spent=Sum("purchase_price", filter=STILL_OWNED),
             total_wears=Sum("wear_count"),
         )
 
-        # Counted the same way as "total", so the slot breakdown adds up to it
-        # instead of quietly exceeding it once somebody has sold something.
+        # Counted the same way as "total", so the per-slot numbers add up to it
+        # instead of quietly exceeding it once something has been sold.
         by_slot = list(
             qs.exclude(status__in=GarmentItem.GONE_STATUSES)
             .values("category__slot")
@@ -370,8 +377,8 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
             .order_by("-count")
         )
 
-        # Two numbers the dashboard leads with: what is actually getting used,
-        # and what has been sitting untouched long enough to be worth a nudge.
+        # Two numbers the home page leads with: what is really getting worn,
+        # and what has sat untouched long enough to be worth a nudge.
         week_ago = timezone.localdate() - timezone.timedelta(days=6)
         stale = timezone.localdate() - timezone.timedelta(days=90)
         worn_this_week = (
@@ -415,9 +422,9 @@ class GarmentItemViewSet(viewsets.ModelViewSet):
 )
 class GarmentImageUploadView(APIView):
     """
-    Kept separate from item creation because background removal takes a few
-    seconds: the cutout preview appears while the rest of the form is still being
-    filled in.
+    Kept separate from saving the item because background removal takes a few
+    seconds. The cutout preview appears while the person is still filling in
+    the rest of the form.
     """
 
     parser_classes = [MultiPartParser, FormParser]
@@ -479,9 +486,10 @@ class GarmentImageUploadView(APIView):
 
 class GarmentImageDiscardView(APIView):
     """
-    Throws away an upload that never became an item. The upload endpoint writes
-    to Cloudinary before the form is submitted, so swapping a photo or leaving
-    the page would otherwise keep paying to store it.
+    Throws away an upload that never became an item. The upload endpoint sends
+    the photo to Cloudinary before the form is saved, so swapping a photo or
+    leaving the page would otherwise leave a file behind that costs money to
+    store.
     """
 
     serializer_class = ImageDiscardSerializer
@@ -503,8 +511,9 @@ class GarmentImageDiscardView(APIView):
                     {"public_ids": "That image was uploaded by another account."}
                 )
 
-            # An id an item still points at is not an orphan, whatever the client
-            # believes: deleting it would leave that item with a broken photo.
+            # If an item still uses this picture, it is not a leftover, whatever
+            # the browser thinks. Deleting it would leave that item with a
+            # broken photo.
             if GarmentItem.objects.filter(
                 Q(original_image_public_id=public_id) | Q(clean_image_public_id=public_id)
             ).exists():
@@ -524,8 +533,8 @@ ALREADY_WORN = {"worn_on": "That item is already recorded as worn on that day."}
 class WearEventViewSet(viewsets.ModelViewSet):
     """
     The record of what was worn and when. The closet screen only needs the
-    running total on each item, so this is for the history list, the calendar
-    and the "what did I wear that day" lookup.
+    running total on each item, so this is for the history list, the calendar,
+    and "what did I wear on that day".
     """
 
     queryset = WearEvent.objects.none()
@@ -560,8 +569,8 @@ class WearEventViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def calendar(self, request):
         """
-        One row per day, for drawing a month grid without sending every wearing
-        in it. The screen asks for the detail of a day only when it is opened.
+        One number per day, enough to draw a month grid without sending every
+        wearing in it. The page asks for a day's detail only when it is opened.
         """
         days = (
             self.filter_queryset(self.get_queryset())

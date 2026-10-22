@@ -19,8 +19,8 @@ router.register("storage", StorageLocationViewSet, basename="storage")
 router.register("wears", WearEventViewSet, basename="wear")
 
 urlpatterns = [
-    # Outside the router: this one processes an image and returns URLs instead
-    # of acting on a model.
+    # Kept outside the router. This one takes an image, processes it and
+    # returns web addresses; it does not act on a database row.
     path("upload/", GarmentImageUploadView.as_view(), name="upload"),
     path("upload/discard/", GarmentImageDiscardView.as_view(), name="upload-discard"),
     path("", include(router.urls)),

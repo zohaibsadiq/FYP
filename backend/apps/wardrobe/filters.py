@@ -1,4 +1,7 @@
-"""Filter labels in this module are published in the schema served at /api/docs/."""
+"""
+The label on each filter is shown on the API docs page at /api/docs/, which is
+why they are written as full sentences.
+"""
 
 from __future__ import annotations
 
@@ -13,9 +16,9 @@ from rest_framework.filters import SearchFilter
 from .models import Category, GarmentItem, StorageLocation, WearEvent
 
 
-# A date cannot hold more than about ten thousand years, and subtracting a
-# larger number of days raises OverflowError halfway through building the
-# query. Ten years back already reaches every row anyone will ever have.
+# A date cannot go back more than about ten thousand years, and subtracting
+# more days than that crashes while the query is being built. Ten years
+# already reaches every row anybody will ever have.
 MAX_DAYS_BACK = 3650
 
 
@@ -37,7 +40,7 @@ class GarmentItemFilter(filters.FilterSet):
     )
 
     location = filters.ModelChoiceFilter(
-        queryset=StorageLocation.objects.none(),   # narrowed per user in __init__
+        queryset=StorageLocation.objects.none(),   # replaced with the person's own places in __init__
         method="filter_location",
         label="Storage location (includes everything nested inside it)",
     )
@@ -93,8 +96,8 @@ class GarmentItemFilter(filters.FilterSet):
 
     def filter_season(self, queryset, name, value: str):
         """
-        An item with no seasons recorded counts as all-year. Excluding those
-        would empty most filtered views, which reads as missing data.
+        An item with no seasons recorded counts as all-year. Leaving those out
+        would empty most filtered views, which looks like lost data.
         """
         return queryset.filter(Q(seasons__contains=[value.upper()]) | Q(seasons=[]))
 
@@ -117,15 +120,15 @@ class GarmentItemFilter(filters.FilterSet):
 
 class SpellingTolerantSearch(SearchFilter):
     """
-    Ordinary substring matching, with a second pass for misspelled words.
+    Ordinary search, with a second attempt for misspelled words.
 
-    Typing "snekers" matches nothing with a plain LIKE, and an empty closet
-    screen reads as lost data rather than a typo. When the first pass comes
-    back empty the same words are compared letter-group by letter-group
+    Typing "snekers" matches nothing with a plain text search, and an empty
+    closet screen looks like lost data rather than a typo. When the first
+    attempt finds nothing, the same words are compared three letters at a time
     against the fields below, which still finds "Blue Sneakers".
 
-    The second pass only runs on an empty result, so a search that already
-    works costs one extra EXISTS query.
+    The second attempt only runs when the first found nothing, so a search that
+    already works costs one small extra query.
     """
 
     # Measured against real misspellings: a correct match scores 0.40 upwards
@@ -153,7 +156,7 @@ class SpellingTolerantSearch(SearchFilter):
                 similarity = TrigramWordSimilarity(term, field)
                 score = similarity if score is None else Greatest(score, similarity)
 
-        # The screen tells the reader these are guesses rather than matches.
+        # Lets the page say these are the nearest spellings, not exact matches.
         request.spelling_guessed = True
         return queryset.annotate(_match=score).filter(_match__gte=self.THRESHOLD)
 

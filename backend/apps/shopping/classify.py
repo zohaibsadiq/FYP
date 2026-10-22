@@ -1,14 +1,14 @@
 """
 Turning a shop's own wording into something the closet understands.
 
-Live feeds return product_type values such as "BTK-EAST", "Women Fabric",
-"Heartilicious", "PRET" and "3 Piece". None of that can be shown as a filter, so each product is read
-for three things: whether it is clothing at all, where on the body it is worn,
-and what colour it is.
+Shop feeds describe products with labels such as "BTK-EAST", "Women Fabric",
+"Heartilicious", "PRET" and "3 Piece". None of that can be shown as a filter,
+so each product is read for three things: whether it is clothing at all, where
+on the body it is worn, and what colour it is.
 
 Where it is worn is the part that has to be right, because that is what the
-filter runs on. The exact kind ("Kurta" rather than only "a top") is a bonus
-and is left empty rather than guessed at.
+filter runs on. The exact kind ("Kurta" rather than just "a top") is a bonus
+and is left empty rather than guessed.
 """
 
 from __future__ import annotations
@@ -21,14 +21,15 @@ from apps.wardrobe.models import Category
 
 Slot = Category.Slot
 
-# The kind given to cloth sold by the metre. It is a real thing to own in this
-# market, so it is named rather than swept into "other".
+# Cloth sold by the metre gets its own kind. It is a real thing to own in this
+# market, so it is named instead of being swept into "other".
 UNSTITCHED_CATEGORY = "Unstitched Fabric"
 
-# Read in this order. Longest phrase first, so "formal shoes" is not swallowed
-# by "shoes" and "t-shirt" is not swallowed by "shirt"; where two phrases are
-# the same length the one written first here wins, which is why tops are
-# listed above bottoms ("short sleeve shirt" is a shirt, not shorts).
+# Each rule is (words to look for, category name, where it is worn). Longest
+# phrase is tried first, so "formal shoes" is not swallowed by "shoes" and
+# "t-shirt" is not swallowed by "shirt". Where two phrases are the same length,
+# the one written first here wins, which is why tops are listed above bottoms:
+# "short sleeve shirt" is a shirt, not shorts.
 RULES: list[tuple[str, str, str]] = [
     # Worn top and bottom at once
     ("shalwar kameez", "Shalwar Kameez", Slot.FULL_BODY),
@@ -205,7 +206,8 @@ NOT_CLOTHING = [
     "boxer",
 ]
 
-# Colour words that live feeds spell differently from COLOUR_NAMES.
+# Colour words shops use that are spelled differently from the names in
+# NAMED_COLORS.
 COLOR_ALIASES: dict[str, str] = {
     "ivory": "Off White",
     "offwhite": "Off White",
@@ -251,8 +253,8 @@ def _flatten(text: str) -> str:
     return _TIDY.sub(" ", (text or "").lower()).strip()
 
 
-# Longest phrase first, and among equals the order written above. Python's sort
-# is stable, so the index keeps that order rather than scrambling it.
+# Longest phrase first, and among equal lengths the order written above. Python
+# keeps the original order for ties, so nothing gets scrambled.
 _COMPILED_RULES = [
     (_pattern(phrase), category, slot)
     for phrase, category, slot in sorted(
@@ -274,7 +276,7 @@ _COLOR_PATTERNS = [
 
 # Who a thing is meant for. The shops say so themselves, usually in their tags
 # and in the vendor line, so this is read rather than guessed. Anything that
-# does not say stays UNKNOWN and shows only under "everything", because putting
+# does not say stays UNKNOWN and shows only under "Everything", because putting
 # a man's shirt in the women's tab is worse than leaving it out of both.
 KIDS_WORDS = ["kid", "junior", "toddler", "boy", "girl", "baby", "infant",
               "child", "children", "btk", "btkids"]
@@ -368,11 +370,11 @@ def read(product) -> Reading | None:
     """
     Returns None when the product is not clothing and should not be stored.
 
-    product_type outranks the title: "Kameez Shalwar" in the category is a
-    statement about the garment, while the same words in a title may describe
-    what it is worn with. Tags are read last and only to identify a kind,
-    because they carry stray values such as "sales tax 15%" and cannot safely
-    rule anything out.
+    The shop's own category outranks the title. "Kameez Shalwar" as the
+    category says what the garment is, while the same words in a title may
+    describe what it is worn with. Tags are read last and only to find the
+    kind, because they carry stray values such as "sales tax 15%" and cannot
+    safely rule anything out.
     """
     plain = f"{product.shop_category} {product.title}"
 

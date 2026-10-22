@@ -2,10 +2,10 @@
 Today's weather for the city on the account, turned into advice about what to
 wear.
 
-Two calls are made to OpenWeather and cached together: the current reading, and
-the next few forecast steps for the day's high, low and chance of rain. The free
-plan allows sixty calls a minute, and an uncached dashboard would spend one on
-every load.
+Two requests go to OpenWeather and the result is remembered for a while: the
+current reading, and the next few forecast steps for the day's high, low and
+chance of rain. The free plan allows sixty requests a minute, and without the
+cache every visit to the home page would spend one.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ FORECAST_STEPS = 8
 
 
 class WeatherUnavailable(Exception):
-    """Carries a sentence that can be shown to the reader unchanged."""
+    """Carries a sentence that can be shown to the person exactly as it is."""
 
     def __init__(self, reason: str, code: str):
         super().__init__(reason)
@@ -65,9 +65,10 @@ class Weather:
         return asdict(self)
 
 
-# Read against how it feels rather than the thermometer: 30 degrees in still,
-# humid air is dressed for differently from 30 in a breeze. Each band names the
-# warmth_level values on a garment that suit it.
+# Based on how the weather feels, not the plain thermometer reading: 30 degrees
+# in still humid air is dressed for differently from 30 in a breeze. Each band
+# gives the headline, the advice sentence, the garment warmth levels that suit
+# it, and the season. Example: 20 degrees falls under "Mild".
 BANDS = [
     (8, "Cold", "Something heavy, and a layer underneath.", [4, 5], "WINTER"),
     (16, "Chilly", "A jacket or a shawl over what you are wearing.", [3, 4], "WINTER"),
@@ -125,8 +126,9 @@ def _round(value) -> int:
 
 def for_city(city: str, country_code: str = "") -> Weather:
     """
-    Raises WeatherUnavailable with a readable reason rather than returning a
-    half-filled reading, so the screen never shows a temperature it invented.
+    Either returns a complete reading or raises WeatherUnavailable with a
+    readable reason. It never returns a half-filled one, so the screen never
+    shows a temperature it made up.
     """
     if not settings.OPENWEATHER_API_KEY:
         raise WeatherUnavailable("The weather service is not set up yet.", "not_configured")

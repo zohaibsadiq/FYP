@@ -1,4 +1,7 @@
-"""Filter labels in this module are published in the schema served at /api/docs/."""
+"""
+The label on each filter is shown on the API docs page at /api/docs/, which is
+why they are written as full sentences.
+"""
 
 from __future__ import annotations
 
@@ -60,6 +63,7 @@ class ListingFilter(filters.FilterSet):
         if not value:
             return queryset
         city = (getattr(self.request.user, "city", "") or "").strip()
-        # Somebody who has not said where they live cannot be near anything,
-        # and an empty city would otherwise match every listing with no city.
+        # Somebody who has not said where they live cannot be near anything.
+        # Without this, an empty city would match every listing that also has
+        # no city.
         return queryset.filter(city__iexact=city) if city else queryset.none()

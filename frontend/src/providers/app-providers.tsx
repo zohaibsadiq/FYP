@@ -18,7 +18,9 @@ function gotNoAnswer(error: unknown): boolean {
 }
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
-  // In state, not a module const: a shared client would serve one user's cache to the next.
+  // Created inside the component, not once for the whole file. One shared cache
+  // would show the previous person's data to the next person who signs in on
+  // the same device.
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -26,10 +28,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           queries: {
             staleTime: 60 * 1000,
             refetchOnWindowFocus: false,
-            // One more go when nothing answered, which is the shape of a
-            // sleeping server. Mutations are deliberately left alone: a
-            // timed-out POST may have arrived anyway, and sending it twice
-            // would add a second copy of whatever it was.
+            // One more try when nothing answered at all, which is what a
+            // sleeping server looks like. Saves are left alone on purpose: a
+            // save that timed out may have arrived anyway, and sending it
+            // twice would add a second copy of whatever it was.
             retry: (failureCount, error) => failureCount < (gotNoAnswer(error) ? 2 : 1),
           },
         },

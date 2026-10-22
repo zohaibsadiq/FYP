@@ -36,7 +36,6 @@ export interface WeatherUnavailable {
   reason: string;
 }
 
-
 export interface TodayPlan {
   weather: Weather | null;
   unavailable: WeatherUnavailable | null;

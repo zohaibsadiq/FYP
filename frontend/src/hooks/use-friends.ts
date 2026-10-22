@@ -14,9 +14,9 @@ import type {
   Waiting,
 } from "@/types/friends";
 
-// Hierarchical, so agreeing to lend something clears the friend list, the
-// loans and the header numbers in one call.
-export const friendKeys = {
+// Keys are nested like folders, so agreeing to lend something clears the
+// friend list, the loans and the header numbers in one call.
+const friendKeys = {
   all: ["friends"] as const,
   list: () => [...friendKeys.all, "list"] as const,
   requests: () => [...friendKeys.all, "requests"] as const,
@@ -26,7 +26,7 @@ export const friendKeys = {
   closet: (id: number) => [...friendKeys.all, "closet", id] as const,
 };
 
-/** The list endpoints are paginated; every caller wants the rows. */
+/** The server sends lists in pages; every caller here only wants the rows. */
 function rows<T>(data: Paginated<T> | T[]): T[] {
   return Array.isArray(data) ? data : (data?.results ?? []);
 }
@@ -166,9 +166,10 @@ export function useAnswerLoan() {
 }
 
 /**
- * Polled every minute and on window focus, and the only query in the app that
- * refetches on its own. Counts only, no names: it runs for every signed-in
- * session and almost always answers zero.
+ * Asked again every minute and whenever the tab comes back into focus. This is
+ * the only request in the app that repeats by itself. It returns counts only,
+ * no names, because it runs for everybody signed in and almost always answers
+ * zero.
  */
 export function useWaiting() {
   return useQuery({

@@ -1,4 +1,7 @@
-"""Single choke point for Cloudinary. No other module calls the SDK directly."""
+"""
+The only file that talks to Cloudinary, the image host. Every upload and delete
+goes through here, so changing hosts would mean changing one file.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,6 @@ from dataclasses import dataclass
 from typing import IO, Any
 
 import cloudinary
-import cloudinary.api
 import cloudinary.uploader
 from django.conf import settings
 
@@ -23,7 +25,10 @@ cloudinary.config(
 
 
 class CloudinaryNotConfigured(RuntimeError):
-    """Raised when the .env keys are missing, in place of an opaque SDK error."""
+    """
+    Raised when the keys are missing from .env, with a message that names them,
+    instead of a confusing error from deep inside the Cloudinary library.
+    """
 
 
 def is_configured() -> bool:
@@ -38,19 +43,22 @@ def _require_config() -> None:
         )
 
 
-# Paths are relative to CLOUDINARY_ROOT_FOLDER and, for anything owned by a
-# single account, gain a /u<id> segment from folder_for().
+# Folder names inside the Cloudinary account. Anything that belongs to one
+# person also gets a /u<id> part from folder_for(), so account 42's clothes
+# live under garments/clean/u42/.
 class Folder:
     GARMENT_ORIGINAL = "garments/original"
-    GARMENT_CLEAN = "garments/clean"         # output of the rembg cutout
+    GARMENT_CLEAN = "garments/clean"         # the photo after background removal
     BODY_PHOTO = "users/body"
     TRY_ON_RESULT = "tryon/results"
-    INSPIRATION = "inspiration"              # "Steal the Look" uploads
 
 
 @dataclass(frozen=True)
 class UploadedImage:
-    """public_id is stored beside the URL because deletion needs the id, not the URL."""
+    """
+    The web address is for showing the picture. The public id is for deleting it
+    later, because Cloudinary deletes by id, not by address.
+    """
 
     url: str
     public_id: str
@@ -70,8 +78,9 @@ def folder_for(folder: str, user_id: int | None) -> str:
 
 
 def owns_public_id(public_id: str, folder: str, user_id: int) -> bool:
-    # A client posts back a public_id the upload endpoint handed it, so the
-    # folder prefix is the only evidence that the file is that account's own.
+    # The browser sends back a picture id that the upload endpoint gave it
+    # earlier. The folder at the start of that id is the only proof that the
+    # file belongs to this account: garments/clean/u42/abc123 is account 42's.
     if not public_id:
         return False
     return public_id.startswith(f"{folder_for(folder, user_id)}/")
@@ -87,19 +96,17 @@ def upload_image(
     overwrite: bool = False,
 ) -> UploadedImage:
     """
-    Send one image to Cloudinary and return where it landed.
+    Sends one picture to Cloudinary and returns where it landed.
 
-    Args:
-        file:      an open file, raw bytes, or a local path.
-        folder:    a constant from `Folder`, e.g. Folder.GARMENT_CLEAN.
-        user_id:   puts the file in that account's own subfolder.
-        public_id: a fixed name, for files that replace an earlier version such
-                   as a body photo. Left out, Cloudinary picks a unique name.
-        tags:      queried later for bulk deletion.
-        overwrite: only meaningful together with public_id.
+    file:      an open file, raw bytes, or a path on disk.
+    folder:    one of the names in Folder, such as Folder.GARMENT_CLEAN.
+    user_id:   puts the file in that account's own sub-folder.
+    public_id: a fixed name, for files that replace an earlier version, such
+               as a body photo. Left out, Cloudinary picks a unique name.
+    tags:      labels that make bulk deletion possible later.
+    overwrite: only means anything together with public_id.
 
-    Raises:
-        CloudinaryNotConfigured: if the .env keys are missing.
+    Raises CloudinaryNotConfigured if the keys are missing from .env.
     """
     _require_config()
 
@@ -108,7 +115,8 @@ def upload_image(
     options: dict[str, Any] = {
         "folder": full_folder,
         "resource_type": "image",
-        # Drops EXIF GPS and camera fields from the stored copy.
+        # Strips the hidden data phones add to photos, such as GPS location
+        # and camera model, from the stored copy.
         "image_metadata": False,
         "invalidate": True,
     }
@@ -137,7 +145,10 @@ def upload_image(
 
 
 def delete_image(public_id: str) -> bool:
-    """True if deleted or already gone. Never raises; cleanup cannot fail a request."""
+    """
+    True if deleted, or if it was already gone. Never raises an error: a failed
+    cleanup must not break the request that asked for it.
+    """
     if not is_configured() or not public_id:
         return False
 
@@ -148,22 +159,3 @@ def delete_image(public_id: str) -> bool:
         logger.exception("Could not delete Cloudinary image %s", public_id)
         return False
 
-
-def thumbnail_url(url: str, width: int = 400) -> str:
-    """
-    Cloudinary derives a resize from transformation segments in the path itself,
-    so no second upload and no stored variant are involved.
-
-        .../upload/v123/closette/garments/clean/shirt.png
-        .../upload/c_limit,w_400,f_auto,q_auto/v123/closette/.../shirt.png
-    """
-    marker = "/upload/"
-    if marker not in url:
-        return url
-    head, tail = url.split(marker, 1)
-    return f"{head}{marker}c_limit,w_{width},f_auto,q_auto/{tail}"
-
-
-def ping() -> dict[str, Any]:
-    _require_config()
-    return cloudinary.api.ping()

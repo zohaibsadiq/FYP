@@ -12,9 +12,9 @@ class PlannedOutfit(models.Model):
     """
     One day, one set of clothes.
 
-    Held to a single plan per day on purpose. A calendar where a square can
-    hold two different answers has to explain which one it is showing, and
-    the note covers the rare day that needs a change of clothes.
+    Only one plan per day, on purpose. A calendar square that could hold two
+    different answers would have to explain which one it shows, and the note
+    covers the rare day that needs a change of clothes.
     """
 
     MAX_ITEMS = 12
@@ -34,9 +34,9 @@ class PlannedOutfit(models.Model):
 
     items = models.ManyToManyField(GarmentItem, related_name="planned_in", blank=True)
 
-    # Set when the plan is confirmed as actually worn, which writes the day
-    # into the wear log. Kept so the calendar can show what was a plan and
-    # what really happened.
+    # Set when the person confirms they really wore the plan, which writes the
+    # day into the wear log. Kept so the calendar can tell a plan from what
+    # actually happened.
     worn_confirmed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -72,12 +72,13 @@ class PlannedOutfit(models.Model):
     def confirm_worn(self) -> int:
         """
         Writes every item in the plan into the wear log for that day and
-        returns how many were newly recorded. Running it twice adds nothing,
-        because a wearing is one per item per day.
+        returns how many were new. Running it twice adds nothing, because a
+        wearing is counted once per item per day.
 
-        A plan can outlive the clothes in it. Anything sold or put away between
-        making the plan and confirming it is skipped, so confirming never
-        records somebody wearing a thing they no longer have.
+        A plan can outlive the clothes in it. Example: Ali plans a kurta for
+        Friday, sells it on Thursday, then confirms the plan. The kurta is
+        skipped, so nobody is ever recorded wearing something they no longer
+        have.
         """
         recorded = 0
         for item in self.items.all():

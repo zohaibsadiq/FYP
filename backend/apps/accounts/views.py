@@ -28,8 +28,8 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # Registration issues tokens itself so the client never re-posts the
-        # credentials it just sent.
+        # Signing up also signs the person in. The browser gets its tokens here,
+        # so it never has to send the password a second time.
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -50,7 +50,7 @@ class LoginView(TokenObtainPairView):
 
 @extend_schema(tags=["Auth"])
 class MeView(generics.RetrieveUpdateAPIView):
-    """Resolves to request.user, so the endpoint cannot address another account."""
+    """Always works on the signed-in account. There is no way to ask for anybody else's."""
 
     serializer_class = UserSerializer
 
@@ -59,7 +59,7 @@ class MeView(generics.RetrieveUpdateAPIView):
 
 
 class WaitingSerializer(serializers.Serializer):
-    """Everything sitting unanswered, so a badge can be drawn without guessing."""
+    """Counts of everything waiting for an answer, used to draw the red badges."""
 
     friend_requests = serializers.IntegerField()
     borrow_asks = serializers.IntegerField()
@@ -75,23 +75,24 @@ class WaitingSerializer(serializers.Serializer):
 )
 class WaitingView(APIView):
     """
-    One small call the whole app polls, rather than four pages each asking
-    their own question. It is deliberately counts only: no names, no items,
-    nothing that would be wasted work when the answer is almost always zero.
+    One small request the whole app repeats every so often, instead of four
+    pages each asking their own question. It returns numbers only, no names and
+    no items, because the answer is almost always zero and anything more would
+    be wasted work.
     """
 
     def get(self, request):
-        # Imported here rather than at the top: accounts loads before the apps
-        # these live in, and a module-level import would tie the two together
-        # for the sake of one endpoint.
+        # Imported inside the function on purpose. The accounts app loads before
+        # the friends and marketplace apps, and importing them at the top of
+        # this file would make the apps depend on each other for one view.
         from apps.circle.models import FriendRequest, Loan
         from apps.community.models import Enquiry
 
         me = request.user
         today = timezone.localdate()
 
-        # Two queries, not five: each model is asked once and counts several
-        # things at the same time.
+        # Two database questions instead of five. The loans table is asked once
+        # and returns both of its counts in the same answer.
         loans = Loan.objects.aggregate(
             asks=Count("id", filter=Q(lender=me, status=Loan.Status.ASKED)),
             overdue=Count(
@@ -112,7 +113,7 @@ class WaitingView(APIView):
             "buy_requests": buy_requests,
             "overdue": loans["overdue"],
         }
-        # Overdue loans are reported separately: nobody is waiting on an answer
-        # for them, so they do not belong in the badge count.
+        # Overdue loans are reported but kept out of the total. Nobody is
+        # waiting for an answer on them, so they do not belong in the badge.
         waiting["total"] = friend_requests + loans["asks"] + buy_requests
         return Response(waiting)

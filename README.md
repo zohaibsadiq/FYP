@@ -1,8 +1,9 @@
 # Closette
 
-A wardrobe app that tracks what you own and where it is physically kept, then
-uses the weather, your plans and what you wore recently to suggest what to put
-on. Photos are cut out from their background on upload and tagged by colour.
+A wardrobe app that tracks what you own and where it is physically kept, plans
+outfits around the weather, watches shop sales, and lets you sell, lend or
+virtually try on clothes. Photos are cut out from their background on upload
+and tagged by colour.
 
 Next.js frontend, Django REST backend, Postgres.
 
@@ -18,6 +19,7 @@ Next.js frontend, Django REST backend, Postgres.
 | Background removal | rembg (U2-Net, runs locally on CPU) |
 | Image hosting | Cloudinary |
 | Weather | OpenWeather |
+| Virtual try-on | Kling, through PiAPI |
 
 ## Layout
 
@@ -25,14 +27,16 @@ Next.js frontend, Django REST backend, Postgres.
 backend/
   config/          settings, root urls, wsgi
   apps/
-    accounts/      users, auth, profile
-    wardrobe/      items, categories, storage locations
-    outfits/       saved outfits and wear history
-    planner/       events, weather
+    accounts/      users, login, profile, friend codes
+    wardrobe/      items, categories, storage locations, wear history
+    planner/       day planner, weather
     shopping/      shop catalogues, sale prices, price history
-    intelligence/  colour rules, colour naming
-    vision/        background removal, Cloudinary, try-on
-    community/     marketplace and lending
+    intelligence/  colour detection and naming
+    vision/        background removal, image hosting
+    community/     buy and sell between users
+    circle/        friends and lending
+    tryon/         virtual try-on
+  tests/           pytest suite
   requirements/
 
 frontend/src/
@@ -102,7 +106,7 @@ cd frontend && npm run dev
 | `CLOUDINARY_API_KEY` | | |
 | `CLOUDINARY_API_SECRET` | | |
 | `OPENWEATHER_API_KEY` | | |
-| `FAL_KEY` | | Virtual try-on |
+| `TRYON_API_KEY` | | Virtual try-on, from PiAPI |
 
 `frontend/.env.local` needs `NEXT_PUBLIC_API_URL`, pointing at the backend.
 
@@ -124,9 +128,12 @@ bearer token, and every queryset is scoped to the requesting account.
 | `/api/wardrobe/categories/` | built-in and account-specific categories |
 | `/api/wardrobe/upload/` | image in, background-removed image and detected colour out |
 | `/api/planner/` | today's weather, what suits it, and the day planner |
-| `/api/shopping/deals/` | what is on sale, filtered, with a closet verdict on each row |
+| `/api/shopping/deals/` | what is on sale, filtered and searchable, with each product's price history |
 | `/api/shopping/freshness/` | how old the prices are, and which shops answered |
 | `/api/shopping/filters/` | the choices the filter panel offers, each with a count |
+| `/api/community/` | listings, enquiries, blocks and reports for buying and selling |
+| `/api/circle/` | friend codes, requests, shared closets and loans |
+| `/api/try-on/` | body photo, try-on requests and their results |
 
 ## Keeping the sale prices current
 
@@ -192,8 +199,8 @@ be reached never makes the data look newer than it is.
 ## Checks
 
 ```bash
-cd backend  && python manage.py check && python manage.py spectacular --file /dev/null
-cd frontend && npm run lint && npm run build
+cd backend  && python manage.py check && pytest
+cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 ```
 
 ## Conventions

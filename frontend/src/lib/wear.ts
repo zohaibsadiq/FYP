@@ -2,10 +2,10 @@ import { friendlyDay, spanInWords } from "./dates";
 import type { GarmentListItem } from "@/types/wardrobe";
 
 /** Within this many days, wearing it again is worth pointing out before it happens. */
-export const RECENTLY = 3;
+const RECENTLY = 3;
 
 /** Past this, it is worth reminding the owner the thing exists. */
-export const NEGLECTED = 90;
+const NEGLECTED = 90;
 
 export interface LastWorn {
   /** "Not worn yet", "Worn today", "Worn 3 days ago". */

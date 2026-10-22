@@ -130,7 +130,7 @@ function BorrowCard({
       <div className="flex flex-1 flex-col p-3">
         <p className="truncate font-medium">{item.name}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {[item.brand, item.size, item.primary_color_name].filter(Boolean).join(" · ") ||
+          {[item.brand, item.size, item.primary_color_name].filter(Boolean).join(", ") ||
             item.category_name}
         </p>
 

@@ -28,8 +28,8 @@ import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { Weather } from "@/types/planner";
 
-// Built once rather than picked as a component inside render, which would
-// remount the icon on every redraw.
+// The icons are built once, outside the component. Choosing one inside would
+// make React throw the icon away and draw a fresh one on every update.
 const DRAWN = "size-8";
 const SKY: Record<string, ReactNode> = {
   Clear: <Sun className={DRAWN} aria-hidden />,

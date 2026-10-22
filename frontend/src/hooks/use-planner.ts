@@ -23,8 +23,8 @@ export const plannerKeys = {
 };
 
 /**
- * The weather and what suits it. Held for half an hour, the same as the server
- * holds its own copy, so moving between screens does not refetch it.
+ * The weather and what suits it. Kept for half an hour, the same as the server
+ * keeps its own copy, so moving between pages does not ask for it again.
  */
 export function usePlannerToday() {
   return useQuery({

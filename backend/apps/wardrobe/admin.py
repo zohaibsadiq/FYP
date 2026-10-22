@@ -19,8 +19,8 @@ class StorageLocationAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     search_fields = ("name", "owner__email")
     autocomplete_fields = ("parent",)
-    # full_path walks up to three parents, and without this each step is its
-    # own query on every row of the list.
+    # full_path walks up to three parents. Without this, every row in the list
+    # would make its own extra database query for each step.
     list_select_related = ("owner", "parent", "parent__parent", "parent__parent__parent")
 
     def get_queryset(self, request):

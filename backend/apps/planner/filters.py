@@ -1,4 +1,7 @@
-"""Filter labels in this module are published in the schema served at /api/docs/."""
+"""
+The label on each filter is shown on the API docs page at /api/docs/, which is
+why they are written as full sentences.
+"""
 
 from __future__ import annotations
 

@@ -57,8 +57,7 @@ def _ago(when) -> str:
             "Read from our own copy of each shop's published catalogue, "
             "refreshed on a schedule. Nothing is fetched from a shop while the "
             "request is being answered, so a shop being down slows nothing "
-            "down and every row carries the moment it was really checked.\n\n"
-            "Every row carries the moment it was really checked."
+            "down and every row carries the moment it was really checked."
         ),
     ),
     retrieve=extend_schema(tags=["Shopping"], summary="One product, as last seen"),

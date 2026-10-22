@@ -19,12 +19,11 @@ import type {
   StorageLocation,
   StorageNode,
   WardrobeStats,
-  WearDay,
   WearEvent,
 } from "@/types/wardrobe";
 
-// Hierarchical so invalidating ["wardrobe"] clears everything below it, and
-// invalidating ["wardrobe","items"] leaves the category list cached.
+// Keys are nested like folders. Clearing ["wardrobe"] clears everything below
+// it; clearing ["wardrobe", "items"] leaves the category list alone.
 export const wardrobeKeys = {
   all: ["wardrobe"] as const,
   items: () => [...wardrobeKeys.all, "items"] as const,
@@ -36,8 +35,6 @@ export const wardrobeKeys = {
   storageTree: () => [...wardrobeKeys.storage(), "tree"] as const,
   wears: () => [...wardrobeKeys.all, "wears"] as const,
   itemWears: (id: number) => [...wardrobeKeys.wears(), "item", id] as const,
-  wearCalendar: (range: WearRange) => [...wardrobeKeys.wears(), "calendar", range] as const,
-  wearsOn: (date: string) => [...wardrobeKeys.wears(), "on", date] as const,
 };
 
 function cleanParams(filters: GarmentFilters) {
@@ -55,7 +52,8 @@ export function useGarments(filters: GarmentFilters = {}) {
       });
       return data;
     },
-    // Without this the grid empties on every filter change and the page jumps.
+    // Keeps the old list on screen while the new one loads. Without this the
+    // grid empties on every filter change and the page jumps.
     placeholderData: keepPreviousData,
   });
 }
@@ -129,8 +127,9 @@ export function useUploadGarmentImage() {
       form.append("image", file);
 
       const { data } = await api.post<ImageUploadResult>("/wardrobe/upload/", form, {
-        // Background removal runs in the request, and the first one on a cold
-        // server also downloads the model.
+        // Background removal runs inside this request, and the first one on a
+        // freshly started server also downloads the model, so it can take a
+        // while.
         timeout: 180_000,
         onUploadProgress: (e) => {
           if (onProgress && e.total) {
@@ -144,8 +143,9 @@ export function useUploadGarmentImage() {
 }
 
 /**
- * Gives back an upload that never became an item. The upload endpoint stores the
- * file straight away, so a swapped or abandoned photo is billed for otherwise.
+ * Throws away an upload that never became an item. The server stores the file
+ * the moment it is uploaded, so a swapped or abandoned photo would otherwise be
+ * paid for forever.
  */
 export function useDiscardUpload() {
   return useMutation({
@@ -166,8 +166,8 @@ export function useCreateGarment() {
       queryClient.invalidateQueries({ queryKey: wardrobeKeys.all });
     },
     onError: (error) => {
-      // The category or location dropdown offered a row that has since gone.
-      // Refetching both leaves the form showing what the server actually has.
+      // The category or place dropdown offered a row that has since been
+      // deleted. Re-reading both leaves the form showing what really exists.
       if (isStaleChoiceError(error)) {
         queryClient.invalidateQueries({ queryKey: wardrobeKeys.categories() });
         queryClient.invalidateQueries({ queryKey: wardrobeKeys.storage() });
@@ -227,9 +227,8 @@ function useItemAction(path: string, touchesHistory = false) {
  * Puts something away, or brings it back.
  *
  * A thing put away is still owned but is out of the wardrobe: it leaves the
- * clothes list, stops being suggested and stops being counted. It changes the
- * status rather than calling an action of its own, because the status is the
- * whole of what it means.
+ * clothes list and stops being counted. Example: winter coats in July. It only
+ * changes the status, because the status is the whole of what "put away" means.
  */
 export function useToggleArchived() {
   const queryClient = useQueryClient();
@@ -252,12 +251,6 @@ export const useMarkWorn = () => useItemAction("mark-worn", true);
 export const useToggleLaundry = () => useItemAction("toggle-laundry");
 export const useToggleFavorite = () => useItemAction("toggle-favorite");
 
-export interface WearRange {
-  since?: string;
-  until?: string;
-  days?: number;
-}
-
 /** Every day one item was worn, newest first. */
 export function useItemWears(id: number | null) {
   return useQuery({
@@ -267,20 +260,6 @@ export function useItemWears(id: number | null) {
       return data;
     },
     enabled: id !== null,
-  });
-}
-
-/** What was worn on one particular day. */
-export function useWearsOn(date: string | null) {
-  return useQuery({
-    queryKey: wardrobeKeys.wearsOn(date ?? ""),
-    queryFn: async () => {
-      const { data } = await api.get<Paginated<WearEvent>>("/wardrobe/wears/", {
-        params: { on: date, page_size: 100 },
-      });
-      return data.results;
-    },
-    enabled: Boolean(date),
   });
 }
 
@@ -294,18 +273,6 @@ export function useRecentWears(days: number, limit = 40) {
       });
       return data.results;
     },
-  });
-}
-
-/** How many things were worn on each day, for the month grid. */
-export function useWearCalendar(range: WearRange) {
-  return useQuery({
-    queryKey: wardrobeKeys.wearCalendar(range),
-    queryFn: async () => {
-      const { data } = await api.get<WearDay[]>("/wardrobe/wears/calendar/", { params: range });
-      return data;
-    },
-    placeholderData: keepPreviousData,
   });
 }
 
@@ -387,8 +354,9 @@ export function useUpdateStorageLocation() {
       return data;
     },
     onSuccess: () => {
-      // A rename or a move rewrites full_path on everything below it, and every
-      // item that names one of those places.
+      // Renaming or moving a place changes the full path of everything inside
+      // it, and of every item kept in one of those places, so everything is
+      // re-read.
       queryClient.invalidateQueries({ queryKey: wardrobeKeys.all });
     },
     onError: (error) => {

@@ -1,14 +1,10 @@
-# ===========================================================================
-#  SECRETS - never commit these
-# ===========================================================================
+# Secrets. The real values live only on the machine that runs the app.
 .env
 .env.local
 .env.production
 *.pem
 
-# ===========================================================================
-#  Python / Django
-# ===========================================================================
+# Python
 venv/
 .venv/
 __pycache__/
@@ -22,16 +18,14 @@ staticfiles/
 .coverage
 htmlcov/
 
-# AI model weights downloaded at runtime (huge files, never commit)
+# Model weights that rembg downloads on first use. Hundreds of megabytes.
 *.onnx
 *.pth
 *.safetensors
 .u2net/
 models_cache/
 
-# ===========================================================================
-#  Node / Next.js
-# ===========================================================================
+# Node and Next.js
 node_modules/
 .next/
 out/
@@ -43,9 +37,7 @@ next-env.d.ts
 npm-debug.log*
 yarn-error.log*
 
-# ===========================================================================
-#  Editors / OS
-# ===========================================================================
+# Editors and operating systems
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
@@ -54,6 +46,8 @@ Thumbs.db
 Desktop.ini
 *.swp
 
-# Scratch audit output, and the rules file `next dev` regenerates on each run.
-.audit/
-frontend/AGENTS.md
+# Rendered documentation. Rebuild with docs/build-pdf.sh.
+docs/build/
+
+# Product photographs pulled from shops for local testing only.
+sample-garments/

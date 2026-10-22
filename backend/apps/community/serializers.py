@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as ModelValidationError
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -14,8 +15,10 @@ class GarmentForSaleSerializer(serializers.ModelSerializer):
     """
     A garment as a buyer sees it.
 
-    Deliberately written out rather than reused. Every field here was chosen;
-    nothing arrives because it happened to be on the model.
+    Written out by hand instead of reusing the closet serializer. Every field
+    here was chosen on purpose; nothing arrives just because it happens to be
+    on the model. A buyer never sees where it is kept, what it cost, or how
+    often it was worn.
     """
 
     category_name = serializers.CharField(source="category.name", read_only=True)
@@ -70,7 +73,7 @@ class ListingSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.CharField)
     def get_my_enquiry_status(self, obj) -> str:
-        """Empty when this person has not asked. Annotated by the view."""
+        """Empty when this person has not asked. Worked out by the view."""
         return getattr(obj, "my_enquiry_status", "") or ""
 
 
@@ -107,7 +110,7 @@ class ListingWriteSerializer(serializers.ModelSerializer):
         owner = self.context["request"].user
         if item.owner_id != owner.id:
             # The same answer a missing row would give, so this cannot be used
-            # to find out whether an id belongs to somebody.
+            # to find out whether an id belongs to somebody else.
             raise serializers.ValidationError("No such item in your closet.")
         if item.status == GarmentItem.Status.SOLD:
             raise serializers.ValidationError("That one is already sold.")
@@ -130,8 +133,8 @@ class ListingWriteSerializer(serializers.ModelSerializer):
     def validate_note(self, note):
         try:
             refuse_contact_details(note)
-        except Exception as exc:
-            raise serializers.ValidationError(str(exc.messages[0] if hasattr(exc, "messages") else exc))
+        except ModelValidationError as exc:
+            raise serializers.ValidationError(exc.messages[0]) from exc
         return note
 
     def validate_asking_price(self, price):
@@ -180,9 +183,9 @@ class EnquirySerializer(serializers.ModelSerializer):
         """
         How to reach the other side, or nothing at all.
 
-        Three things have to be true: the request was accepted, and the person
-        asking is one of the two involved. Anything else gets nothing, not an
-        empty-looking shape that hints there is something behind it.
+        Two things have to be true: the request was accepted, and the person
+        asking is one of the two involved. Anyone else gets nothing at all, not
+        an empty-looking shape that hints there is something behind it.
         """
         request = self.context.get("request")
         if request is None or not obj.contact_is_shared:
@@ -212,8 +215,8 @@ class EnquiryWriteSerializer(serializers.ModelSerializer):
     def validate_message(self, message):
         try:
             refuse_contact_details(message)
-        except Exception as exc:
-            raise serializers.ValidationError(str(exc.messages[0] if hasattr(exc, "messages") else exc))
+        except ModelValidationError as exc:
+            raise serializers.ValidationError(exc.messages[0]) from exc
         return message
 
 

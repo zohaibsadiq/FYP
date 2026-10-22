@@ -15,7 +15,7 @@ import { api } from "./api";
  */
 
 /** Long enough to cover a cold start, which the host says can pass fifty seconds. */
-export const WAKE_TIMEOUT_MS = 90_000;
+const WAKE_TIMEOUT_MS = 90_000;
 
 /** A warm server answers in well under this, so the notice never flashes up. */
 export const NOTICE_AFTER_MS = 4_000;

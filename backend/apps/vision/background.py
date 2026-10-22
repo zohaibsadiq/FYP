@@ -1,6 +1,7 @@
 """
-rembg fetches the u2net weights (~176 MB) on first use and caches them on disk,
-so the first cutout after a clean install is slow and needs network access.
+rembg downloads its model file (about 176 MB) the first time it runs and keeps
+it on disk. So the first cutout after a fresh install is slow and needs the
+internet; every one after that is quick.
 """
 
 from __future__ import annotations
@@ -14,14 +15,17 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-# Past this, a cutout costs seconds more for detail a grid tile discards.
+# Bigger than this, a cutout takes seconds longer for detail that the small
+# grid picture throws away anyway.
 MAX_DIMENSION = 1600
 
 _session = None
 
 
 def _get_session():
-    # Lazy: at import, every manage.py command would pay for the weights.
+    # Loaded only when first needed. Loading it when the file is imported would
+    # make every manage.py command pay for the model, even ones that never
+    # touch a photo.
     global _session
     if _session is None:
         from rembg import new_session
@@ -43,16 +47,15 @@ class CutoutResult:
 
     @property
     def looks_empty(self) -> bool:
-        """Almost nothing detected: a blurry photo, or a white top on a white sheet."""
+        """Almost nothing was found: a blurry photo, or a white top on a white sheet."""
         return self.coverage < 0.02
 
 
 def remove_background(image_bytes: bytes) -> CutoutResult:
     """
-    Raw uploaded bytes in, transparent PNG out.
-
-    Raises:
-        ValueError: if the file is not a readable image.
+    Takes the raw bytes of an uploaded photo and returns a PNG with the
+    background made transparent. Raises ValueError if the file is not a
+    readable image.
     """
     started = time.perf_counter()
 
@@ -62,8 +65,9 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
     except Exception as exc:
         raise ValueError("That file is not a readable image.") from exc
 
-    # Phones record rotation as an EXIF tag rather than rotating the pixels, and
-    # rembg reads pixels. Without the transpose, shirts come out sideways.
+    # Phones record "this photo is rotated" as a hidden tag instead of turning
+    # the pixels, and rembg only looks at pixels. Without this step, shirts
+    # come out sideways.
     try:
         from PIL import ImageOps
 
@@ -93,10 +97,10 @@ def remove_background(image_bytes: bytes) -> CutoutResult:
 
 def cut_out_subject(source: Image.Image) -> Image.Image:
     """
-    The subject of a photograph on a transparent background, cropped to fit.
+    The main subject of a photo on a transparent background, cropped to fit.
 
     Shared so that one piece of code decides what counts as the subject,
-    whether the photo is of one garment or of somebody wearing several.
+    whether the photo shows one garment or a person wearing several.
     """
     from rembg import remove
 
@@ -115,7 +119,7 @@ def _downscale(image: Image.Image, max_side: int) -> Image.Image:
 
 
 def _crop_to_subject(image: Image.Image, padding: int = 12) -> Image.Image:
-    """Trim the transparent margin so every garment fills its grid tile the same way."""
+    """Trims the empty transparent edges so every garment fills its grid tile the same way."""
     bbox = image.getbbox()
     if not bbox:
         return image
@@ -129,7 +133,10 @@ def _crop_to_subject(image: Image.Image, padding: int = 12) -> Image.Image:
 
 
 def _analyse_colour(image: Image.Image, sample_size: int = 120) -> tuple[str, float]:
-    """Returns ("#rrggbb", coverage 0-1) over the opaque pixels only."""
+    """
+    Returns the average colour as "#rrggbb", plus how much of the frame the
+    garment fills, from 0 to 1. Only the solid pixels count.
+    """
     small = image.copy()
     small.thumbnail((sample_size, sample_size), Image.LANCZOS)
     pixels = list(small.getdata())
@@ -140,8 +147,9 @@ def _analyse_colour(image: Image.Image, sample_size: int = 120) -> tuple[str, fl
     if not opaque:
         return "", 0.0
 
-    # Fabric in shadow and blown-out highlights carry no usable hue, and there
-    # are enough of both on a folded garment to drag the mean toward grey.
+    # Very dark pixels (fabric in shadow) and very bright ones (glare) carry no
+    # useful colour, and a folded garment has plenty of both. Left in, they
+    # drag the average towards grey.
     mid = [
         (r, g, b)
         for r, g, b in opaque

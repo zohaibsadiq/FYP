@@ -36,6 +36,8 @@ envVarGroups:
         sync: false
       - key: OPENWEATHER_API_KEY
         sync: false
+      - key: TRYON_API_KEY
+        sync: false
 
 services:
   - type: web

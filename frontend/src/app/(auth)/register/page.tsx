@@ -49,7 +49,7 @@ export default function RegisterPage() {
         ...form,
         shopping_for: shoppingFor,
         email: form.email.trim().toLowerCase(),
-        // The signup endpoint requires a country and PK is the only market so far.
+        // Sign-up needs a country, and Pakistan is the only one the shops cover so far.
         country_code: "PK",
       },
       {

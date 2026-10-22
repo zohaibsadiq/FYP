@@ -1,11 +1,11 @@
 """
-No payment is taken anywhere in this module. A buyer asks, a seller agrees,
-and the two settle it between themselves, which keeps card data out of the
-project and out of scope for PCI DSS.
+No money changes hands inside the app. A buyer asks, a seller agrees, and the
+two settle it between themselves. That keeps card details out of the project
+entirely.
 
 The other rule is that nobody's contact details are published. A listing shows
-the garment and the price. Only once a seller accepts a particular buyer do the
-two of them see how to reach each other. That rule is only worth anything if
+the garment and the price. Only once a seller accepts one particular buyer do
+the two of them see how to reach each other. That rule only means something if
 it cannot be walked around, so the note on a listing refuses to carry a phone
 number or an email address.
 """
@@ -23,9 +23,10 @@ from django.utils import timezone
 
 from apps.wardrobe.models import GarmentItem
 
-# What a thing is worth once it has been worn, as a share of what it cost new.
-# These follow what resale sites and their sellers actually use. They are only
-# ever offered as a suggestion; the seller types whatever they like.
+# What a worn garment is worth, as a share of what it cost new. Example: a
+# 5,000 rupee kurta in "good" condition is suggested at 40%, so 2,000. These
+# follow what resale sites and their sellers actually use, and they are only a
+# suggestion; the seller types whatever they like.
 RESALE_SHARE: dict[str, Decimal] = {
     "NEW": Decimal("0.80"),
     "LIKE_NEW": Decimal("0.55"),
@@ -34,15 +35,16 @@ RESALE_SHARE: dict[str, Decimal] = {
 }
 
 # A listing note is for describing the garment. Somebody putting their phone
-# number in it would hand it to every stranger browsing, which is the exact
-# thing the rest of this app is arranged to prevent.
+# number in it would hand it to every stranger browsing, which is exactly what
+# the rest of this app is arranged to prevent. These patterns catch a phone
+# number, an email address, and the usual "WhatsApp me" kind of hint.
 LOOKS_LIKE_A_PHONE = re.compile(r"(?:\+?\d[\s\-().]*){9,}")
 LOOKS_LIKE_AN_EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
 LOOKS_LIKE_A_HANDLE = re.compile(r"(?i)\b(?:whats\s?app|wa\.me|insta(?:gram)?|snap(?:chat)?|telegram)\b")
 
 
 def refuse_contact_details(text: str) -> None:
-    """Raises when a free-text field is being used to publish a way to be reached."""
+    """Raises an error when a free-text field is being used to publish a way to be reached."""
     if not text:
         return
     if LOOKS_LIKE_A_PHONE.search(text):
@@ -69,8 +71,9 @@ class ListingQuerySet(models.QuerySet):
 
     def visible_to(self, user):
         """
-        Excludes the viewer's own listings, which already appear under their
-        selling page, and anything on either side of a block.
+        Leaves out the viewer's own listings, which already appear on their
+        selling page, and anything from a person they have blocked or who has
+        blocked them.
         """
         blocked_by_me = Block.objects.filter(blocker=user).values("blocked_id")
         blocked_me = Block.objects.filter(blocked=user).values("blocker_id")
@@ -127,7 +130,7 @@ class Listing(models.Model):
     condition = models.CharField(max_length=10, choices=Condition.choices, default=Condition.GOOD)
 
     # Who it would suit. Starts from what the seller normally shops for,
-    # because most people sell their own clothes, and is theirs to change,
+    # because most people sell their own clothes, and the seller can change it,
     # because plenty of people are selling something of a relative's.
     audience = models.CharField(
         max_length=10,
@@ -141,11 +144,11 @@ class Listing(models.Model):
         help_text="Anything a buyer should know about the garment. Not a place for contact details.",
     )
 
-    # Taken from the seller's profile when the listing is made, and editable,
+    # Copied from the seller's profile when the listing is made, and editable,
     # because somebody may be selling something they left at their parents'
-    # house. Copied rather than read live so that moving city later does not
-    # silently relocate every old listing, and so browsing by city is one
-    # plain query.
+    # house. Copied rather than read live, so moving city later does not
+    # silently move every old listing, and so browsing by city is one plain
+    # query.
     city = models.CharField(max_length=100, blank=True)
 
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
@@ -164,9 +167,10 @@ class Listing(models.Model):
         db_table = "listings"
         ordering = ["-created_at"]
         constraints = [
-            # One live listing per garment. The condition is spelled out rather
-            # than left to a plain unique constraint, which sold and withdrawn
-            # rows would keep tripping over.
+            # One live listing per garment. The rule applies only to listings
+            # that are still open. A plain "one per garment" rule would let
+            # old sold and withdrawn rows block the garment from ever being
+            # listed again.
             models.UniqueConstraint(
                 fields=["item"],
                 condition=models.Q(status__in=["ACTIVE", "RESERVED"]),
@@ -204,9 +208,9 @@ class Listing(models.Model):
     @staticmethod
     def suggest_price(item: GarmentItem, condition: str) -> Decimal | None:
         """
-        What this might be worth now, from what it cost and how worn it is.
+        A suggested price, from what it cost and how worn it is.
 
-        None when nobody wrote down what they paid, because a made-up number
+        Nothing when nobody wrote down what they paid, because a made-up number
         is worse than no number.
         """
         if item.purchase_price is None:
@@ -249,12 +253,12 @@ class Enquiry(models.Model):
     One person asking to buy one listing.
 
     No contact details are stored here. They are added by the serializer, and
-    only on an enquiry the seller has accepted, so nobody's number is handed
-    out merely because they put a shirt up for sale.
+    only on a request the seller has accepted, so nobody's number is handed out
+    just because they put a shirt up for sale.
 
-    A buyer who changes their mind has the row removed rather than marked,
-    because one request per person per listing is a rule and a withdrawn row
-    would otherwise lock them out of ever asking again.
+    A buyer who changes their mind has the row deleted rather than marked. Only
+    one request per person per listing is allowed, and a "withdrawn" row would
+    lock them out of ever asking again.
     """
 
     class Status(models.TextChoices):
@@ -316,8 +320,8 @@ class Enquiry(models.Model):
         self.answered_at = timezone.now()
         self.save(update_fields=["status", "answered_at"])
 
-        # Held rather than sold: the two still have to meet and agree. The
-        # listing stops taking new askers while that happens.
+        # Held, not sold: the two still have to meet and agree. The listing
+        # stops taking new requests while that happens.
         Listing.objects.filter(pk=self.listing_id).update(status=Listing.Status.RESERVED)
 
     def decline(self) -> None:
@@ -335,9 +339,9 @@ class Enquiry(models.Model):
 
 class Block(models.Model):
     """
-    Symmetric by design: one row hides each account's listings from the other
-    and refuses enquiries in both directions. A one-way block would leave the
-    blocked account still able to appear in the blocker's app.
+    Works both ways by design: one row hides each person's listings from the
+    other and refuses requests in both directions. A one-way block would leave
+    the blocked person still able to appear in the blocker's app.
     """
 
     blocker = models.ForeignKey(
@@ -369,11 +373,11 @@ class Block(models.Model):
 
 class Report(models.Model):
     """
-    Somebody flagging a listing for a human to look at.
+    Somebody flagging a listing for a person to look at.
 
-    Nothing is hidden automatically. A report that took a listing down on its
-    own would be a way for one person to silence another, so this only records
-    the complaint for an administrator to read.
+    Nothing is hidden automatically. A report that took a listing down by
+    itself would be a way for one person to silence another, so this only
+    records the complaint for an administrator to read.
     """
 
     class Reason(models.TextChoices):

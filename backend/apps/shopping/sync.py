@@ -1,7 +1,7 @@
 """
-A failed refresh leaves the stored rows untouched, still carrying the timestamp
-of the last successful read, so the freshness shown on screen stays truthful
-rather than being reset by a failure.
+When a refresh fails, the stored rows are left exactly as they were, still
+carrying the time of the last successful read. So the "prices checked 2 hours
+ago" message on screen stays truthful instead of being reset by a failure.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ def sync_shop(shop: Shop) -> SyncRun:
         run.save(update_fields=["ok", "message", "finished_at"])
         logger.warning("Could not read %s: %s", shop.name, exc.reason)
         return run
-    except Exception as exc:                                  # pragma: no cover - unforeseen
+    except Exception as exc:  # anything not foreseen above
         shop.record_failure("Something went wrong while reading this shop.")
         run.ok = False
         run.message = str(exc)[:300]
@@ -159,15 +159,3 @@ def sync_shop(shop: Shop) -> SyncRun:
     run.save(update_fields=["ok", "found", "added", "updated", "delisted", "finished_at"])
     return run
 
-
-def sync_all(slugs: list[str] | None = None) -> list[SyncRun]:
-    """
-    Every active shop, one after another.
-
-    Deliberately not run in parallel. These are other people's servers, the
-    whole job takes a couple of minutes, and nobody is waiting on it.
-    """
-    shops = Shop.objects.filter(is_active=True)
-    if slugs:
-        shops = shops.filter(slug__in=slugs)
-    return [sync_shop(shop) for shop in shops]

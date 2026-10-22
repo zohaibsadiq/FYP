@@ -22,6 +22,7 @@ from .serializers import (
 )
 from .weather import WeatherUnavailable, for_city
 
+
 @extend_schema(
     tags=["Planner"],
     summary="Today's weather where this account lives",
@@ -29,9 +30,9 @@ from .weather import WeatherUnavailable, for_city
 )
 class TodayView(APIView):
     """
-    A failed weather lookup is answered with 200 and a reason rather than an
-    error status: the dashboard draws around it, and a red error for a missing
-    city would be misleading.
+    When the weather cannot be fetched, the answer is still a success with a
+    reason inside it, not an error. The home page draws around the gap, and a
+    red error box for "no city saved yet" would be alarming for nothing.
     """
 
     def get(self, request):
@@ -58,8 +59,9 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return PlannedOutfit.objects.filter(owner=self.request.user).prefetch_related(
-            # Prefetched through the annotated queryset, otherwise every item in
-            # every plan would cost one more query for its last occasion.
+            # Loaded through the query that works out the "last worn" note.
+            # Otherwise every item in every plan would cost one more database
+            # query for that note.
             Prefetch(
                 "items",
                 queryset=GarmentItem.objects.with_last_occasion().select_related(
@@ -73,9 +75,9 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 serializer.save(owner=self.request.user)
         except IntegrityError as exc:
-            # Two requests arriving together both pass the check above and one
-            # then meets the constraint, so it gets the same answer rather than
-            # a 500.
+            # Two requests arriving at the same moment both pass the check in
+            # the serializer, and the second one then hits the database rule.
+            # It gets the same readable answer instead of a crash.
             raise ValidationError(
                 {"planned_for": "You already have a plan for that day."}
             ) from exc
@@ -86,7 +88,7 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=["get"])
     def calendar(self, request):
-        """One row per planned day, for drawing a month without its contents."""
+        """One row per planned day, enough to draw a month grid without sending every plan's contents."""
         plans = (
             self.filter_queryset(self.get_queryset())
             .annotate(items_in=Count("items"))
@@ -120,8 +122,8 @@ class PlannedOutfitViewSet(viewsets.ModelViewSet):
             )
 
         recorded = plan.confirm_worn()
-        # Re-read so the items carry the occasion just written, rather than the
-        # one prefetched before this call.
+        # Re-read so the items carry the "last worn" note just written, rather
+        # than the one loaded before this call.
         return Response({
             "recorded": recorded,
             "plan": PlannedOutfitSerializer(

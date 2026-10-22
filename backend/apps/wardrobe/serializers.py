@@ -1,6 +1,7 @@
 """
-`owner` is never accepted from the request body. Every view sets it from
-request.user.
+The owner of anything created here is never taken from the request. Every view
+sets it to the signed-in person, so nobody can add something to another
+account.
 """
 
 from __future__ import annotations
@@ -19,10 +20,10 @@ def _still_owned(items):
 
 def _item_count(obj, related) -> int:
     """
-    The list views annotate item_count. A row that has just been created has not
-    been through that queryset, and DRF drops a read-only field whose attribute
-    is missing instead of raising, so the response would quietly change shape
-    between POST and GET.
+    List pages work out item_count inside the database query. A row that has
+    just been created did not go through that query, and the framework quietly
+    drops a read-only field whose value is missing. Without this, the answer to
+    "create" and the answer to "list" would have different shapes.
     """
     annotated = getattr(obj, "item_count", None)
     return annotated if annotated is not None else _still_owned(related).count()
@@ -45,9 +46,10 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """
-        unique_category_per_owner is enforced by the database, and owner is never
-        a serializer field, so DRF cannot build its own check for it. Without
-        this the second one raises IntegrityError and the request 500s.
+        The database refuses two categories with the same name for one owner,
+        but owner is not a form field, so the framework cannot build a friendly
+        check for it. Without this, the second "Kurta" would crash with a
+        database error instead of a readable message.
         """
         request = self.context.get("request")
         if not request:
@@ -90,7 +92,7 @@ class StorageLocationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        """Run the model clean() so the cycle and depth rules apply to API writes."""
+        """Runs the model's own checks (no loops, four levels at most) on data arriving through the API."""
         owner = self.context["request"].user
 
         instance = StorageLocation(**{**self._current_values(), **attrs})
@@ -98,10 +100,10 @@ class StorageLocationSerializer(serializers.ModelSerializer):
         instance.owner = owner
         instance.clean()
 
-        # unique_location_name_per_parent lives in the database, and owner is
-        # never a serializer field, so DRF cannot build its own check for it.
-        # Naming two drawers the same is an ordinary slip, and without this it
-        # raises IntegrityError and the request 500s.
+        # The "one name per parent" rule lives in the database, and owner is not
+        # a form field, so the framework cannot build a friendly check for it.
+        # Naming two drawers "Drawer 2" is an ordinary slip, and without this it
+        # would crash with a database error instead of a readable message.
         clash = StorageLocation.objects.filter(
             owner=owner, parent=instance.parent, name__iexact=instance.name.strip()
         )
@@ -115,7 +117,11 @@ class StorageLocationSerializer(serializers.ModelSerializer):
         return attrs
 
     def _current_values(self) -> dict:
-        """Existing field values, so a PATCH of one field still validates the whole object."""
+        """
+        The values already saved, so changing one field still checks the whole
+        object. Example: renaming a drawer must still check that the new name is
+        free inside its parent.
+        """
         if not self.instance:
             return {}
         return {
@@ -139,23 +145,23 @@ class StorageLocationTreeSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_children(self, obj: StorageLocation):
-        # children is prefetched three levels deep in the view, so recursing here
-        # costs no extra queries.
+        # The view already loaded the children three levels deep, so going down
+        # the tree here costs no extra database queries.
         return StorageLocationTreeSerializer(
             obj.children.all(), many=True, context=self.context
         ).data
 
     def get_item_count(self, obj: StorageLocation) -> int:
         """
-        Items directly in this location, not counting sub-locations. The view
-        prefetches these already filtered, so len() reads the cache rather than
-        firing one more query for every branch of the tree.
+        Items directly in this place, not counting the places inside it. The
+        view already loaded them, filtered, so len() reads from memory instead
+        of running one more query for every branch of the tree.
         """
         return len(obj.items.all())
 
 
 class GarmentItemListSerializer(serializers.ModelSerializer):
-    """Fewer fields than the detail serializer; the closet grid loads 24 at a time."""
+    """Fewer fields than the full version. The closet grid loads 24 of these at a time."""
 
     category_name = serializers.CharField(source="category.name", read_only=True)
     category_slot = serializers.CharField(source="category.slot", read_only=True)
@@ -182,9 +188,9 @@ class GarmentItemListSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField)
     def get_last_worn_note(self, obj: GarmentItem) -> str:
         """
-        Empty unless the queryset was built with with_last_occasion(). A plain
-        field would be dropped from the response entirely when the annotation
-        is missing, which reads to the client as the field never existing.
+        Empty unless the query was built with with_last_occasion(). A plain
+        field would vanish from the answer entirely when the value is missing,
+        and the browser would think the field never existed.
         """
         return getattr(obj, "last_worn_note", "") or ""
 
@@ -202,7 +208,7 @@ class GarmentItemSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.CharField)
     def get_last_worn_note(self, obj: GarmentItem) -> str:
-        """Same as the list serializer: never dropped, empty when unannotated."""
+        """Same as the list version: always present, empty when not worked out."""
         return getattr(obj, "last_worn_note", "") or ""
 
     class Meta:
@@ -222,14 +228,14 @@ class GarmentItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
-            # Wear stats move through mark_worn() only.
+            # Changed only by recording a wearing, never typed in.
             "wear_count", "last_worn_date",
             "created_at", "updated_at",
         ]
         extra_kwargs = {
-            # public_id values are minted by POST /api/wardrobe/upload/, the only
-            # endpoint that writes to Cloudinary. validate() below checks the
-            # client is naming its own upload.
+            # These ids come from POST /api/wardrobe/upload/, the only endpoint
+            # that writes to Cloudinary. validate() below checks the browser is
+            # naming its own upload and not somebody else's.
             "original_image_public_id": {"write_only": True},
             "clean_image_public_id": {"write_only": True},
         }
@@ -243,7 +249,7 @@ class GarmentItemSerializer(serializers.ModelSerializer):
         return value
 
     def validate_category(self, value: Category):
-        """Built-in categories (owner NULL) are usable by every account."""
+        """Built-in categories have no owner and can be used by every account."""
         request = self.context.get("request")
         if value.owner_id is not None and request and value.owner_id != request.user.id:
             raise serializers.ValidationError("That category belongs to another account.")
@@ -257,9 +263,10 @@ class GarmentItemSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """
-        The upload endpoint files images under `.../garments/clean/u<user id>/`, so
-        the public_id prefix is proof enough that an attached image came from this
-        account.
+        The upload endpoint files every picture under a folder named after the
+        account, such as .../garments/clean/u42/. So the start of the picture id
+        is proof enough that it was uploaded by this account and not copied from
+        somebody else's.
         """
         from apps.vision import storage
 
@@ -288,7 +295,11 @@ class GarmentItemSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
-        """Cloudinary bills for stored bytes, and a replaced photo is nobody's."""
+        """
+        When a photo is replaced, the old one is deleted from Cloudinary.
+        Nothing points at it any more, and Cloudinary charges for every stored
+        file.
+        """
         from apps.vision import storage
 
         was = {instance.original_image_public_id, instance.clean_image_public_id}
@@ -335,7 +346,7 @@ class MarkWornSerializer(serializers.Serializer):
 
 
 class WearEventSerializer(serializers.ModelSerializer):
-    """One day an item was worn, with enough about the item to draw a row."""
+    """One day an item was worn, with enough about the item to draw one row of the history list."""
 
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_image_url = serializers.CharField(source="item.display_image_url", read_only=True)
@@ -349,9 +360,9 @@ class WearEventSerializer(serializers.ModelSerializer):
             "worn_on", "note", "days_ago", "created_at",
         ]
         read_only_fields = ["id", "created_at"]
-        # The one built from the unique constraint reads "the fields item,
-        # worn_on must make a unique set", which means nothing to the person
-        # looking at it. validate() below says the same thing in words.
+        # The automatic check would say "the fields item, worn_on must make a
+        # unique set", which means nothing to a person. validate() below says
+        # the same thing in plain words.
         validators = []
 
     @extend_schema_field(serializers.IntegerField)

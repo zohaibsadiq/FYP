@@ -6,9 +6,9 @@ from rest_framework.response import Response
 
 class StandardPagination(PageNumberPagination):
     """
-    DRF ignores ?page_size unless page_size_query_param is set, which silently
-    truncates any client that asks for a full list: the category dropdown needs
-    all 33 rows, not the first page of 24.
+    Lists come back 24 at a time. The browser may ask for more with ?page_size=,
+    which the framework ignores unless it is switched on here. The category
+    dropdown needs all 33 rows, not the first page of 24.
     """
 
     page_size_query_param = "page_size"
@@ -21,9 +21,9 @@ class StandardPagination(PageNumberPagination):
             ("previous", self.get_previous_link()),
             ("results", data),
         ])
-        # Set when the search fell back to guessing at a misspelling. The screen
+        # Set when the search fell back to guessing at a misspelling. The page
         # says so, otherwise a search for "shrt" returning a shirt and a shalwar
-        # kameez looks like the filter is broken.
+        # kameez looks like the search is broken.
         if getattr(self.request, "spelling_guessed", False):
             response["spelling_guessed"] = True
         return Response(response)

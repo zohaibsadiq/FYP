@@ -1,6 +1,9 @@
-"""Email is the login identifier in place of username. Django rules out swapping
-AUTH_USER_MODEL once the initial migration has run, so the substitution is made
-here rather than left to a later refactor.
+"""
+People sign in with their email address. There is no username.
+
+Django lets a project choose its own user table, but only before the first
+database migration has run. That is why this file was written on day one
+instead of being added later.
 """
 
 import secrets
@@ -8,8 +11,9 @@ import secrets
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
-# No 0/O and no 1/I/L. A friend code gets read down a phone or copied off a
-# screen, and those pairs are the ones people get wrong.
+# Letters and digits that are easy to tell apart. There is no 0 or O, and no
+# 1, I or L. A friend code gets read out over the phone or typed from a screen,
+# and those are the characters people mix up.
 CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 8
 
@@ -58,10 +62,10 @@ class User(AbstractUser):
         help_text="Two-letter country code, e.g. 'PK'",
     )
 
-    # Which part of a clothes shop somebody wants to see. Asked as a
-    # preference rather than as an identity, because a woman may be buying for
-    # her son and a man may be selling his sister's kurta; what the app needs
-    # is which section to open on, nothing more.
+    # Which section of a clothes shop to open first. It is a preference, not a
+    # statement about who the person is. Example: a mother shopping for her son
+    # picks "Children's clothes", and a man selling his sister's kurta switches
+    # to "Women's clothes" for that one listing.
     class ShoppingFor(models.TextChoices):
         WOMEN = "WOMEN", "Women's clothes"
         MEN = "MEN", "Men's clothes"
@@ -75,9 +79,9 @@ class User(AbstractUser):
         help_text="Which clothes to show first. Every page can still be switched to anything else.",
     )
 
-    # Never listed, never searchable, and never sent with a listing. It is
-    # handed over to exactly one person, at the moment a seller accepts their
-    # offer, so the two of them can arrange the handover.
+    # The phone number is private. It never appears in a listing or a search.
+    # It is shown to exactly one other person, at the moment a seller accepts
+    # that person's offer, so the two of them can arrange the handover.
     phone = models.CharField(
         max_length=30,
         blank=True,
@@ -88,15 +92,25 @@ class User(AbstractUser):
         blank=True,
         help_text="Full-body front-facing photo. The try-on model draws clothes onto this.",
     )
+    # Cloudinary, the image host, files each picture under its own id. Deleting
+    # a picture needs that id rather than the web address, so it is kept here.
+    body_photo_public_id = models.CharField(max_length=255, blank=True)
+    # A photo of somebody's body is sent to another company to be processed.
+    # This date records that the person was told so and agreed. Clearing it
+    # takes the permission back.
+    body_photo_consent_at = models.DateTimeField(null=True, blank=True)
 
-    # Friends are added by handing this code over in person or by message.
-    # There is deliberately no way to look somebody up by name or email: a name
-    # search cannot tell a real person from somebody copying their name, and an
-    # email search would tell anybody who holds an address whether it is
-    # registered here.
-    # Null rather than a default: a unique column cannot be back-filled with one
-    # value across every existing row, and Postgres lets nulls repeat. Codes are
-    # minted on first use instead, by ensure_friend_code().
+    # Friends are added by sharing this code, in person or by message.
+    # Example: Ali tells Sara "my code is K7MNP3QX", Sara types it in, and a
+    # request reaches Ali. There is no search by name or email on purpose. A
+    # name search cannot tell a real person from somebody copying their name,
+    # and an email search would let anybody check whether an address has an
+    # account here.
+    #
+    # The column starts empty rather than with a default value. Every code must
+    # be unique, and Postgres cannot give all the existing accounts the same
+    # starting value in a unique column. Empty values are allowed to repeat, so
+    # ensure_friend_code() fills the code in the first time it is needed.
     friend_code = models.CharField(
         max_length=16,
         unique=True,
@@ -132,19 +146,21 @@ class User(AbstractUser):
         return bool(self.body_photo_url)
 
     def ensure_friend_code(self) -> str:
-        """Mints a code the first time somebody actually needs one."""
+        """Returns the code, making one first if the person never had one."""
         if not self.friend_code:
             self.reissue_friend_code()
         return self.friend_code
 
     def reissue_friend_code(self) -> str:
         """
-        Burns the old code. Somebody who was given it, or who saw it over a
-        shoulder, can no longer use it to ask to be a friend.
+        Replaces the code with a new one. The old code stops working, so
+        somebody who saw it over a shoulder can no longer use it to send a
+        request.
         """
-        # A collision is vanishingly unlikely with 31^8 codes, but "vanishingly
-        # unlikely" still happens to somebody, and a 500 on a tap is worse than
-        # a loop that almost never runs twice.
+        # With 31 characters in 8 places there are about 850 billion possible
+        # codes, so two people getting the same one is very unlikely. It is
+        # still possible, and a crash on a button press is worse than trying
+        # again, so this tries up to ten times.
         for _ in range(10):
             candidate = new_friend_code()
             if not User.objects.filter(friend_code=candidate).exists():

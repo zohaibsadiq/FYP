@@ -11,7 +11,8 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("email", "full_name", "city")
     ordering = ("-date_joined",)
 
-    # Restated in full because BaseUserAdmin.fieldsets names "username".
+    # Written out in full because the default admin layout expects a "username"
+    # field, which this user model does not have.
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Personal info", {"fields": ("full_name",)}),

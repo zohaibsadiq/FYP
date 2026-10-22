@@ -8,12 +8,11 @@ import axios, {
 import { tokens } from "./tokens";
 import type { ApiFieldErrors } from "@/types";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// No default Content-Type here. Axios picks application/json for plain objects
-// on its own, but a preset header makes it serialise FormData to JSON, and image
-// uploads then arrive empty with no error anywhere.
+// No default Content-Type here, on purpose. Axios picks application/json for
+// plain objects by itself, but a preset header makes it turn a photo upload
+// (FormData) into JSON, and the photo then arrives empty with no error anywhere.
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   timeout: 30_000,
@@ -28,19 +27,20 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// The access token lasts 60 minutes, so it lapses between page views rather than
-// mid-request, and the first burst of calls afterwards comes back 401 together.
-// Refreshing once per failure would fire one refresh call per 401, and since
-// ROTATE_REFRESH_TOKENS is on every one of those mints another refresh token,
-// leaving whichever response lands last as the stored pair. One promise held here
-// turns a burst into a single refresh that the other callers wait on.
+// The sign-in token lasts 60 minutes, so it usually runs out between page views.
+// The next page then fires several requests at once and they all come back 401
+// together. Refreshing once per failure would ask for a new token several times
+// at once, and because every refresh also replaces the refresh token, whichever
+// answer landed last would win and the others would be dead. One shared promise
+// turns the burst into a single refresh that every caller waits on.
 let refreshInFlight: Promise<string> | null = null;
 
 async function refreshAccessToken(): Promise<string> {
   const refresh = tokens.getRefresh();
   if (!refresh) throw new Error("No refresh token");
 
-  // Bare axios: going through `api` would re-enter the interceptor below.
+  // Plain axios here. Going through `api` would run the 401 handler below on
+  // the refresh call itself.
   const { data } = await axios.post<{ access: string; refresh?: string }>(
     `${API_BASE_URL}/api/auth/refresh/`,
     { refresh },
@@ -61,8 +61,8 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const url = original?.url ?? "";
 
-    // A 401 from these three means bad credentials or a dead refresh token, and
-    // refreshing would only produce another 401.
+    // A 401 from these three means the password was wrong or the refresh token
+    // is dead. Refreshing would only produce another 401.
     const isAuthCall =
       url.includes("/auth/login") ||
       url.includes("/auth/register") ||
@@ -131,9 +131,9 @@ export function getFieldErrors(error: unknown): Record<string, string> {
   return result;
 }
 
-// DRF's PrimaryKeyRelatedField wording when a write names a row the server no
-// longer has. A dropdown filled from a cached list keeps offering deleted rows,
-// and queries here hold results for a minute without refetching on focus.
+// The server's wording when a save names a row that no longer exists. Example:
+// a dropdown filled a minute ago still offers a drawer that was deleted since,
+// because lists are kept for a minute without being re-read.
 const STALE_CHOICE = /invalid pk|object does not exist/i;
 
 /** True when a save was refused because something it pointed at has been removed. */

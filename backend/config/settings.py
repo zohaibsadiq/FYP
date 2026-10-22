@@ -17,7 +17,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 DEBUG = env("DEBUG")
 
 # The fallback exists so a fresh checkout runs without a .env. It must never
-# reach a deployed environment, where a predictable key means forgeable tokens.
+# reach a real server: a key anybody can read means anybody can forge a login.
 SECRET_KEY = env("SECRET_KEY", default="insecure-development-key")
 if not DEBUG and SECRET_KEY == "insecure-development-key":
     raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is off.")
@@ -25,13 +25,13 @@ if not DEBUG and SECRET_KEY == "insecure-development-key":
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 if not DEBUG:
-    # Render terminates TLS at its proxy and forwards plain HTTP, so Django sees
-    # an insecure request unless it is told which header carries the real scheme.
-    # Without this, SECURE_SSL_REDIRECT loops forever.
+    # Render handles HTTPS at its front door and passes plain HTTP on to Django.
+    # Django has to be told which header says "this really was HTTPS", or the
+    # redirect below sends every request round in a loop forever.
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
-    # Render probes the service port directly over HTTP. A 301 from the redirect
-    # reads as unhealthy and fails the deploy.
+    # Render checks the service is alive by calling this address over plain
+    # HTTP. A redirect answer would count as "unhealthy" and fail the deploy.
     SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 
     SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
@@ -48,8 +48,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 X_FRAME_OPTIONS = "DENY"
 
-# A garment photo off a modern phone is 3-8 MB. Ten times that leaves room for
-# the multipart envelope while still refusing a body meant to exhaust memory.
+# A garment photo from a modern phone is 3 to 8 MB. Twenty leaves room for
+# the wrapping around an upload, while still refusing a request built to use
+# up the server's memory.
 DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=20 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
@@ -61,34 +62,34 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.postgres",   # ArrayField, full-text search helpers
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
-    "django_filters",                 # query-param filtering on list endpoints
-    "drf_spectacular",                # OpenAPI schema generation
+    "django_filters",
+    "drf_spectacular",
     "rest_framework_simplejwt.token_blacklist",
 ]
 
 LOCAL_APPS = [
     "apps.accounts",
     "apps.wardrobe",
-    "apps.outfits",
     "apps.planner",
     "apps.shopping",
     "apps.intelligence",
     "apps.vision",
     "apps.community",
     "apps.circle",
+    "apps.tryon",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",          # must stay above CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",  # must stay above CommonMiddleware
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -117,23 +118,24 @@ TEMPLATES = [
     },
 ]
 
-# Every real environment sets DATABASE_URL. The SQLite branch exists so manage.py
-# works without credentials, but it carries less than the full schema:
-# wardrobe.Item keeps seasons and occasions in a Postgres ArrayField.
+# Every real environment sets DATABASE_URL. The SQLite fallback exists so
+# manage.py runs without any credentials, but it cannot hold the full schema:
+# a garment's seasons and occasions are stored as Postgres lists.
 if env("DATABASE_URL"):
     DATABASES = {"default": env.db_url("DATABASE_URL")}
 
-    # Neon suspends an idle compute after 300s, so a connection held longer than
-    # that is dead on next use. The health check costs one round trip and only
-    # when the connection is actually reused.
+    # Neon puts an idle database to sleep after 300 seconds, so a connection
+    # kept open longer than that is dead the next time it is used. The health
+    # check costs one quick round trip, and only when a connection is reused.
     DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=120)
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
     DATABASES["default"].setdefault("OPTIONS", {})
-    DATABASES["default"]["OPTIONS"]["sslmode"] = "require"   # Neon refuses plaintext connections
+    DATABASES["default"]["OPTIONS"]["sslmode"] = "require"  # Neon refuses unencrypted connections
 
-    # The -pooler host is PgBouncer in transaction mode, where server-side
-    # cursors do not survive between statements. QuerySet.iterator() uses them.
+    # The "-pooler" address shares connections between statements, so a
+    # database cursor does not survive from one statement to the next.
+    # Django's iterator() relies on cursors, so it is told not to use them.
     if "-pooler" in env("DATABASE_URL"):
         DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 elif DEBUG:
@@ -150,7 +152,7 @@ else:
         "an empty local SQLite file."
     )
 
-AUTH_USER_MODEL = "accounts.User"       # email is the login field, not username
+AUTH_USER_MODEL = "accounts.User"  # email is the login field, not username
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -170,16 +172,16 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "config.pagination.StandardPagination",
-    "PAGE_SIZE": 24,   # divides evenly across the 2, 3 and 4 column wardrobe grids
+    "PAGE_SIZE": 24,  # divides evenly into the 2, 3 and 4 column closet grids
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Exactly one proxy sits in front of this service. Left unset, DRF derives
-    # the throttle key from the whole X-Forwarded-For chain, which the caller
-    # controls and can therefore rotate to sidestep the limit.
+    # Exactly one proxy (Render's) sits in front of this service. Left unset,
+    # the rate limiter would identify a caller by a header the caller can
+    # write themselves, and so change on every request to dodge the limit.
     "NUM_PROXIES": env.int("NUM_PROXIES", default=None if DEBUG else 1),
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -190,11 +192,12 @@ REST_FRAMEWORK = {
         "anon": env("THROTTLE_ANON", default="2000/hour" if DEBUG else "120/hour"),
         "user": env("THROTTLE_USER", default="20000/hour" if DEBUG else "2000/hour"),
         # Guessing a password, an email, or an eight-character friend code all
-        # look like ordinary traffic one request at a time. These are the rates
-        # that make the thousandth attempt impossible.
+        # look like ordinary traffic one request at a time. These limits are
+        # what make the thousandth guess impossible.
         "login": env("THROTTLE_LOGIN", default="2000/hour" if DEBUG else "10/min"),
         "signup": env("THROTTLE_SIGNUP", default="2000/hour" if DEBUG else "10/hour"),
         "friend-code": env("THROTTLE_FRIEND_CODE", default="2000/hour" if DEBUG else "20/hour"),
+        "body-photo": env("THROTTLE_BODY_PHOTO", default="2000/hour" if DEBUG else "12/hour"),
     },
 }
 
@@ -202,8 +205,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    # Without this a rotated-away refresh token stays valid for its full seven
-    # days, so a stolen one survives the rotation meant to retire it.
+    # Every refresh hands out a new refresh token. Without this, the old one
+    # would stay valid for its full seven days, so a stolen one would survive
+    # the very step meant to retire it.
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
@@ -216,16 +220,20 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
-    # Two models both call their field "status", and left alone the generator
-    # settles the clash by hashing: "Status74aEnum". Anyone generating a client
-    # from this schema would get that name, and it would change the moment a
-    # third status appeared. Naming them here keeps the schema readable and
-    # stable.
+    # Two models both have a field called "status". Left alone, the docs
+    # generator tells them apart with a random-looking name such as
+    # "Status74aEnum", which would also change the moment a third status
+    # appeared. Naming them here keeps the API docs readable and stable.
     "ENUM_NAME_OVERRIDES": {
         "GarmentStatusEnum": "apps.wardrobe.models.GarmentItem.Status",
         "ListingStatusEnum": "apps.community.models.Listing.Status",
     },
 }
+
+# Virtual try-on. The picture is made on the supplier's hardware, so the only
+# cost here is money per picture, and TRYON_DAILY_LIMIT is what caps it.
+TRYON_API_KEY = env("TRYON_API_KEY", default="")
+TRYON_DAILY_LIMIT = env.int("TRYON_DAILY_LIMIT", default=10)
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
@@ -247,8 +255,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Garment and try-on images live in Cloudinary because the app host wipes its
-# filesystem on every deploy.
+# Garment and try-on pictures live in Cloudinary because the app host wipes
+# its own disk on every deploy.
 CLOUDINARY = {
     "cloud_name": env("CLOUDINARY_CLOUD_NAME", default=""),
     "api_key": env("CLOUDINARY_API_KEY", default=""),
@@ -257,9 +265,9 @@ CLOUDINARY = {
 
 CLOUDINARY_ROOT_FOLDER = env("CLOUDINARY_ROOT_FOLDER", default="closette")
 
-# Weather is read for the city on the account. The forecast is cached rather
-# than fetched per request: the free plan allows 60 calls a minute and every
-# dashboard load would otherwise be one.
+# Weather is read for the city on the account and remembered for half an
+# hour. The free plan allows 60 requests a minute, and every visit to the home
+# page would otherwise spend one.
 OPENWEATHER_API_KEY = env("OPENWEATHER_API_KEY", default="")
 WEATHER_CACHE_SECONDS = env.int("WEATHER_CACHE_SECONDS", default=1800)
 WEATHER_TIMEOUT_SECONDS = env.float("WEATHER_TIMEOUT_SECONDS", default=6.0)

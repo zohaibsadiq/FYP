@@ -1,7 +1,7 @@
 """
-No shop is contacted while a request is in flight. sync_deals writes these
-tables on a schedule and the API only ever reads them, so a shop being down
-costs a stale timestamp rather than a failed page.
+No shop is contacted while somebody is waiting for a page. The sync_deals
+command fills these tables on a schedule and the API only ever reads them. So a
+shop being down costs nothing more than an older "last checked" time.
 """
 
 from __future__ import annotations
@@ -36,19 +36,19 @@ class Shop(models.Model):
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveSmallIntegerField(default=100)
 
-    # Some shops sell to one half of the market only and never say so on the
-    # product itself. Set this for those, and leave it empty for any shop that
-    # sells to more than one, where assuming would put a man's shirt in the
-    # women's tab. It is only ever used when the product's own words say
-    # nothing.
+    # Some shops sell to women only, or men only, and never say so on each
+    # product. Set this for those shops. Leave it empty for any shop that sells
+    # to everyone, where guessing would put a man's shirt in the women's tab.
+    # It is only used when the product's own words say nothing.
     default_audience = models.CharField(
         max_length=10,
         blank=True,
         help_text="Who this shop sells to, when a product does not say. Leave empty if it sells to everyone.",
     )
 
-    # Some shops ask for a gap between requests in their robots file. Honouring
-    # it is the difference between reading a catalogue and hammering a server.
+    # Some shops ask for a pause between requests in their robots.txt file.
+    # Honouring it is the difference between reading a catalogue and hammering
+    # somebody's server.
     request_gap_seconds = models.FloatField(
         default=1.0,
         help_text="Seconds to wait between pages. Raise it for a shop that asks for a crawl delay.",
@@ -81,8 +81,8 @@ class Shop(models.Model):
         self.save(update_fields=["last_checked_at", "last_result", "last_message"])
 
     def record_failure(self, message: str) -> None:
-        # last_checked_at deliberately stays where it was. It answers "how old
-        # is this price", and a failed attempt did not make any price newer.
+        # last_checked_at is left alone on purpose. It answers "how old is this
+        # price?", and a failed attempt did not make any price newer.
         self.last_result = self.Result.FAILED
         self.last_message = message[:300]
         self.save(update_fields=["last_result", "last_message"])
@@ -93,20 +93,14 @@ class DealQuerySet(models.QuerySet):
         """Only things the shop still shows. Delisted rows are kept for history."""
         return self.filter(is_listed=True)
 
-    def on_sale(self):
-        return self.filter(discount_percent__gt=0)
-
-    def dropped_since(self, when):
-        return self.filter(price_fell_at__gte=when)
-
 
 class Deal(models.Model):
     """
     One product in one shop, at the price last seen.
 
-    A shop lists the same design in several sizes at the same price, so a row
-    here is the product rather than the size: a grid of the same shirt five
-    times is not a useful page. The sizes still in stock ride along.
+    A shop lists the same design in several sizes at the same price, so one row
+    here is the product, not the size. A page showing the same shirt five times
+    would be useless. The sizes still in stock are kept in a list on the row.
     """
 
     class Audience(models.TextChoices):
@@ -117,8 +111,8 @@ class Deal(models.Model):
 
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="deals")
 
-    # The shop's own id for the product. Paired with the shop it is unique, and
-    # it survives the shop renaming the product.
+    # The shop's own id for the product. Together with the shop it is unique,
+    # and it stays the same even when the shop renames the product.
     external_id = models.CharField(max_length=64)
 
     title = models.CharField(max_length=300)
@@ -127,8 +121,8 @@ class Deal(models.Model):
     image_url = models.URLField(max_length=500, blank=True)
     vendor = models.CharField(max_length=120, blank=True)
 
-    # What the shop calls this kind of thing, kept exactly as published so a
-    # wrong guess further down can always be traced back.
+    # What the shop calls this kind of thing, kept exactly as published, so a
+    # wrong guess further down can always be traced back to its source.
     shop_category = models.CharField(max_length=120, blank=True)
 
     category = models.ForeignKey(
@@ -211,7 +205,7 @@ class Deal(models.Model):
 
 class PriceChange(models.Model):
     """
-    A row is written only when a price actually moves.
+    A row is written only when a price actually changes.
 
     Writing one on every refresh would bury the few real changes under
     thousands of identical rows, and "it has not changed in a month" is worth

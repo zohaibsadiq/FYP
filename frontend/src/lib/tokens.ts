@@ -1,8 +1,9 @@
 const ACCESS_KEY = "sw_access";
 const REFRESH_KEY = "sw_refresh";
 
-// The storage event reaches every tab except the one that wrote, so a sign-out
-// here has to announce itself for the layout to notice.
+// The browser only tells other tabs when storage changes, never the tab that
+// made the change. So a sign-out announces itself here, and the layout in this
+// tab hears it too.
 const CHANGED = "sw_tokens_changed";
 
 function announce() {
@@ -11,8 +12,9 @@ function announce() {
   }
 }
 
-// localStorage does not exist during SSR, and touching it throws outright when
-// the browser blocks site data, so every read and write goes through one guard.
+// localStorage does not exist while the page is built on the server, and the
+// browser throws an error when site data is blocked. Every read and write goes
+// through this one guard so neither case crashes the app.
 function withStorage<T>(fallback: T, op: (storage: Storage) => T): T {
   if (typeof window === "undefined") return fallback;
   try {

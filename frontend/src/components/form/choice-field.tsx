@@ -40,9 +40,10 @@ export function ChoiceField({
   emptyLabel = "There is nothing to choose from yet",
   disabled,
 }: ChoiceFieldProps) {
-  // Base UI looks the selected value up in `items` to find its label. Without
-  // the prop, Select.Value prints the value itself, so a storage location shows
-  // as its row id. An entry with a null value also replaces the placeholder.
+  // The dropdown finds the label for the chosen value by looking it up in this
+  // list. Without the list it would print the raw value, so a storage place
+  // would show as "14" instead of "Drawer 2". The entry with a null value is
+  // the "clear" row, and it also takes the place of the placeholder text.
   const items = clearLabel ? [{ value: null, label: clearLabel }, ...choices] : choices;
   const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
   const isEmpty = choices.length === 0;

@@ -30,11 +30,12 @@ from .serializers import (
 
 def unique_nickname(owner, wanted: str) -> str:
     """
-    Settles a clash without stopping somebody mid-tap.
+    Settles a name clash without stopping somebody mid-tap: "Ali Khan" becomes
+    "Ali Khan (2)".
 
     Only used where a name was not typed in by hand. Where one was, the
-    serializer refuses instead and asks for a different one, because silently
-    renaming somebody's friend would be worse than a clear error.
+    serializer refuses and asks for a different one, because silently renaming
+    somebody's friend would be worse than a clear error.
     """
     wanted = (wanted or "").strip() or "Friend"
     if not Friend.objects.filter(owner=owner, nickname__iexact=wanted).exists():
@@ -49,9 +50,9 @@ def unique_nickname(owner, wanted: str) -> str:
 
 def label_for(owner, person) -> str:
     """
-    The name a new friend starts with. Their own name where that is free, and
-    their name plus their city where it is not, so a list never shows the same
-    words twice.
+    The name a new friend starts with. Their own name where that is free, or
+    their name plus their city where it is not, such as "Ali Khan (Lahore)", so
+    a list never shows the same words twice.
     """
     base = person.display_name
     if not Friend.objects.filter(owner=owner, nickname__iexact=base).exists():
@@ -71,8 +72,8 @@ def label_for(owner, person) -> str:
 )
 class MyCodeView(APIView):
     """
-    The code is minted the first time it is looked at. Accounts made before
-    this feature existed do not carry one until somebody opens the page.
+    The code is made the first time it is looked at. Accounts created before
+    this feature existed have none until their owner opens the page.
     """
 
     def get(self, request):
@@ -92,7 +93,8 @@ class MyCodeView(APIView):
 class FriendRequestViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = FriendRequestSerializer
     queryset = FriendRequest.objects.none()
-    # Declared so the per-action override below is a recognised init kwarg.
+    # Has to exist on the class before the by-code action below can set its
+    # own value, or the framework rejects the setting.
     throttle_scope = None
 
     def get_queryset(self):
@@ -146,8 +148,9 @@ class FriendRequestViewSet(viewsets.ReadOnlyModelViewSet):
                 person=ask.from_user,
                 defaults={"nickname": typed or label_for(request.user, ask.from_user)},
             )
-            # Their side is named automatically: they were not asked anything,
-            # so a clash on their list is settled rather than raised at them.
+            # Their side is named automatically. They were not asked anything,
+            # so a clash on their list is settled quietly rather than thrown at
+            # them as an error.
             Friend.objects.get_or_create(
                 owner=ask.from_user,
                 person=request.user,
@@ -191,7 +194,8 @@ class FriendViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance: Friend):
         # Removed on both sides. Leaving their row behind would show them a
-        # friend who cannot see them, which reads as a bug rather than a choice.
+        # friend who cannot see them, which looks like a bug rather than a
+        # choice.
         with transaction.atomic():
             Friend.objects.filter(
                 Q(owner=instance.owner, person=instance.person)
@@ -212,8 +216,8 @@ class FriendViewSet(viewsets.ModelViewSet):
             raise ValidationError(
                 {"detail": f"{friend.nickname} has not opened their closet to friends yet."}
             )
-        # Same wording as the line above, so a block cannot be distinguished
-        # from a closet that was never opened.
+        # Same wording as the line above on purpose, so a person cannot tell
+        # "they blocked me" apart from "they never opened their closet".
         if Friend.objects.filter(owner=friend.person, person=request.user, blocked=True).exists():
             raise ValidationError(
                 {"detail": f"{friend.nickname} has not opened their closet to friends yet."}
@@ -253,8 +257,8 @@ class LoanViewSet(viewsets.ReadOnlyModelViewSet):
         item = get_object_or_404(GarmentItem, pk=item_id)
         friend = Friend.objects.filter(owner=request.user, person=item.owner).first()
 
-        # Everything below is checked again here rather than trusted from the
-        # listing the tap came from, because the listing may be minutes old.
+        # Everything is checked again here instead of trusting the list the tap
+        # came from, because that list may be minutes old and things change.
         if friend is None or friend.blocked:
             raise ValidationError({"detail": "That is not something a friend of yours is lending."})
         if not item.owner.shares_closet or not item.is_lendable:
@@ -311,8 +315,8 @@ class LoanViewSet(viewsets.ReadOnlyModelViewSet):
         loan = get_object_or_404(Loan, pk=pk, borrower=request.user)
         if loan.status != Loan.Status.ASKED:
             raise ValidationError({"status": "That request has already been answered."})
-        # Deleted rather than kept: leaving a cancelled row behind would block
-        # asking again, because only one open loan per item is allowed.
+        # Deleted rather than kept. Leaving a cancelled row behind would block
+        # asking again, because only one open loan per garment is allowed.
         loan.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

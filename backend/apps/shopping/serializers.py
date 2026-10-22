@@ -23,8 +23,8 @@ class ShopSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField)
     def get_deal_count(self, obj) -> int:
-        # Annotated by the view. A shop serialized on its own has not been
-        # counted, and zero is a safer answer than a query per row.
+        # Counted by the view. A shop turned into JSON on its own has not been
+        # counted, and zero is a safer answer than one extra query per row.
         return getattr(obj, "listed_count", 0)
 
 

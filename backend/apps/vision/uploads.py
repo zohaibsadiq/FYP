@@ -1,5 +1,7 @@
-"""Every endpoint that accepts an image validates through this module, so a
-file refused by one is refused by all of them with the same message."""
+"""
+Every endpoint that accepts a photo checks it here, so a file refused by one is
+refused by all of them with the same message.
+"""
 
 from __future__ import annotations
 
@@ -18,10 +20,10 @@ ALLOWED_IMAGE_TYPES = {
 
 def read_upload(request, field: str = "image") -> bytes:
     """
-    The bytes of an uploaded photograph, or a 400 saying exactly what is wrong.
+    The bytes of an uploaded photo, or a clear error saying what is wrong.
 
-    Size and declared type are checked before the file is read, so an oversized
-    upload never reaches the point of being decoded.
+    Size and type are checked before the file is read, so a huge upload is
+    refused before any work is done on it.
     """
     upload = request.FILES.get(field)
     if not upload:

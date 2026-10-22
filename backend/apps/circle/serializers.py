@@ -1,7 +1,8 @@
 """
-GarmentToBorrowSerializer deliberately repeats fields the closet serializer
-already declares. Subclassing it would inherit purchase_price, cost_per_wear,
-wear_count and location_path, and would re-inherit whatever is added to it next.
+GarmentToBorrowSerializer lists its fields by hand instead of reusing the
+closet serializer. Reusing it would hand a friend the price paid, the cost per
+wear, the wear count and where the garment is kept, plus whatever gets added to
+it next.
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ User = get_user_model()
 class FriendPersonSerializer(serializers.ModelSerializer):
     """The subset of an account that a friend is allowed to read."""
 
-    # Declared rather than inferred: it is a property on the model, so the
-    # schema generator has no field to read a type from.
+    # Spelled out because display_name is worked out in code, not stored in a
+    # column, so the API docs generator cannot work out its type by itself.
     display_name = serializers.CharField(read_only=True)
 
     class Meta:
@@ -69,7 +70,7 @@ class FriendSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "person", "shares_closet", "items_to_borrow", "created_at"]
 
     def get_shares_closet(self, friend: Friend) -> bool:
-        """Reports the other account's sharing switch, not the owner's."""
+        """Whether the friend has opened their closet, not whether the viewer has."""
         return bool(friend.person.shares_closet) and not friend.blocked
 
     def get_items_to_borrow(self, friend: Friend) -> int:
@@ -85,9 +86,9 @@ class FriendSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         """
-        The database settles this too, but a constraint error reads as a crash.
-        Somebody with two friends called Ali Khan deserves to be told which
-        name is taken and asked for another.
+        The database refuses duplicate nicknames too, but its error reads as a
+        crash. Somebody with two friends called Ali Khan deserves to be told the
+        name is taken and asked for another, such as "Ali Khan (uni)".
         """
         nickname = attrs.get("nickname")
         if nickname is None:
@@ -147,9 +148,9 @@ class SendRequestSerializer(serializers.Serializer):
         try:
             them = User.objects.get(friend_code=tidy)
         except User.DoesNotExist:
-            # Deliberately the same words whatever went wrong. A different
-            # message for "no such code" would turn this box into a way of
-            # testing codes until one lands.
+            # The same words whatever went wrong, on purpose. A different message
+            # for "no such code" would turn this box into a way of trying codes
+            # until one lands.
             raise serializers.ValidationError("That code does not belong to anybody. Check it and try again.")
 
         if them.pk == me.pk:
@@ -168,9 +169,9 @@ class SendRequestSerializer(serializers.Serializer):
         me = self.context["request"].user
         them = self.context["them"]
 
-        # Entering the code of somebody who already asked resolves their
-        # pending request instead of opening a second one in the other
-        # direction.
+        # If Ali asks Sara and Sara then types Ali's code, there is already a
+        # request waiting from Ali. That one is used instead of opening a
+        # second request going the other way.
         theirs = FriendRequest.objects.filter(
             from_user=them, to_user=me, status=FriendRequest.Status.SENT
         ).first()
@@ -247,9 +248,9 @@ class LoanSerializer(serializers.ModelSerializer):
 
     def get_their_name(self, loan: Loan) -> str:
         """
-        The requesting account's own label for the other side, so loans read
-        the same way as the friend list and two identical display names stay
-        distinguishable.
+        The viewer's own nickname for the other person, so a loan reads the
+        same way as the friend list. Two friends who are both "Ali Khan" stay
+        apart here as well.
         """
         me = self.context["request"].user
         other_id = loan.borrower_id if loan.lender_id == me.pk else loan.lender_id
@@ -289,8 +290,8 @@ class AskToBorrowSerializer(serializers.ModelSerializer):
         try:
             return Loan.objects.create(**validated_data)
         except IntegrityError:
-            # Two people tapping at once; the constraint decides, and the loser
-            # is told plainly rather than shown a 500.
+            # Two people tapping at the same moment. The database rule decides
+            # who won, and the other is told plainly instead of seeing a crash.
             raise serializers.ValidationError(
                 {"item": "Somebody asked for this one a moment before you did."}
             )

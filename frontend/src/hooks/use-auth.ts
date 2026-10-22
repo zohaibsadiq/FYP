@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 import { tokens } from "@/lib/tokens";
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types";
 
-export const ME_QUERY_KEY = ["auth", "me"] as const;
+const ME_QUERY_KEY = ["auth", "me"] as const;
 
 export function useCurrentUser(): UseQueryResult<User> {
   return useQuery({
@@ -24,7 +24,7 @@ export function useCurrentUser(): UseQueryResult<User> {
     },
     enabled: tokens.isLoggedIn(),
     staleTime: 5 * 60 * 1000,
-    retry: false, // a failed /auth/me/ means signed out, and a retry returns the same 401
+    retry: false, // a failed /auth/me/ means signed out, and trying again gives the same answer
   });
 }
 
@@ -39,7 +39,8 @@ export function useLogin() {
     },
     onSuccess: (data) => {
       tokens.save(data.access, data.refresh);
-      // Login already returns the user, so seeding the cache saves /auth/me/ a round trip.
+      // Login already returns the account details, so storing them here saves
+      // a second request to /auth/me/.
       queryClient.setQueryData(ME_QUERY_KEY, data.user);
       router.push("/dashboard");
     },

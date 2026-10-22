@@ -1,4 +1,5 @@
-// A field added to a serializer belongs here in the same commit.
+// Every field the API sends has to be listed here too. The backend's
+// test_contract.py checks that the two sides match.
 
 /** Which part of a clothes shop to open on. Not a claim about anybody. */
 export const SHOPPING_FOR = ["WOMEN", "MEN", "KIDS", "EVERYTHING"] as const;
@@ -29,7 +30,7 @@ export interface User {
   date_joined: string;
 }
 
-export interface AuthTokens {
+interface AuthTokens {
   access: string;
   refresh: string;
 }

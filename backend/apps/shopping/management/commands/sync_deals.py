@@ -69,8 +69,8 @@ class Command(BaseCommand):
         line = f"{worked} shops read, {failed} failed, {found} products, {reduced} on sale."
         self.stdout.write(self.style.SUCCESS(line) if not failed else self.style.WARNING(line))
 
-        # One shop refusing to answer is ordinary, and the app already says so
-        # on the page. Every shop refusing is not, so the run ends in a failure
-        # the scheduler can see and report rather than a quiet success.
+        # One shop refusing to answer is an ordinary day, and the page already
+        # says so. Every shop refusing is not, so the run ends in a failure the
+        # scheduler can see and report, instead of a quiet success.
         if worked == 0:
             raise CommandError("Not one shop could be read. Nothing was refreshed.")

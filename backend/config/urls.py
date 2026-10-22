@@ -7,7 +7,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
 def health(request):
-    """Liveness probe polled by the hosting platform."""
+    """Render calls this every few seconds to check the service is alive."""
     return JsonResponse({"status": "ok", "service": "closette-api"})
 
 
@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/shopping/", include("apps.shopping.urls")),
     path("api/market/", include("apps.community.urls")),
     path("api/friends/", include("apps.circle.urls")),
+    path("api/try-on/", include("apps.tryon.urls")),
 ]
 
 if settings.DEBUG:

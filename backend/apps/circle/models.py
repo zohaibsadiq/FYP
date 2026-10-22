@@ -1,8 +1,9 @@
 """
-A name search cannot distinguish a real person from somebody reusing their
-name, so friendships start from a private code instead. The per-owner unique
-constraint on Friend.nickname is the other half of that: two accounts both
-called "Ali Khan" cannot occupy one label in the same list.
+A name search cannot tell a real person from somebody using their name, so
+friendships start from a private code instead. The other half of that is the
+rule that each person's nicknames for their friends must be unique: if Sara has
+two friends called "Ali Khan", she has to call one of them something else, so
+her list never shows the same words twice.
 """
 
 from __future__ import annotations
@@ -37,8 +38,8 @@ class FriendRequest(models.Model):
         db_table = "friend_requests"
         ordering = ["-created_at"]
         constraints = [
-            # Declining clears the row, so a later attempt is allowed; a pending
-            # one blocks repeats of the same ask.
+            # Only one unanswered request per pair at a time. Once a request is
+            # declined it no longer counts, so asking again later is allowed.
             models.UniqueConstraint(
                 fields=["from_user", "to_user"],
                 condition=models.Q(status="SENT"),
@@ -56,8 +57,9 @@ class FriendRequest(models.Model):
 
 class Friend(models.Model):
     """
-    One direction of a friendship. Accepting writes two rows, so each side
-    keeps its own label and its own block flag, and neither reads the other's.
+    One direction of a friendship. Accepting a request writes two rows, one for
+    each side, so each person keeps their own nickname for the other and their
+    own block switch, and neither can read the other's.
     """
 
     owner = models.ForeignKey(
@@ -90,9 +92,9 @@ class Friend(models.Model):
 
 class Loan(models.Model):
     """
-    The garment row never changes owner. Only its status moves to LENT_OUT,
-    which keeps it inside the lender's totals while blocking wear, laundry,
-    planning and sale for as long as the loan is open.
+    The garment never changes owner. Only its status moves to LENT_OUT, which
+    keeps it inside the lender's totals while stopping it being worn, washed,
+    planned or sold for as long as the loan is open.
     """
 
     class Status(models.TextChoices):
@@ -125,7 +127,8 @@ class Loan(models.Model):
         db_table = "loans"
         ordering = ["-created_at"]
         constraints = [
-            # Without this, two overlapping requests could each be agreed to.
+            # One open loan per garment. Without this, two overlapping requests
+            # could both be agreed to and two people promised the same kurta.
             models.UniqueConstraint(
                 fields=["item"],
                 condition=models.Q(status__in=["ASKED", "AGREED"]),
@@ -157,7 +160,6 @@ class Loan(models.Model):
 
     @transaction.atomic
     def agree(self) -> None:
-
         self.status = self.Status.AGREED
         self.answered_at = timezone.now()
         self.save(update_fields=["status", "answered_at"])

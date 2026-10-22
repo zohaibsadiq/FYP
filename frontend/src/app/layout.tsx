@@ -4,8 +4,8 @@ import { Outfit, JetBrains_Mono } from "next/font/google";
 import { AppProviders } from "@/providers/app-providers";
 import "./globals.css";
 
-// These variable names must stay different from the @theme font tokens in
-// globals.css, or the emitted custom property ends up referencing itself.
+// These two names must stay different from the font names in globals.css, or
+// the page's font setting ends up pointing at itself and no font loads.
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],

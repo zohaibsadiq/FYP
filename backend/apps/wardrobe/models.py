@@ -1,7 +1,9 @@
 """
-warmth_level and occasions are not read by any endpoint yet. They are defined
-up front because the suggestion engine needs them, and adding columns to a
-garment_items table that already holds real rows is expensive.
+Two columns here, warmth_level and is_waterproof, are stored on every garment
+but nothing filters by them yet. The weather endpoint already works out which
+warmth levels suit today; matching clothes to that is the next step. They were
+added early because adding columns to a table that already holds real clothes
+is slow and risky.
 """
 
 from __future__ import annotations
@@ -20,11 +22,12 @@ from django.utils import timezone
 
 class StorageLocation(models.Model):
     """
-    One physical place, which may sit inside another place.
+    One real place where clothes are kept, which may sit inside another place.
+    Example: Bedroom > Main Wardrobe > Drawer 2.
 
-    Adjacency list: each row points at its parent, so a single table holds
-    every level. Closet trees are shallow, three or four levels at most, so
-    walking one recursively stays cheap.
+    Each row simply points at its parent, so one table holds every level.
+    Closets are shallow, three or four levels at most, so walking up the chain
+    is cheap.
     """
 
     class Kind(models.TextChoices):
@@ -64,15 +67,16 @@ class StorageLocation(models.Model):
         db_table = "storage_locations"
         ordering = ["name"]
         constraints = [
-            # Scoped to the parent rather than the owner: one "Drawer 2" per
-            # wardrobe, but several wardrobes may each hold one.
+            # Names must be unique inside the same parent, not across the whole
+            # account. Two wardrobes may each have a "Drawer 2", but one
+            # wardrobe cannot have two.
             models.UniqueConstraint(
                 fields=["owner", "parent", "name"],
                 name="unique_location_name_per_parent",
             ),
-            # Postgres treats NULLs as distinct, so the constraint above never
-            # applies to a place with no parent. Without this one, nothing in
-            # the database stops two rooms sharing a name.
+            # Postgres treats two empty parents as different values, so the
+            # rule above never applies to a top-level place such as a room.
+            # This second rule stops two rooms sharing a name.
             models.UniqueConstraint(
                 fields=["owner", "name"],
                 condition=models.Q(parent__isnull=True),
@@ -104,9 +108,10 @@ class StorageLocation(models.Model):
         if self.parent.owner_id != self.owner_id:
             raise ValidationError({"parent": "That location belongs to someone else."})
 
-        # len(chain) is where this row would sit, and whatever is already nested
-        # inside it moves down with it. Checking the row alone would let a
-        # wardrobe full of drawers be moved somewhere that leaves them no room.
+        # len(chain) is how deep this place would sit, and whatever is already
+        # nested inside it moves down with it. Example: moving a wardrobe full
+        # of drawers into a cabinet pushes the drawers one level deeper, so the
+        # check has to count them too.
         if len(chain) + self.height > self.MAX_DEPTH - 1:
             raise ValidationError(
                 {"parent": f"Storage can only be nested {self.MAX_DEPTH} levels deep."}
@@ -114,7 +119,7 @@ class StorageLocation(models.Model):
 
     @property
     def ancestors(self) -> list[StorageLocation]:
-        """Outermost first: [Bedroom, Main Wardrobe] for Drawer 2."""
+        """Outermost first. For Drawer 2 this is [Bedroom, Main Wardrobe]."""
         chain: list[StorageLocation] = []
         node = self.parent
         while node is not None:
@@ -132,9 +137,9 @@ class StorageLocation(models.Model):
 
     @property
     def height(self) -> int:
-        """Levels nested inside this one. A drawer holding nothing is 0."""
-        # An unsaved row has no pk, and children.all() would then match every
-        # row whose parent is NULL rather than nothing at all.
+        """How many levels are nested inside this one. An empty drawer is 0."""
+        # A row that has not been saved yet has no id. Asking for its children
+        # would then match every place with no parent instead of nothing.
         if not self.pk:
             return 0
         children = list(self.children.all())
@@ -153,11 +158,14 @@ class StorageLocation(models.Model):
 
 class Category(models.Model):
     """
-    Slot, not name, is the field outfit assembly reads: a complete outfit needs
-    one TOP, one BOTTOM and one FOOTWEAR, whichever names fill them.
+    A kind of clothing, such as "Shirt" or "Kurta".
 
-    An owner of NULL is a built-in category shared by everyone; a non-null
-    owner is one user's own addition.
+    The slot is what matters when building an outfit, not the name. A complete
+    outfit needs one TOP, one BOTTOM and one FOOTWEAR, whatever those happen to
+    be called.
+
+    A category with no owner is built in and shared by everyone. One with an
+    owner was added by that person and is theirs alone.
     """
 
     class Slot(models.TextChoices):
@@ -202,8 +210,8 @@ class Category(models.Model):
 class GarmentItemQuerySet(models.QuerySet):
     def with_last_occasion(self):
         """
-        Carries the note from the most recent wearing, so a list can say "worn
-        to Ayesha's mehndi" without a query per row.
+        Adds the note from the most recent wearing to each item, so a list can
+        say "worn to Ayesha's mehndi" without asking the database once per row.
         """
         latest = WearEvent.objects.filter(item_id=models.OuterRef("pk")).order_by("-worn_on")
         return self.annotate(
@@ -218,19 +226,21 @@ class GarmentItem(models.Model):
         LENT_OUT = "LENT_OUT", "Lent to a friend"
         FOR_SALE = "FOR_SALE", "Listed for sale"
         SOLD = "SOLD", "Sold"
-        # "Put away" rather than "Archived": the whole app says put away, and
-        # this label is what every screen and refusal message reads out.
+        # Called "Put away" everywhere on screen. The code says ARCHIVED, but
+        # the person never sees that word.
         ARCHIVED = "ARCHIVED", "Put away"
 
     WEARABLE_STATUSES = [Status.IN_WARDROBE]
 
-    # Sold, archived, or out on loan. A lent item is still owned, so it stays
-    # out of GONE_STATUSES while remaining unusable until it comes back.
+    # Not available right now: sold, put away, or out with a friend. A lent
+    # item is still owned, so it is not in GONE_STATUSES, but it cannot be worn
+    # or sold until it comes back.
     AWAY_STATUSES = [Status.SOLD, Status.ARCHIVED, Status.LENT_OUT]
 
-    # Things somebody no longer has. They stay as rows so a sale keeps its
-    # history and a wear log does not develop holes, but they are not part of
-    # the wardrobe any more and are left out of it unless asked for by name.
+    # Things the person no longer has. The rows stay so a sale keeps its
+    # history and the wear log has no holes, but they are not part of the
+    # wardrobe any more. Every count and list leaves them out unless asked for
+    # them by name.
     GONE_STATUSES = [Status.SOLD, Status.ARCHIVED]
 
     class Season(models.TextChoices):
@@ -299,14 +309,14 @@ class GarmentItem(models.Model):
 
     storage_location = models.ForeignKey(
         StorageLocation,
-        on_delete=models.SET_NULL,   # a deleted drawer must not take the garment with it
+        on_delete=models.SET_NULL,   # deleting a drawer must not delete the clothes in it
         null=True,
         blank=True,
         related_name="items",
     )
 
-    # Cloudinary deletes by public_id, and the public_id cannot be
-    # reconstructed from the delivery URL, so both are stored per image.
+    # Cloudinary deletes a picture by its public id, and that id cannot be
+    # worked out from the web address, so both are saved for each picture.
     original_image_url = models.URLField(max_length=500, blank=True)
     original_image_public_id = models.CharField(max_length=200, blank=True)
     clean_image_url = models.URLField(
@@ -316,8 +326,8 @@ class GarmentItem(models.Model):
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
 
-    # Read by apps.circle.serializers.lendable_items. False removes the row
-    # from a friend's view even when the owner's closet is shared.
+    # Read by the friends app. When this is off, a friend never sees the item,
+    # even if the rest of the closet is shared.
     is_lendable = models.BooleanField(
         default=True,
         help_text="Off means friends never see this one, even when your closet is shared.",
@@ -329,16 +339,16 @@ class GarmentItem(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        # cost_per_wear divides by this, and a negative price would be shown to
-        # the owner as a negative cost.
+        # cost_per_wear divides the price by the wear count. A negative price
+        # would show the owner a negative cost.
         validators=[MinValueValidator(Decimal("0"))],
     )
     currency = models.CharField(max_length=3, default="PKR")
     purchase_date = models.DateField(null=True, blank=True)
 
-    # Denormalised: the closet grid renders both for every item on screen, and
-    # deriving them from the wear log cost a COUNT() per row, around 40 extra
-    # queries a page.
+    # Stored here as well as in the wear log. The closet grid shows both
+    # numbers for every item on screen, and counting them from the log each
+    # time cost one extra database query per item, around 40 per page.
     wear_count = models.PositiveIntegerField(default=0)
     last_worn_date = models.DateField(null=True, blank=True)
 
@@ -357,15 +367,18 @@ class GarmentItem(models.Model):
             models.Index(fields=["owner", "category"]),
             models.Index(fields=["owner", "last_worn_date"]),
             models.Index(fields=["owner", "storage_location"]),
-            # The closet list is newest-first, so this serves the owner filter
-            # and the sort together instead of sorting the whole table.
+            # The closet list shows newest first. This index serves the owner
+            # filter and the sort together, so Postgres never sorts the whole
+            # table.
             models.Index(fields=["owner", "-created_at"], name="garment_owner_recent"),
-            # seasons and occasions are matched with `contains`, a lookup a
-            # btree index cannot answer. GIN indexes the array entries.
+            # seasons and occasions are lists, matched with "contains". An
+            # ordinary index cannot answer that question; a GIN index lists
+            # each entry inside the array.
             GinIndex(fields=["seasons"], name="garment_seasons_gin"),
             GinIndex(fields=["occasions"], name="garment_occasions_gin"),
-            # Backs the misspelling fallback in SpellingTolerantSearch, which
-            # would otherwise score every row in the table.
+            # Used by the misspelling fallback in SpellingTolerantSearch.
+            # Without these, a typo search would have to score every row in
+            # the table.
             GinIndex(fields=["name"], name="garment_name_trgm", opclasses=["gin_trgm_ops"]),
             GinIndex(fields=["brand"], name="garment_brand_trgm", opclasses=["gin_trgm_ops"]),
         ]
@@ -380,8 +393,9 @@ class GarmentItem(models.Model):
     @property
     def cost_per_wear(self) -> float | None:
         """
-        None when no purchase price is recorded, and the full price while
-        wear_count is zero rather than a division by zero.
+        Price divided by the number of times worn. Example: a 4,000 rupee kurta
+        worn 8 times costs 500 per wear. Nothing when no price was recorded,
+        and the full price while it has never been worn.
         """
         if self.purchase_price is None:
             return None
@@ -405,18 +419,19 @@ class GarmentItem(models.Model):
 
     def mark_worn(self, on_date=None, note: str = "") -> tuple[WearEvent, bool]:
         """
-        Records a wearing and returns the row with whether it was new.
+        Records a wearing and returns the row plus whether it was new.
 
-        Wearing the same thing twice in one day is treated as one wearing. A
-        double tap on the button is far more likely than a genuine second wear,
-        and every extra tap would quietly halve cost_per_wear.
+        Wearing the same thing twice on one day counts as one wearing. A double
+        tap on the button is far more likely than a real second wear, and
+        every extra tap would quietly halve the cost per wear.
         """
         day = on_date or timezone.localdate()
         try:
             with transaction.atomic():
                 event = WearEvent.objects.create(owner_id=self.owner_id, item=self, worn_on=day, note=note)
         except IntegrityError:
-            # Two taps landing together: the constraint settles which one wins.
+            # Two taps landed at the same moment. The database rule decides
+            # which one won.
             return WearEvent.objects.get(item=self, worn_on=day), False
 
         self.resync_wear_totals()
@@ -432,9 +447,10 @@ class GarmentItem(models.Model):
 
     def resync_wear_totals(self) -> None:
         """
-        Rebuilds the two summary columns from the log in one statement. Reading
-        them into Python first would let two requests arriving together write
-        the same value and lose a wearing.
+        Recounts the two summary columns from the wear log in one database
+        statement. Reading them into Python first and writing them back would
+        let two requests arriving together save the same number and lose a
+        wearing.
         """
         log = WearEvent.objects.filter(item_id=models.OuterRef("pk"))
         GarmentItem.objects.filter(pk=self.pk).update(
@@ -452,11 +468,11 @@ class GarmentItem(models.Model):
 
 class WearEvent(models.Model):
     """
-    One day an item was worn.
+    One day on which an item was worn.
 
     GarmentItem.wear_count and last_worn_date are kept in step with this table
-    rather than counted from it on demand: the closet grid shows both for every
-    item on screen, which would be a COUNT per row.
+    instead of being counted from it every time. The closet grid shows both for
+    every item on screen, which would otherwise be one count per item.
     """
 
     owner = models.ForeignKey(
@@ -473,13 +489,13 @@ class WearEvent(models.Model):
         db_table = "wear_events"
         ordering = ["-worn_on", "-created_at"]
         constraints = [
-            # One wearing per item per day. Without it a repeated tap counts
-            # twice and cost_per_wear reads lower than it is.
+            # One wearing per item per day. Without this, a repeated tap counts
+            # twice and the cost per wear reads lower than it really is.
             models.UniqueConstraint(fields=["item", "worn_on"], name="one_wear_per_item_per_day"),
         ]
         indexes = [
-            # "What did I wear that week" and the dashboard feed both read this
-            # newest-first for one owner.
+            # "What did I wear this week" and the home page feed both read this
+            # newest first for one person.
             models.Index(fields=["owner", "-worn_on"], name="wear_owner_recent"),
         ]
 

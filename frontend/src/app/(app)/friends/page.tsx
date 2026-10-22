@@ -316,7 +316,7 @@ function FriendRow({ friend }: { friend: Friend }) {
           </p>
           <p className="truncate text-sm text-muted-foreground">
             {friend.person.display_name}
-            {friend.person.city ? ` · ${friend.person.city}` : ""}
+            {friend.person.city ? `, ${friend.person.city}` : ""}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {friend.blocked

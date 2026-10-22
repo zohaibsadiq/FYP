@@ -1,4 +1,7 @@
-"""Filter labels in this module are published in the schema served at /api/docs/."""
+"""
+The label on each filter is shown on the API docs page at /api/docs/, which is
+why they are written as full sentences.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +13,13 @@ from apps.wardrobe.models import Category
 
 from .models import Deal
 
-# A price drop stops being news after a week, and a shop that refreshes daily
-# would otherwise have everything flagged as new forever.
+# A price drop stops being news after a week. Without a cut-off, a shop that
+# refreshes daily would have everything flagged as new forever.
 JUST_DROPPED_DAYS = 7
 
-# The same clamp the wardrobe uses. A day count large enough to overflow a date
-# calculation is a mistake, not a query, and it should not reach the database.
+# The same limit the wardrobe uses. A day count big enough to break a date
+# calculation is a mistake, not a real question, and it should never reach the
+# database.
 MAX_DAYS_BACK = 3650
 
 
@@ -77,8 +81,9 @@ class DealFilter(filters.FilterSet):
         size = (value or "").strip()
         if not size:
             return queryset
-        # Sizes are held as the shop spells them, so both cases are tried
-        # rather than forcing every shop into one house style.
+        # Sizes are stored the way each shop spells them ("M", "Medium", "m"),
+        # so both spellings are tried instead of forcing every shop into one
+        # style.
         return queryset.filter(Q(sizes__contains=[size.upper()]) | Q(sizes__contains=[size]))
 
     def filter_on_sale(self, queryset, name, value):

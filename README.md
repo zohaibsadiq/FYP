@@ -207,3 +207,9 @@ cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 
 See `CONTRIBUTING.md` for the comment policy, copy rules and the
 stack-specific pitfalls that have already caused bugs here.
+
+## Documentation
+
+`docs/team-guide.md` explains the whole project in plain words: every
+feature, how it works step by step, and where the code is. `docs/project-guide.md`
+is the shorter technical version. `bash docs/build-pdf.sh` renders both to PDF.

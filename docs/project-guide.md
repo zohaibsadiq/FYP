@@ -1,7 +1,9 @@
 # Closette: An AI-Assisted Smart Wardrobe Management System
 
 Everything this project is made of, why each piece was chosen, and how the
-parts fit together.
+parts fit together. Part Four, at the end, explains every backend word used
+here in plain language: what it is, why it is used, and where it is in the
+code.
 
 ---
 
@@ -255,7 +257,7 @@ Fields beyond the standard ones:
 - `full_name`, `city`, `country_code` - city drives the weather lookup
 - `shopping_for` - Women / Men / Kids / Everything; decides which tab a page opens on
 - `phone` - never listed publicly; handed to exactly one person when a sale is agreed
-- `body_photo_url` - for the Try-On feature (not finished)
+- `body_photo_url`, `body_photo_consent_at` - for Try It On
 - `friend_code` - the private 8-character code used to add friends
 - `shares_closet` - off by default; gates every friend-facing read
 
@@ -599,7 +601,7 @@ place:
 | Authorisation | Every queryset filtered by owner; default permission is `IsAuthenticated` |
 | Brute force   | Login 10/min, sign-up 10/hour, friend codes 20/hour                       |
 | Tokens        | Short-lived access, rotation with blacklisting                            |
-| Uploads       | 20 MB cap, type and dimension checks                                      |
+| Uploads       | 12 MB per photo, 20 MB per request, type checks                           |
 | Injection     | The ORM parameterises every query                                         |
 | Enumeration   | A wrong password and an unknown email give the identical answer           |
 | Body photos   | Consent recorded with a timestamp; deleting one removes every picture made from it |
@@ -682,8 +684,6 @@ than the page breaking in front of a judge.
 | `@base-ui/react` 1.8                | Accessible primitives | Dialogs, tabs and menus with keyboard and screen-reader support built in |
 | `shadcn`                            | Component generator   | Copies components into the project so they can be edited                 |
 | `tailwindcss` 4                     | Styling               | Utility classes; no separate CSS files to drift                          |
-| `react-hook-form` 7                 | Forms                 | Few re-renders, clean validation                                         |
-| `zod` 4                             | Validation            | Describes a form's shape once and checks against it                      |
 | `lucide-react`                      | Icons                 | Consistent, tree-shaken icon set                                         |
 | `sonner`                            | Toasts                | The small "Saved." messages                                              |
 | `date-fns` 4                        | Dates                 | Formatting and arithmetic                                                |
@@ -884,7 +884,8 @@ Nothing secret is in the repository. `backend/.env` is gitignored; only
 | ---------------------- | ------------------------------- |
 | `SECRET_KEY`           | Signs the login tokens          |
 | `DATABASE_URL`         | The Neon connection string      |
-| `CLOUDINARY_URL`       | Image hosting credentials       |
+| `CLOUDINARY_*`         | Image hosting credentials (three values) |
+| `TRYON_API_KEY`        | Virtual try-on supplier key     |
 | `OPENWEATHER_API_KEY`  | Weather access                  |
 | `ALLOWED_HOSTS`        | Which domains may serve the API |
 | `CORS_ALLOWED_ORIGINS` | Which websites may call it      |
@@ -986,8 +987,8 @@ the photo deletes every picture made from it in the same transaction.
 
 **What would you do next?**
 Move background removal into the browser so photos work on the free tier;
-finish Try-On; add email or push notifications, since the badge only updates
-while the app is open.
+build the outfit suggester that warmth_level was added for; add email or push
+notifications, since the badge only updates while the app is open.
 
 ---
 
@@ -1015,3 +1016,1600 @@ Checks before committing:
 cd backend  && pytest && python manage.py check --deploy
 cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 ```
+
+---
+
+# PART FOUR: BACKEND WORDS, EXPLAINED
+
+---
+
+## 23. How to use this part
+
+This part is for somebody who is learning backend development and has to
+defend this project. Every backend word that appears in the code or in the
+earlier parts of this guide is explained here in the same way:
+
+- **What** it is, in plain words.
+- **Why** this project uses it.
+- **Where** it is in Closette, with the file name.
+- **Example**, usually a few real lines from the code.
+
+Read it in order the first time. The sections build on each other: how the
+web works, then Django, then the database, then Django REST Framework, then
+login, security, hosting, Python itself, and testing. Section 33 at the end
+is a self-test.
+
+A good way to learn: open the file named under "Where" and find the example
+lines in it. Seeing the word in its real place is what makes it stick.
+
+---
+
+## 24. How the web works
+
+### Client and server
+
+**What.** The *client* is the program asking for something, here the
+person's browser running our Next.js site. The *server* is the program
+answering, here Django running on Render. The server is often just called
+"the backend".
+
+**Why.** The data has to live in one place that every phone and laptop can
+reach. That place is the server.
+
+**Where.** The client is everything under `frontend/`. The server is
+everything under `backend/`.
+
+### Request and response
+
+**What.** A *request* is one message from the client to the server: "give
+me my clothes", "mark item 42 worn". A *response* is the server's one
+answer. Every action in the app is one or more request-response pairs.
+
+**Why.** It is the only way the two programs can talk. The server never
+contacts the browser on its own; it only answers.
+
+**Example.** Request: `GET /api/wardrobe/items/42/`. Response: the garment
+as JSON, with status 200.
+
+### HTTP and HTTPS
+
+**What.** *HTTP* is the set of rules for how requests and responses are
+written. *HTTPS* is HTTP with encryption, so nobody between the browser and
+the server can read or change the messages.
+
+**Why.** Tokens and personal data travel in every request. Without
+encryption, anybody on the same wifi could read them.
+
+**Where.** `config/settings.py`: `SECURE_SSL_REDIRECT = True` sends every
+plain HTTP request to HTTPS when `DEBUG` is off.
+
+### URL, path, endpoint, route
+
+**What.** A *URL* is a full web address:
+`https://closette-api.onrender.com/api/wardrobe/items/42/`. The *path* is
+the part after the domain: `/api/wardrobe/items/42/`. An *endpoint* is one
+path the server answers, and a *route* is the rule that connects a path to
+the code that handles it. People use these three words loosely.
+
+**Why.** Every feature needs an address the client can ask.
+
+**Where.** `config/urls.py` holds the top-level routes; each app's `urls.py`
+holds its own.
+
+**Example.** From `config/urls.py`:
+
+```python
+path("api/wardrobe/", include("apps.wardrobe.urls")),
+```
+
+"Anything starting with `api/wardrobe/` is handled by the wardrobe app's
+address book."
+
+### Methods: GET, POST, PATCH, PUT, DELETE
+
+**What.** Every request has a *method*, a verb saying what kind of action
+it is:
+
+| Method | Meaning                     | Closette example                                 |
+| ------ | --------------------------- | ------------------------------------------------ |
+| GET    | Read. Changes nothing.      | `GET /api/wardrobe/items/` lists the closet      |
+| POST   | Create, or do an action.    | `POST /api/wardrobe/items/` adds a garment; `POST .../42/mark-worn/` records a wearing |
+| PATCH  | Change some fields.         | `PATCH /api/wardrobe/items/42/` with `{"status": "ARCHIVED"}` |
+| PUT    | Replace every field.        | Allowed, but the frontend always uses PATCH      |
+| DELETE | Remove.                     | `DELETE /api/wardrobe/items/42/`                 |
+
+**Why.** The same path can mean different things with different methods,
+and the rules are shared by every web program in the world.
+
+**Where.** DRF decides the method automatically: a `ModelViewSet` answers
+GET for list and retrieve, POST for create, PATCH for partial_update, DELETE
+for destroy. In `apps/community/views.py`, `MyListingViewSet` limits itself:
+
+```python
+http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+```
+
+so a PUT is refused there.
+
+### Headers
+
+**What.** Small labelled facts attached to a request or response, outside
+the main content. The one that matters most here is `Authorization`, which
+carries the login token.
+
+**Example.** Every signed-in request from the frontend carries:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+**Where.** Added in `frontend/src/lib/api.ts`, read by DRF's
+`JWTAuthentication` on the server.
+
+### Body and JSON
+
+**What.** The *body* is the main content of a request or response. *JSON*
+(JavaScript Object Notation) is the text format it is written in: names and
+values in curly brackets, lists in square brackets.
+
+```json
+{ "name": "Blue Kurta", "wear_count": 3, "seasons": ["SUMMER"] }
+```
+
+**Why.** Both JavaScript (the browser) and Python (the server) can read and
+write JSON easily, and a person can read it too.
+
+**Where.** DRF turns Python data into JSON on the way out and JSON into
+Python on the way in. The serializer (section 27) does the translating.
+
+### multipart/form-data
+
+**What.** A second way of sending a request body, used when a file is
+inside it. JSON cannot carry a photo; multipart can.
+
+**Where.** `apps/wardrobe/views.py`, `GarmentImageUploadView`:
+
+```python
+parser_classes = [MultiPartParser, FormParser]
+```
+
+"This view expects a form with a file in it, not JSON."
+
+### Status codes
+
+**What.** Every response starts with a three-digit number saying how it
+went. The ones Closette uses:
+
+| Code | Name                  | When Closette sends it                                                   |
+| ---- | --------------------- | ------------------------------------------------------------------------ |
+| 200  | OK                    | A successful read or change                                              |
+| 201  | Created               | Something new was made: an item, a listing, a friend request             |
+| 204  | No Content            | Deleted, nothing to send back                                            |
+| 400  | Bad Request           | The data was wrong or a rule refused it: "That day has not happened yet." |
+| 401  | Unauthorized          | No token, or an expired or forged one. Means "not signed in."            |
+| 403  | Forbidden             | Signed in but not allowed. Closette almost never sends this; see 404    |
+| 404  | Not Found             | No such thing *for this person*. Another person's item answers 404, not 403, so the id is not even confirmed to exist |
+| 429  | Too Many Requests     | The rate limit was hit: too many login tries                             |
+| 500  | Server Error          | A bug. The tests exist so this never happens in front of a judge         |
+| 503  | Service Unavailable   | An outside service could not be reached, such as the try-on supplier     |
+
+**Where.** Views choose them through DRF's `status` module:
+
+```python
+return Response(TryOnSerializer(attempt).data, status=status.HTTP_201_CREATED)
+```
+
+### API
+
+**What.** *Application Programming Interface*: a server built to be used by
+programs, not by people. It answers with data (JSON), not with web pages.
+Our backend is an API.
+
+**Why.** One API can serve a website today and a phone app tomorrow.
+
+**Where.** Everything under `/api/`. The live, clickable list of every
+endpoint is at `/api/docs/`.
+
+### Stateless
+
+**What.** The server keeps no memory of who is "currently signed in". Every
+request proves who it is from by itself, with its token.
+
+**Why.** Any server can answer any request, nothing has to be shared
+between servers, and the server can restart without signing anybody out.
+
+**Where.** This is what tokens give us; see section 28.
+
+---
+
+## 25. Django words
+
+### Framework
+
+**What.** A large set of ready-made parts for building a server, with a
+fixed way of arranging a project. Django is the framework; our code fills
+in the parts that are specific to clothes.
+
+**Why.** Accounts, passwords, the admin site, database migrations and
+protection against common attacks come ready. Building them by hand would
+take months and would be less safe.
+
+### Project and app
+
+**What.** A Django *project* is the whole server: one settings file, one
+top-level address book. An *app* is one folder inside it that owns one area
+of the product. A project has many apps.
+
+**Where.** The project is `backend/config/`. The apps are the folders under
+`backend/apps/`: accounts, wardrobe, vision, intelligence, planner,
+shopping, community, circle, tryon.
+
+**Example.** The list of apps that are switched on, in `config/settings.py`:
+
+```python
+LOCAL_APPS = [
+    "apps.accounts",
+    "apps.wardrobe",
+    ...
+    "apps.tryon",
+]
+```
+
+An app not in this list does not exist as far as Django is concerned.
+
+### settings.py
+
+**What.** The one file that holds every setting: which database, which
+apps, security rules, token lifetimes, page size, rate limits, where the
+secret keys come from.
+
+**Why.** One place to look. Nothing is scattered.
+
+**Where.** `backend/config/settings.py`.
+
+**Example.** Reading a secret from the environment rather than writing it
+in the file:
+
+```python
+TRYON_API_KEY = env("TRYON_API_KEY", default="")
+```
+
+### urls.py, path(), include(), router
+
+**What.** `urls.py` is an address book. `path()` connects one address to
+one view. `include()` hands a whole prefix to another `urls.py`. A *router*
+writes the standard addresses for a viewset automatically (list, detail,
+and every action).
+
+**Where.** `config/urls.py` and every `apps/*/urls.py`.
+
+**Example.** From `apps/wardrobe/urls.py`:
+
+```python
+router = DefaultRouter()
+router.register("items", GarmentItemViewSet, basename="item")
+
+urlpatterns = [
+    path("upload/", GarmentImageUploadView.as_view(), name="upload"),
+    path("", include(router.urls)),
+]
+```
+
+The one `register` line creates `/items/`, `/items/42/`, `/items/stats/`,
+`/items/42/mark-worn/` and the rest.
+
+### View
+
+**What.** The function or class that handles one kind of request: checks
+who is asking and whether they may, does the work, builds the response.
+
+**Why.** It is where the rules of the app live.
+
+**Where.** Every `apps/*/views.py`.
+
+### APIView, ViewSet, ModelViewSet, mixins
+
+**What.** Four shapes a view can take.
+
+- `APIView`: the simplest. One class, with a method per HTTP method
+  (`get`, `post`, `delete`). Used when there is no table behind it.
+- `ViewSet`: a class that groups list, retrieve, create, update and destroy
+  for one table.
+- `ModelViewSet`: a ViewSet with all five already written. Our closet,
+  storage, categories and plans use it.
+- `mixins`: the five pieces separately, so a view can pick only some.
+  `ReadOnlyModelViewSet` is list and retrieve only; the Sales page uses it
+  because nobody creates a deal through the API.
+
+**Example.** `apps/accounts/views.py` uses an `APIView` for the badge
+counts because there is no table of badges:
+
+```python
+class WaitingView(APIView):
+    def get(self, request):
+        ...
+        return Response(waiting)
+```
+
+`apps/tryon/views.py` picks three of the five pieces, because a picture can
+be listed, opened and deleted but never edited:
+
+```python
+class TryOnViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                   mixins.DestroyModelMixin, viewsets.GenericViewSet):
+```
+
+### @action
+
+**What.** A decorator (section 31) that adds an extra address to a viewset
+beyond the standard five. `detail=True` means it works on one row
+(`/items/42/mark-worn/`); `detail=False` means on the whole list
+(`/items/stats/`).
+
+**Example.** `apps/wardrobe/views.py`:
+
+```python
+@action(detail=True, methods=["post"], url_path="mark-worn")
+def mark_worn(self, request, pk=None):
+```
+
+### request.user, request.data, request.query_params, request.FILES
+
+**What.** The parts of a request a view reads.
+
+| Name                   | Holds                                            | Example                                  |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------- |
+| `request.user`         | The account the token belongs to                 | `owner=request.user`                     |
+| `request.data`         | The body (JSON or form), already parsed          | `request.data["nickname"]`               |
+| `request.query_params` | The `?name=value` part of the address            | `?slot=TOP&search=kurta`                 |
+| `request.FILES`        | Uploaded files                                   | `request.FILES["image"]`                 |
+
+**Where.** Everywhere. `request.user` is the most important: it is set by
+the token and cannot be chosen by the caller.
+
+### Response
+
+**What.** DRF's object for an answer: data plus a status code. DRF turns
+the data into JSON.
+
+```python
+return Response({"updated": updated}, status=status.HTTP_200_OK)
+```
+
+### Model
+
+**What.** A Python class that describes one database table. Each
+attribute is one column. Django creates and changes the real table from
+it.
+
+**Why.** The table is described once, in Python, and the ORM, the admin
+site, the migrations and the serializers all read that one description.
+
+**Where.** Every `apps/*/models.py`.
+
+**Example.** A shortened `GarmentItem` from `apps/wardrobe/models.py`:
+
+```python
+class GarmentItem(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              related_name="garments")
+    name = models.CharField(max_length=120)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="items")
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_WARDROBE)
+    wear_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+### Field types
+
+**What.** The kind of value a column holds.
+
+| Field                     | Holds                              | Closette example                        |
+| ------------------------- | ---------------------------------- | --------------------------------------- |
+| `CharField`               | Short text, with a maximum length  | `name`, `brand`, `status`               |
+| `TextField`               | Long text                          | `notes`                                 |
+| `EmailField`, `URLField`  | Text that must look like an email or a web address | `email`, `result_url`  |
+| `BooleanField`            | True or false                      | `is_favorite`, `shares_closet`          |
+| `PositiveIntegerField`    | A whole number, zero or more       | `wear_count`                            |
+| `PositiveSmallIntegerField` | A small whole number             | `warmth_level` (1 to 5)                 |
+| `DecimalField`            | Money, exact to the paisa          | `purchase_price`, `asking_price`        |
+| `DateField`               | A day                              | `worn_on`, `planned_for`                |
+| `DateTimeField`           | A day and time                     | `created_at`, `completed_at`            |
+| `ArrayField`              | A list in one column (Postgres only) | `seasons`, `occasions`, `sizes`       |
+| `ForeignKey`              | A link to one row of another table | `owner`, `category`, `storage_location` |
+| `ManyToManyField`         | Links to many rows of another table | `PlannedOutfit.items`                  |
+
+### Field options: max_length, null, blank, default, choices, unique, help_text
+
+| Option        | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `max_length`  | The longest text allowed                                                |
+| `null=True`   | The database may hold "no value" here                                   |
+| `blank=True`  | A form may leave it empty                                               |
+| `default`     | The value used when none is given                                       |
+| `choices`     | Only these values are allowed (see TextChoices below)                   |
+| `unique=True` | No two rows may share this value                                        |
+| `help_text`   | A sentence shown in the admin site and the API docs                     |
+
+**null vs blank** confuses everybody. `null` is about the database, `blank`
+is about forms. Text fields use `blank=True` and store `""`, not NULL.
+Dates and numbers use both: `null=True, blank=True`.
+
+**Example.** `apps/accounts/models.py`:
+
+```python
+friend_code = models.CharField(max_length=16, unique=True, null=True, blank=True, default=None)
+```
+
+Unique, but allowed to be empty, because every existing account cannot be
+given the same starting value in a unique column.
+
+### ForeignKey, related_name, on_delete
+
+**What.** A *ForeignKey* is a link from a row in one table to a row in
+another: a garment points at its owner, its category and its place.
+
+`related_name` is the name of the link seen from the other side:
+`user.garments` lists a user's clothes because the garment's owner field
+says `related_name="garments"`.
+
+`on_delete` says what happens to this row when the row it points at is
+deleted:
+
+| on_delete   | Meaning                                         | Closette example                                             |
+| ----------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| `CASCADE`   | Delete this row too                             | Delete an account, its garments go with it                   |
+| `SET_NULL`  | Keep this row, clear the link                   | Delete a drawer, the garments survive with no place           |
+| `PROTECT`   | Refuse the delete while this row exists         | A category still holding items cannot be deleted             |
+
+**Where.** `apps/wardrobe/models.py` has all three on one model.
+
+### ManyToManyField
+
+**What.** A link where each side can have many of the other. One plan has
+many garments; one garment can be in many plans. Django makes a hidden
+join table (`planned_outfits_items`) to hold the pairs.
+
+**Where.** `apps/planner/models.py`:
+
+```python
+items = models.ManyToManyField(GarmentItem, related_name="planned_in", blank=True)
+```
+
+### TextChoices
+
+**What.** A fixed list of allowed values for a text column, each with a
+code the database stores and a label people see.
+
+**Why.** The code cannot misspell a status, and the label is in one place.
+
+**Example.** `apps/wardrobe/models.py`:
+
+```python
+class Status(models.TextChoices):
+    IN_WARDROBE = "IN_WARDROBE", "In wardrobe"
+    IN_LAUNDRY = "IN_LAUNDRY", "In the wash"
+    ARCHIVED = "ARCHIVED", "Put away"
+```
+
+`item.status` is `"ARCHIVED"`; `item.get_status_display()` is `"Put away"`.
+
+### Meta: db_table, ordering, constraints, indexes
+
+**What.** A class inside a model holding settings about the table rather
+than about one column.
+
+| Setting       | Meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `db_table`    | The table's real name in the database (`garment_items`)          |
+| `ordering`    | The default order of rows (`["-created_at"]` = newest first)     |
+| `constraints` | Rules the database enforces (section 26)                         |
+| `indexes`     | Speed-up structures (section 26)                                 |
+
+### Migration
+
+**What.** A small script, written by Django, that changes the real
+database to match a change in a model: add a column, add a table, add a
+rule. They are numbered and run in order. `makemigrations` writes one,
+`migrate` runs the ones not yet applied.
+
+**Why.** The database on a laptop, on the test runner and on Render all
+end up with the same shape, step by step, without anybody typing database
+commands by hand.
+
+**Where.** `apps/*/migrations/`. Render runs `python manage.py migrate` on
+every deploy.
+
+**Example.** `0005_user_body_photo_consent_at_user_body_photo_public_id.py`
+in `apps/accounts/migrations/` added the two try-on columns to the users
+table. The built-in categories were created by
+`apps/wardrobe/migrations/0002_seed_categories.py`.
+
+### ORM and QuerySet
+
+**What.** The *ORM* (Object-Relational Mapper) lets Python code ask the
+database questions without writing SQL. A *QuerySet* is one such question,
+built up step by step and only sent to the database when the rows are
+really needed.
+
+**Why.** Shorter, works on any database, and values are always sent
+separately from the question text, which is what makes SQL injection
+impossible.
+
+**Example.** From `apps/wardrobe/views.py`:
+
+```python
+GarmentItem.objects.filter(owner=self.request.user).exclude(status__in=GarmentItem.GONE_STATUSES)
+```
+
+In SQL that would be:
+
+```sql
+SELECT * FROM garment_items WHERE owner_id = 7 AND status NOT IN ('SOLD', 'ARCHIVED');
+```
+
+The QuerySet words used in this project:
+
+| Word                    | Meaning                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `.objects`              | The door into the table                                       |
+| `.filter(...)`          | Keep rows matching                                            |
+| `.exclude(...)`         | Drop rows matching                                            |
+| `.get(...)`             | Exactly one row, or an error                                  |
+| `.first()`              | The first row, or None                                        |
+| `.exists()`             | True if any row matches, cheaply                              |
+| `.count()`              | How many rows match                                           |
+| `.order_by("-worn_on")` | Sort; a minus sign means newest first                         |
+| `.values("slot")`       | Only these columns, as plain dictionaries                     |
+| `.annotate(n=Count("id"))` | Add a calculated column to each row                        |
+| `.aggregate(total=Count("id"))` | One calculated answer for the whole set               |
+| `.update(status=...)`   | Change matching rows in one statement, without loading them  |
+| `.delete()`             | Remove matching rows                                          |
+| `.create(...)`          | Insert one row                                                |
+| `.get_or_create(...)`   | Find it, or insert it if missing                              |
+| `.select_related("category")` | Load a linked row in the same query (see below)        |
+| `.prefetch_related("items")` | Load linked lists in one extra query (see below)        |
+
+Lookups go after a double underscore: `status__in=[...]`,
+`name__iexact="kurta"` (ignore case), `last_worn_date__lt=cutoff` (less
+than), `owner__isnull=True`, `category__slot="TOP"` (follow a link).
+
+### The N+1 problem, select_related, prefetch_related
+
+**What.** Showing 24 garments with their category names the naive way
+costs 1 query for the garments plus 24 more, one per category: 25 queries
+for one page. That is the "N+1 problem". `select_related` joins the linked
+row into the first query (good for ForeignKey). `prefetch_related` fetches
+all the linked lists in one second query (good for lists and
+ManyToMany).
+
+**Why.** Each query is a round trip to Neon in Singapore. 25 round trips
+would make the closet page slow.
+
+**Where.** Nearly every `get_queryset` in the project:
+
+```python
+.select_related("category", "storage_location", "storage_location__parent")
+```
+
+### Q objects
+
+**What.** A way to write "or" and "not" in a filter. A plain `filter(a=1,
+b=2)` means "a and b".
+
+**Example.** `apps/wardrobe/filters.py`, seasons:
+
+```python
+queryset.filter(Q(seasons__contains=[value.upper()]) | Q(seasons=[]))
+```
+
+"Matches the season, or has no season set at all." The `|` is "or"; `~Q`
+is "not".
+
+### Subquery and OuterRef
+
+**What.** A question inside a question. Used once, to attach the note from
+each garment's most recent wearing without one query per garment.
+
+**Where.** `apps/wardrobe/models.py`, `with_last_occasion()`.
+
+### transaction.atomic
+
+**What.** A *transaction* is a group of database changes that either all
+happen or none happen. `with transaction.atomic():` marks such a group.
+
+**Why.** Two changes that belong together must not be split by a crash in
+the middle. Deleting a body photo deletes every try-on row and clears the
+account's photo fields; half of that would be worse than none.
+
+**Where.** `apps/tryon/views.py`, `BodyPhotoView.delete`; `apps/circle/models.py`,
+`Loan.agree` (as a decorator).
+
+### IntegrityError
+
+**What.** The error the database raises when a rule is broken: a second
+wearing on the same day, a second open loan on one garment.
+
+**Why.** Two requests can arrive at the same instant. Both pass the
+Python checks; the database stops the second. The code catches the error
+and answers with the same readable sentence a single request would get.
+
+**Example.** `apps/wardrobe/models.py`, `mark_worn`:
+
+```python
+try:
+    with transaction.atomic():
+        event = WearEvent.objects.create(owner_id=self.owner_id, item=self, worn_on=day, note=note)
+except IntegrityError:
+    return WearEvent.objects.get(item=self, worn_on=day), False
+```
+
+### ValidationError
+
+**What.** An error that means "the data is wrong" and becomes a 400
+response with a sentence. Django has one (used in models) and DRF has one
+(used in serializers and views); they look alike.
+
+**Example.** `apps/wardrobe/views.py`:
+
+```python
+raise ValidationError(f"{item.name} is {item.get_status_display().lower()}, so wearing it cannot be recorded.")
+```
+
+### Admin site
+
+**What.** A ready-made website at `/admin/` where a staff account can see
+and edit every table.
+
+**Why.** Looking at real data while developing, and reading listing
+reports, without writing any pages for it.
+
+**Where.** Every `apps/*/admin.py` registers its tables. `apps/community/admin.py`
+adds a "mark as looked at" action for reports.
+
+### Management command
+
+**What.** A job run from the command line with `python manage.py <name>`,
+written as a class with a `handle` method.
+
+**Why.** Work that is not a web request: refreshing shop prices, adding the
+shop list, cleaning up pictures.
+
+**Where.** `apps/shopping/management/commands/sync_deals.py`,
+`seed_shops.py`; `apps/wardrobe/management/commands/prune_images.py`.
+
+```python
+class Command(BaseCommand):
+    help = "Reads every active shop's published catalogue and records what changed."
+
+    def handle(self, *args, **options):
+        ...
+```
+
+### Middleware
+
+**What.** A chain of small steps every request passes through before
+reaching a view and every response passes through on the way out: adding
+security headers, handling CORS, reading the session, protecting against
+clickjacking.
+
+**Where.** `MIDDLEWARE` in `config/settings.py`. Order matters: the CORS
+one must be above `CommonMiddleware`.
+
+### Cache
+
+**What.** A remembered answer, kept for a while and reused instead of
+asking again.
+
+**Where.** `apps/planner/weather.py`:
+
+```python
+cached = cache.get(key)
+if cached is not None:
+    return cached
+...
+cache.set(key, reading, settings.WEATHER_CACHE_SECONDS)
+```
+
+The weather for one city is kept for 30 minutes.
+
+### Logging
+
+**What.** Writing a line about what happened to a log the developer can
+read later, without showing it to the person.
+
+**Where.** `logger = logging.getLogger(__name__)` at the top of several
+files; then `logger.warning(...)`, `logger.exception(...)`.
+
+### Time zones
+
+**What.** `USE_TZ = True` stores every time in UTC and converts on the way
+out. `TIME_ZONE = "Asia/Karachi"` is the local zone. `timezone.localdate()`
+is "today in Pakistan", `timezone.now()` is the exact moment.
+
+**Why.** "Today" must mean the same thing for the server in the USA (Render)
+and the person in Lahore.
+
+---
+
+## 26. Database words
+
+### Database, table, row, column
+
+**What.** The *database* is the whole store. A *table* is one kind of
+thing (`garment_items`). A *row* is one of them (one kurta). A *column* is
+one fact about every row (`wear_count`).
+
+**Where.** The database is `neondb` on Neon. The tables are listed in
+section 17.
+
+### Primary key
+
+**What.** The column that identifies one row for ever: `id`. Django adds
+it to every table automatically. The `42` in `/api/wardrobe/items/42/` is
+a primary key.
+
+### Foreign key
+
+**What.** A column holding another row's primary key, making a link.
+`garment_items.owner_id` holds a `users.id`.
+
+### Join table
+
+**What.** A hidden table holding pairs, used for many-to-many links.
+`planned_outfits_items` holds (plan id, garment id) pairs.
+
+### NULL
+
+**What.** "No value" in a column. Different from zero and from empty text.
+A garment with no price has `purchase_price` NULL, and the app shows no
+cost per wear rather than a made-up number.
+
+### Index
+
+**What.** A structure the database keeps beside a table so that finding
+rows by one column is fast, like the index at the back of a book. Without
+one, the database reads every row.
+
+**Why.** The closet list asks "this owner, newest first" on every page
+load. An index on `(owner, -created_at)` answers it without sorting the
+whole table.
+
+**Where.** `Meta.indexes` in `apps/wardrobe/models.py`:
+
+```python
+models.Index(fields=["owner", "-created_at"], name="garment_owner_recent"),
+GinIndex(fields=["name"], name="garment_name_trgm", opclasses=["gin_trgm_ops"]),
+```
+
+The second is a *GIN trigram index*, which makes the misspelling-tolerant
+search fast. Trigram means "three letters in a row"; "kurta" is kur, urt,
+rta. Two words that share many trigrams are probably the same word
+misspelled.
+
+### Constraint
+
+**What.** A rule the database itself enforces. It cannot be bypassed by a
+bug in the Python code or by two requests arriving at once.
+
+| Kind                 | Meaning                                       | Closette example                                   |
+| -------------------- | --------------------------------------------- | -------------------------------------------------- |
+| Unique constraint    | No two rows share these values                | One wearing per garment per day                    |
+| Partial unique       | Unique, but only among rows matching a condition | One *open* loan per garment                    |
+| Check constraint     | A row must satisfy a condition                 | A price is not negative; nobody borrows from themselves |
+
+**Example.** `apps/circle/models.py`:
+
+```python
+models.UniqueConstraint(
+    fields=["item"],
+    condition=models.Q(status__in=["ASKED", "AGREED"]),
+    name="one_open_loan_per_item",
+),
+```
+
+Only Postgres can do the partial kind, which is one reason it was chosen.
+
+### Transaction
+
+See `transaction.atomic` in section 25. All-or-nothing.
+
+### SQL and SQL injection
+
+**What.** *SQL* is the language databases speak. *SQL injection* is an
+attack where typed text becomes part of a command: typing `'; DROP TABLE
+users; --` into a search box. The ORM makes it impossible because the typed
+value is always sent separately from the command text.
+
+**Where.** No raw SQL is written anywhere in this project. Everything goes
+through the ORM.
+
+### Postgres vs SQLite
+
+**What.** *SQLite* is a database in one file, built into Python. Good for
+a laptop, not for a live site: no real concurrency, no array columns, no
+partial unique constraints. *PostgreSQL* is a full database server with all
+of those.
+
+**Where.** `config/settings.py` uses Postgres when `DATABASE_URL` is set
+and refuses to start in production without it.
+
+### Connection, pooling
+
+**What.** A *connection* is an open line between Django and the database.
+Opening one costs time, so Django keeps them for a while
+(`CONN_MAX_AGE = 120`). Neon's *pooler* address shares a small number of
+real connections between many callers.
+
+**Why.** Neon sleeps after 5 minutes idle; a kept connection older than
+that is dead, so Django checks it before reuse (`CONN_HEALTH_CHECKS`).
+
+---
+
+## 27. Django REST Framework words
+
+### Serializer
+
+**What.** The translator between a database row and JSON. On the way
+out, it picks which columns to send and adds calculated ones. On the way
+in, it checks every value and refuses bad data with a sentence.
+
+**Why.** The browser must never see columns it should not (a buyer must
+not see what the seller paid), and bad data must never reach the database.
+
+**Where.** Every `apps/*/serializers.py`.
+
+**Example.** `apps/community/serializers.py`, the garment as a buyer sees
+it. Only these fields exist for a buyer:
+
+```python
+class GarmentForSaleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GarmentItem
+        fields = ["name", "brand", "size", "material", "pattern", "pattern_label",
+                  "category_name", "category_slot",
+                  "display_image_url", "primary_color_hex", "primary_color_name"]
+        read_only_fields = fields
+```
+
+### ModelSerializer, fields, read_only, write_only
+
+**What.** A `ModelSerializer` builds itself from a model, so each column
+becomes a field automatically; `fields` lists which ones. `read_only`
+fields are sent out but never accepted in (`wear_count`). `write_only`
+fields are accepted in but never sent out (`password`, the picture ids).
+
+### validate_<field>() and validate()
+
+**What.** Extra checks. `validate_item(self, item)` checks one field;
+`validate(self, attrs)` checks the whole thing when fields depend on each
+other. Returning the value means "fine"; raising `ValidationError` means
+"refuse, with this sentence".
+
+**Example.** `apps/circle/serializers.py`, borrowing dates:
+
+```python
+def validate(self, attrs):
+    start, end = attrs["borrow_from"], attrs["borrow_until"]
+    if end < start:
+        raise serializers.ValidationError(
+            {"borrow_until": "The day you give it back cannot be before the day you get it."}
+        )
+    if (end - start).days > 90:
+        raise serializers.ValidationError(
+            {"borrow_until": "Three months is the longest a thing can be borrowed for."}
+        )
+    return attrs
+```
+
+### SerializerMethodField and source
+
+**What.** `source="category.name"` sends a value from a linked row under
+a simpler name (`category_name`). A `SerializerMethodField` calls a method
+`get_<name>` to work a value out.
+
+**Example.** `apps/tryon/serializers.py`:
+
+```python
+garment_slot_label = serializers.SerializerMethodField()
+
+def get_garment_slot_label(self, attempt):
+    return dict(SLOT_CHOICES).get(attempt.garment_slot, attempt.garment_slot)
+```
+
+### get_queryset(), get_object(), perform_create(), perform_destroy()
+
+**What.** The methods a viewset lets us override.
+
+| Method              | When it runs                               | What Closette does in it                               |
+| ------------------- | ------------------------------------------ | ------------------------------------------------------ |
+| `get_queryset()`    | Before any list or detail                  | Limits rows to `owner=self.request.user`. The security of the app. |
+| `get_object()`      | For one row by id                          | Looks the id up *inside* `get_queryset()`, so another person's id answers 404 |
+| `perform_create()`  | When saving a new row                      | Sets `owner=self.request.user`, so the caller cannot choose the owner |
+| `perform_destroy()` | When deleting                              | Deletes the Cloudinary pictures first                  |
+| `get_serializer_class()` | Choosing the translator               | A short serializer for lists, a full one for detail    |
+
+**Example.** `apps/wardrobe/views.py`:
+
+```python
+def perform_create(self, serializer):
+    serializer.save(owner=self.request.user)
+```
+
+### queryset = Model.objects.none()
+
+**What.** A line on every viewset that looks odd: "the rows are nothing".
+It is never used to answer a request; `get_queryset()` does that. It exists
+so the API docs generator can tell which table the view is about.
+
+### Permission
+
+**What.** The rule "who may call this at all". Checked before the view
+runs.
+
+**Where.** `config/settings.py` sets the default for the whole API:
+
+```python
+"DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+```
+
+Everything needs a token unless a view says otherwise. Sign-up and login
+say otherwise:
+
+```python
+permission_classes = [permissions.AllowAny]
+```
+
+### Authentication class
+
+**What.** The code that reads the `Authorization` header, checks the
+token, and sets `request.user`.
+
+**Where.** `config/settings.py`:
+
+```python
+"DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
+```
+
+### Throttle (rate limit), throttle_scope
+
+**What.** A cap on how many requests one caller may make in a period.
+DRF counts them in memory and answers 429 past the cap. A *scope* is a
+named limit a view can opt into.
+
+**Where.** `config/settings.py`:
+
+```python
+"login": env("THROTTLE_LOGIN", default="2000/hour" if DEBUG else "10/min"),
+```
+
+and `apps/accounts/views.py`:
+
+```python
+class LoginView(TokenObtainPairView):
+    throttle_scope = "login"
+```
+
+### Pagination
+
+**What.** Sending a long list in pages instead of all at once. Every list
+answer has `count`, `next`, `previous` and `results`.
+
+**Where.** `config/pagination.py`, page size 24 in `config/settings.py`.
+
+### Filter backends and FilterSet
+
+**What.** Three helpers that read `?name=value` from the address and
+narrow the list: `DjangoFilterBackend` for named filters, `SearchFilter`
+for `?search=`, `OrderingFilter` for `?ordering=`. A `FilterSet` class
+lists the named filters.
+
+**Where.** `apps/wardrobe/filters.py`:
+
+```python
+class GarmentItemFilter(filters.FilterSet):
+    category = filters.NumberFilter(field_name="category_id")
+    unworn_days = filters.NumberFilter(method="filter_unworn_days", ...)
+```
+
+`?unworn_days=90` calls `filter_unworn_days`.
+
+### Parsers
+
+**What.** The code that reads a request body. `JSONParser` for JSON,
+`MultiPartParser` and `FormParser` for forms with files.
+
+**Where.** `apps/tryon/views.py` accepts both, because a try-on can be
+asked for with JSON (a closet item) or with a form (an uploaded photo):
+
+```python
+parser_classes = [JSONParser, MultiPartParser, FormParser]
+```
+
+### Schema, OpenAPI, drf-spectacular, @extend_schema
+
+**What.** A *schema* is a machine-readable description of every endpoint:
+its address, method, inputs and outputs. *OpenAPI* is the standard format.
+*drf-spectacular* writes it from our code, and serves a clickable page at
+`/api/docs/`. `@extend_schema(...)` adds a summary or a correction to one
+view.
+
+**Why.** Judges can see every endpoint live. And `tests/test_contract.py`
+reads this schema to check the frontend's types match it.
+
+**Example.** `apps/circle/views.py`:
+
+```python
+@extend_schema(tags=["Friends"], summary="Yes, they can borrow it")
+@action(detail=True, methods=["post"])
+def agree(self, request, pk=None):
+```
+
+---
+
+## 28. Login and token words
+
+### Authentication vs authorisation
+
+**What.** *Authentication* is "who are you?" (the token says Ali).
+*Authorisation* is "may you do this?" (Ali may read his own items, not
+Sara's).
+
+**Where.** Authentication: `JWTAuthentication` in settings. Authorisation:
+`IsAuthenticated` plus the owner filter in every `get_queryset()`.
+
+### Password hashing, salt, PBKDF2
+
+**What.** A *hash* is a one-way scramble: easy to compute, impossible to
+reverse. A *salt* is random text mixed in first, so two people with the
+same password get different hashes. *PBKDF2* is the hashing method Django
+uses, deliberately slow so guessing is slow.
+
+**Why.** If the database leaked, nobody could read a single password.
+
+**Where.** Django does it in `create_user()`. `apps/accounts/models.py`
+calls `user.set_password(password)`; the plain password is never stored.
+
+### Session vs token
+
+**What.** A *session* is the old way: the server remembers "cookie 123 is
+Ali" in a table. A *token* is the new way: the server gives Ali a signed
+string and remembers nothing.
+
+**Why tokens.** The frontend and backend live on different domains, and
+tokens work across domains and for a future phone app. See "stateless" in
+section 24.
+
+### JWT
+
+**What.** *JSON Web Token*. Three parts separated by dots: a header, the
+data (`{"user_id": 7, "exp": ...}`), and a *signature* made with the
+server's `SECRET_KEY`. Anybody can read the data; nobody can change it
+without breaking the signature.
+
+**Where.** The library `djangorestframework-simplejwt`. Settings under
+`SIMPLE_JWT` in `config/settings.py`.
+
+### Access token and refresh token
+
+**What.** The access token (60 minutes) is sent with every request. The
+refresh token (7 days) is sent only to `/api/auth/refresh/` to get a new
+pair.
+
+**Why two.** A short access token limits the damage if one is stolen; a
+long refresh token means the person is not asked for their password every
+hour.
+
+### Rotation and blacklist
+
+**What.** *Rotation*: every refresh gives a new refresh token. *Blacklist*:
+the old one is written to a table of dead tokens and refused from then on.
+
+**Why.** Without the blacklist, a stolen refresh token would keep working
+for its full seven days even after the real person refreshed.
+
+**Where.** `config/settings.py`:
+
+```python
+"ROTATE_REFRESH_TOKENS": True,
+"BLACKLIST_AFTER_ROTATION": True,
+```
+
+and the app `rest_framework_simplejwt.token_blacklist` in the app list,
+which adds the two blacklist tables.
+
+### Bearer
+
+**What.** The word before the token in the `Authorization` header. It
+means "whoever bears (carries) this token is who it says".
+
+### AUTH_USER_MODEL, AbstractUser, USERNAME_FIELD
+
+**What.** Django ships with a user table that logs in by username. Ours
+logs in by email. `AbstractUser` is Django's user class to build on;
+`USERNAME_FIELD = "email"` says what the login name is;
+`AUTH_USER_MODEL = "accounts.User"` tells Django to use our class.
+
+**Why on day one.** Django does not allow swapping the user model after
+the first migration has run.
+
+**Where.** `apps/accounts/models.py` and `config/settings.py`.
+
+### Why 404 and not 403 for somebody else's item
+
+**What.** 403 says "that exists but you may not see it". 404 says "no such
+thing". Closette answers 404 for another person's item.
+
+**Why.** 403 would confirm the id exists, which is a small information
+leak. Looking the id up inside the owner-filtered queryset gives 404
+naturally.
+
+---
+
+## 29. Security words
+
+### TLS, certificate
+
+**What.** *TLS* is the encryption under HTTPS. A *certificate* proves the
+server really is `closette-api.onrender.com`. Render provides and renews
+it; nothing in our code handles it.
+
+### HSTS
+
+**What.** *HTTP Strict Transport Security*: a header telling the browser
+"only ever talk to me over HTTPS, for the next year". After the first
+visit the browser will not even try plain HTTP.
+
+**Where.** `SECURE_HSTS_SECONDS = 31536000` in `config/settings.py`.
+
+### Proxy, X-Forwarded-Proto, SECURE_PROXY_SSL_HEADER
+
+**What.** A *proxy* is a server in front of ours. Render's proxy handles
+HTTPS and passes plain HTTP on to Django. It adds a header
+`X-Forwarded-Proto: https` saying "this really was HTTPS". Django has to be
+told to trust that header, or it would think every request was insecure and
+redirect for ever.
+
+**Where.** `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`.
+
+### NUM_PROXIES
+
+**What.** Tells the rate limiter how many proxies sit in front, so it
+reads the caller's real address from the right place. Set to 1 (Render's).
+Left unset, the limiter would trust a header the caller can write
+themselves, and a password-guesser could change it on every request.
+
+### CORS
+
+**What.** *Cross-Origin Resource Sharing*. Browsers block a page on one
+domain from calling a server on another, unless the server says that
+domain is allowed. Our frontend (`fyp-bice-three.vercel.app`) and backend
+(`closette-api.onrender.com`) are different domains.
+
+**Where.** `CORS_ALLOWED_ORIGINS` in `config/settings.py`, read from the
+environment. Only the Vercel address is allowed in production.
+
+### CSRF
+
+**What.** *Cross-Site Request Forgery*: a bad website making your browser
+send a request to a good website using your cookies. Django's CSRF
+middleware protects against it for cookie-based logins. Our API uses tokens
+in a header, not cookies, so the attack does not apply to it; the middleware
+stays on for the admin site, which does use cookies.
+
+### Clickjacking, X-Frame-Options
+
+**What.** *Clickjacking*: showing our site inside an invisible frame on a
+bad site so a person clicks our buttons without knowing. `X_FRAME_OPTIONS =
+"DENY"` tells browsers never to show our pages inside a frame.
+
+### Enumeration
+
+**What.** Using an app's answers to list things you should not know, such
+as which emails have accounts. Closette gives the same answer for a wrong
+password and an unknown email, the same answer for a wrong friend code
+whatever was wrong with it, and 404 for another person's item.
+
+### Brute force
+
+**What.** Trying passwords (or codes) one after another until one works.
+Stopped by the rate limits: 10 logins a minute, 20 friend-code tries an
+hour.
+
+### Environment variable, .env, secret
+
+**What.** An *environment variable* is a named value given to a program
+from outside, not written in its code. `.env` is a file of them on the
+developer's machine. A *secret* is one that must stay private: the database
+password, the Cloudinary keys, the token-signing key.
+
+**Why.** Code goes to GitHub, where anybody might read it. Secrets must
+not.
+
+**Where.** `backend/.env` (ignored by git). `backend/.env.example` lists
+the names with empty values. On Render they are typed into the dashboard
+once. `config/settings.py` reads them with `env("NAME")`.
+
+### SECRET_KEY
+
+**What.** The one secret that signs the login tokens. If it leaked,
+anybody could make a token for any account.
+
+**Where.** `config/settings.py` refuses to start in production with the
+development key:
+
+```python
+if not DEBUG and SECRET_KEY == "insecure-development-key":
+    raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is off.")
+```
+
+### DEBUG
+
+**What.** A switch. On, Django shows full error pages with code in them
+and relaxes several limits, for developing. Off, errors are plain and every
+security setting is on. It is off on Render.
+
+### Upload limits
+
+**What.** `DATA_UPLOAD_MAX_MEMORY_SIZE` (20 MB) caps a whole request;
+`MAX_UPLOAD_BYTES` (12 MB) in `apps/vision/uploads.py` caps one photo;
+`ALLOWED_IMAGE_TYPES` lists the file types accepted.
+
+**Why.** A huge upload could use up the server's memory. A file that is
+not an image could crash the background remover.
+
+---
+
+## 30. Hosting words
+
+### Deploy, build command, start command
+
+**What.** *Deploy* is putting a new version live. The *build command* runs
+once per deploy to prepare it; the *start command* runs the server.
+
+**Where.** `render.yaml`:
+
+```yaml
+buildCommand: pip install -r requirements/base.txt && python manage.py collectstatic --no-input && python manage.py migrate
+startCommand: gunicorn config.wsgi:application
+```
+
+### WSGI and gunicorn
+
+**What.** *WSGI* is the standard handle a Python web program offers so a
+server can run it; ours is `config/wsgi.py`. *gunicorn* is the production
+server that grabs that handle and handles many requests at once.
+`manage.py runserver` is for a laptop only.
+
+### Static files, collectstatic, whitenoise
+
+**What.** *Static files* are the CSS and JavaScript of the admin site.
+`collectstatic` gathers them into one folder; *whitenoise* serves them
+from Django itself, so no separate file server is needed.
+
+### Health check
+
+**What.** An address the host calls every few seconds to see the server is
+alive. Ours is `/api/health/`, which answers `{"status": "ok"}`. It is
+exempt from the HTTPS redirect because Render calls it over plain HTTP.
+
+### Cron, scheduler, UTC
+
+**What.** *Cron* is a timer that runs a command on a schedule, written as
+five fields: `0 1,13 * * *` means "minute 0 of hours 1 and 13, every day".
+Hosted timers run on *UTC* (the world's reference time); Pakistan is five
+hours ahead, so 01:00 and 13:00 UTC are 06:00 and 18:00 in Lahore.
+
+**Where.** The `closette-prices` service in `render.yaml`.
+
+### Free plan sleep
+
+**What.** Render's free web service stops after 15 minutes without
+requests and takes up to a minute to start again. The frontend's waking
+notice exists because of this.
+
+### Requirements, pinning, venv, pip
+
+**What.** `requirements/*.txt` lists every Python package with its exact
+version (*pinned*: `Django==5.2.6`, not `Django>=5`). *pip* installs them.
+A *venv* is a private folder of installed packages for this project only,
+so two projects on one laptop cannot fight over versions.
+
+**Why pin.** A new version of a package could change behaviour and break
+the live site silently. Pinned means the server runs exactly what was
+tested.
+
+**Where.** `requirements/core.txt` (the API's needs), `base.txt` (core plus
+background removal), `dev.txt` (base plus the test tools).
+
+---
+
+## 31. Python words used in this code
+
+### class, object, self, method
+
+**What.** A *class* is a blueprint; an *object* is one thing made from it.
+A *method* is a function inside a class. `self` is the object the method
+is working on. `GarmentItem` is a class; one kurta is an object;
+`mark_worn` is a method; inside it, `self` is that kurta.
+
+### Inheritance
+
+**What.** A class built on another class, keeping everything the parent
+has and changing or adding some parts. Written as `class Child(Parent):`.
+
+**Example.** `apps/accounts/views.py`:
+
+```python
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "login"
+```
+
+The library's login view does the work; we only change three settings.
+
+### Decorator
+
+**What.** A line starting with `@` just above a function or class that
+changes how it behaves. Ones in this project:
+
+| Decorator               | Does                                                       |
+| ----------------------- | ---------------------------------------------------------- |
+| `@property`             | Lets a method be read like a plain value: `item.cost_per_wear` with no brackets |
+| `@action(...)`          | Adds an extra address to a viewset                         |
+| `@transaction.atomic`   | Runs the whole method as one database transaction          |
+| `@extend_schema(...)`   | Adds a description to the API docs                         |
+| `@lru_cache(...)`       | Remembers the answer for each input, so the same colour is never converted twice |
+| `@dataclass(frozen=True)` | Makes a small class that only holds values and cannot be changed after creation |
+| `@admin.register(...)`  | Shows a table in the admin site                            |
+| `@pytest.fixture`       | Marks a helper tests can ask for by name                   |
+| `@staticmethod`         | A method that does not need `self`                         |
+
+### property
+
+**Example.** `apps/wardrobe/models.py`:
+
+```python
+@property
+def days_since_worn(self) -> int | None:
+    if self.last_worn_date is None:
+        return None
+    return (timezone.localdate() - self.last_worn_date).days
+```
+
+Used as `item.days_since_worn`, and the serializer sends it as if it were
+a column.
+
+### dataclass
+
+**What.** A class that is just a bundle of named values, with the boring
+parts written for you.
+
+**Example.** `apps/planner/weather.py`:
+
+```python
+@dataclass(frozen=True)
+class Advice:
+    headline: str
+    wear: str
+    warmth_levels: list[int]
+    season: str
+    take_umbrella: bool
+```
+
+### Exception, try, except, raise, from
+
+**What.** An *exception* is an error signal. `raise` sends one; `try` /
+`except` catches one. `raise X from exc` keeps the original error attached
+for the log.
+
+**Example.** `apps/planner/weather.py`:
+
+```python
+try:
+    now = _get(CURRENT_URL, params)
+except requests.Timeout as exc:
+    raise WeatherUnavailable("The weather service did not answer in time.", "timeout") from exc
+```
+
+A custom exception is just a class built on `Exception`:
+
+```python
+class WeatherUnavailable(Exception):
+    def __init__(self, reason: str, code: str):
+        super().__init__(reason)
+        self.reason = reason
+        self.code = code
+```
+
+### f-string
+
+**What.** Text with values inside curly brackets:
+`f"{item.name} is not recorded as worn on {day}."`
+
+### Type hints
+
+**What.** Notes saying what kind of value a function takes and returns:
+`def supports(slot: str) -> bool:`. Python does not enforce them; they
+help the reader and the editor. `int | None` means "a number or nothing".
+
+`from __future__ import annotations` at the top of many files lets a type
+hint mention a class defined further down the same file.
+
+### Comprehension
+
+**What.** Building a list, set or dictionary in one line.
+
+```python
+names = [i.name for i in gone]
+referenced = {name.lower(): hex_value for name, hex_value in NAMED_COLORS}
+```
+
+### Regular expression (regex)
+
+**What.** A pattern for matching text. Used to spot phone numbers and
+emails in listing notes, and to match shop wording.
+
+**Example.** `apps/community/models.py`:
+
+```python
+LOOKS_LIKE_A_PHONE = re.compile(r"(?:\+?\d[\s\-().]*){9,}")
+LOOKS_LIKE_AN_EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+```
+
+"Nine or more digits, with optional spaces, dashes or brackets between
+them" and "something, an @, something, a dot, something".
+
+### with statement
+
+**What.** Runs a block with something set up before and cleaned up after,
+whatever happens. `with transaction.atomic():` starts a transaction and
+commits or rolls it back at the end. `with open(path, "rb") as fh:` opens
+a file and closes it.
+
+### *args and **kwargs
+
+**What.** "Any extra positional arguments" and "any extra named
+arguments". Seen in `def handle(self, *args, **options):` and
+`def create_user(self, email, password=None, **extra_fields):`.
+
+### lambda
+
+**What.** A tiny unnamed function. `key=lambda rule: -len(rule[0])` means
+"sort by the length of the first part, longest first".
+
+### Module, package, import
+
+**What.** A *module* is one `.py` file. A *package* is a folder of them
+with an `__init__.py`. `import` brings one into another.
+`from apps.vision import storage` brings in `apps/vision/storage.py`.
+
+### Constants
+
+**What.** Values written in CAPITALS at the top of a file that never
+change while the program runs: `MAX_UPLOAD_BYTES = 12 * 1024 * 1024`,
+`TRYON_DAILY_LIMIT`. Putting them at the top makes them easy to find and
+change.
+
+---
+
+## 32. Testing words
+
+### pytest, test function, assert
+
+**What.** *pytest* finds every function whose name starts with `test_`,
+runs it, and reports. `assert` is the check: the test fails if what follows
+is false.
+
+**Example.** `tests/test_security.py`:
+
+```python
+def test_a_tampered_signature_is_refused(api, make_user):
+```
+
+Test names are whole sentences on purpose, so the report reads like a list
+of promises.
+
+### Fixture, conftest.py
+
+**What.** A *fixture* is a named helper a test asks for by putting its
+name in the argument list. `conftest.py` holds the shared ones.
+
+**Example.** `tests/conftest.py` offers `signed_in`, which returns a client
+already carrying a token plus the account behind it:
+
+```python
+@pytest.fixture
+def signed_in(api, make_user):
+    def build(email="person@example.test", password="Test-pass-9273", **extra):
+        user = make_user(email, password, **extra)
+        client = APIClient()
+        response = client.post("/api/auth/login/", {"email": email, "password": password}, format="json")
+        client.credentials(HTTP_AUTHORIZATION="Bearer " + response.data["access"])
+        return client, user
+    return build
+```
+
+A test then writes `client, me = signed_in("ali@example.test")` and makes
+requests as Ali.
+
+### APIClient
+
+**What.** A fake browser for tests. `client.post("/api/auth/login/",
+{...})` sends a request through the whole stack without a network.
+
+### Test database
+
+**What.** pytest-django creates a separate database (`test_neondb`) for
+each run and deletes it after. `--reuse-db` keeps it between runs to save
+time. Real data is never touched.
+
+### monkeypatch
+
+**What.** A fixture that swaps one thing for another during one test and
+puts it back after. Used to make rate limits tiny so a test can hit them in
+three tries, and to replace Cloudinary and the try-on supplier with
+stand-ins so no test reaches the internet.
+
+**Example.** `tests/test_security.py`:
+
+```python
+monkeypatch.setattr(SimpleRateThrottle, "THROTTLE_RATES", {..., "login": "3/min", ...})
+```
+
+### parametrize
+
+**What.** Runs one test function once per value in a list. The contract
+test runs once per TypeScript interface:
+
+```python
+@pytest.mark.parametrize("interface,component", PAIRS, ids=[p[0] for p in PAIRS])
+```
+
+### What passing tests prove, and do not
+
+Passing tests prove that everything they check still works after a
+change, and that the attacks they try still fail. They do not prove the
+absence of bugs nobody thought to test. That is why the walkthrough
+(section 11) was also run by hand against a real server.
+
+---
+
+## 33. Test yourself
+
+Cover the right column and answer.
+
+| Question                                                          | Answer                                                                                 |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| What does `GET /api/wardrobe/items/42/` ask for?                  | Read garment 42                                                                        |
+| What status code says "not signed in"?                            | 401                                                                                    |
+| Why does another person's item give 404, not 403?                 | 403 would confirm the id exists                                                        |
+| What is a model?                                                  | A Python class describing one database table                                           |
+| What is a migration?                                              | A script that changes the real database to match a model change                        |
+| What is a serializer?                                             | The translator between a row and JSON, which also checks incoming data                 |
+| Where is the security of the whole app?                           | `get_queryset()` filtering by `owner=self.request.user` before any id is looked up      |
+| What does `on_delete=SET_NULL` do on `storage_location`?          | Deleting a drawer keeps the garments, with no place                                    |
+| Why `PROTECT` on `category`?                                      | A category still holding items cannot be deleted                                       |
+| What does `select_related("category")` fix?                       | The N+1 problem: one query instead of one per row                                      |
+| What is a partial unique constraint, and give the example?        | Unique only among rows matching a condition: one open loan per garment                 |
+| What does `transaction.atomic` guarantee?                         | All the changes inside happen, or none do                                              |
+| What is `IntegrityError` and when does Closette catch it?         | The database refusing a rule; caught so two simultaneous taps get a sentence, not a crash |
+| How long do the two tokens live?                                  | Access 60 minutes, refresh 7 days                                                      |
+| What is rotation with blacklisting?                               | Every refresh gives a new refresh token and kills the old one                          |
+| Why email as the login and why on day one?                        | Simpler for people; Django cannot swap the user model after the first migration        |
+| What is CORS and what does ours allow?                            | The browser rule about cross-domain calls; only the Vercel site                        |
+| What is a throttle scope and name two?                            | A named rate limit a view opts into; `login` 10/min, `friend-code` 20/hour             |
+| Why is `NUM_PROXIES` 1?                                           | So the rate limiter reads the caller's real address, not a header the caller can write |
+| Where are secrets kept?                                           | `backend/.env` locally and Render's dashboard; never in GitHub                         |
+| What runs `sync_deals` on the live site, and when?                | The `closette-prices` cron service on Render, 01:00 and 13:00 UTC                      |
+| What is gunicorn?                                                 | The production server that runs the Django app                                         |
+| What is a fixture?                                                | A named helper a test asks for by putting its name in the argument list                |
+| What does `monkeypatch` do?                                       | Swaps something for a test and restores it after                                       |
+| What does the contract test check?                                | That the frontend's TypeScript types match the backend's published schema              |
+| What is `@property` for?                                          | Reading a method like a value: `item.cost_per_wear`                                    |
+| What does the ORM protect against automatically?                  | SQL injection                                                                          |
+| Why Postgres and not SQLite in production?                        | Real concurrency, array columns, partial unique constraints, trigram search            |
+| What is a cache, with the example?                                | A remembered answer; the weather for a city is kept for 30 minutes                     |
+| What does `@action(detail=True)` add?                             | An extra address on one row, such as `/items/42/mark-worn/`                            |

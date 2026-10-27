@@ -75,4 +75,13 @@ describe("ItemCard", () => {
     render(<ItemCard item={item()} />);
     expect(screen.queryByRole("button", { name: /i wore this/i })).not.toBeInTheDocument();
   });
+
+  it("always has a place line, so every card is the same shape", () => {
+    const { rerender } = render(<ItemCard item={item({ location_path: "" })} />);
+    expect(screen.getByText("No place yet")).toBeInTheDocument();
+
+    rerender(<ItemCard item={item({ location_path: "Bedroom > Wardrobe" })} />);
+    expect(screen.getByText("Bedroom > Wardrobe")).toBeInTheDocument();
+    expect(screen.queryByText("No place yet")).not.toBeInTheDocument();
+  });
 });

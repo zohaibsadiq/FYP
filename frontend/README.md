@@ -1,6 +1,6 @@
-# Closette frontend
+# My Closette frontend
 
-The browser side of Closette, built with Next.js. It talks to the Django API
+The browser side of My Closette, built with Next.js. It talks to the Django API
 over HTTP and holds no data of its own.
 
 Setup and running instructions are in the README at the repository root.

@@ -145,7 +145,7 @@ export function PhotoField({
         <div className="grid gap-4 sm:grid-cols-2">
           <figure>
             <figcaption className="mb-2 text-xs font-medium text-muted-foreground">Your photo</figcaption>
-            <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/40">
+            <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/80 to-muted/20">
               {/* The browser's own copy of the file, so next/image is not involved. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={preview} alt="" className="size-full object-contain" />
@@ -156,7 +156,7 @@ export function PhotoField({
             <figcaption className="mb-2 text-xs font-medium text-muted-foreground">
               Background removed
             </figcaption>
-            <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/40">
+            <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/80 to-muted/20">
               {upload.isPending ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
                   <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
@@ -198,7 +198,7 @@ export function PhotoField({
         </div>
       ) : current && !removed ? (
         <div className="grid gap-4 sm:grid-cols-[160px_1fr] sm:items-center">
-          <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/40">
+          <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/80 to-muted/20">
             <GarmentPicture src={current} alt="The photo saved now" sizes="160px" className="p-2" />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -236,9 +236,11 @@ export function PhotoField({
             type="button"
             variant="outline"
             onClick={choose}
-            className="h-28 w-full flex-col gap-2 border-dashed"
+            className="h-36 w-full flex-col gap-2 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10"
           >
-            <Camera className="size-7" aria-hidden />
+            <span className="flex size-12 items-center justify-center rounded-full bg-card text-primary shadow-sm">
+              <Camera className="size-6" aria-hidden />
+            </span>
             <span className="text-base font-medium">Take or choose a photo</span>
             <span className="text-xs font-normal text-muted-foreground">
               JPG or PNG, up to {MAX_MB} MB

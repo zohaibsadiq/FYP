@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 
+import { PasswordField } from "@/components/form/password-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,10 +39,9 @@ export default function LoginPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Sign in to open your wardrobe.
-      </p>
+      <p className="text-sm font-medium text-primary">Sign in</p>
+      <h1 className="mt-1.5 font-display text-3xl font-semibold tracking-tight">Welcome back</h1>
+      <p className="mt-2 text-sm text-muted-foreground">Open your wardrobe where you left it.</p>
 
       {formError ? (
         <p
@@ -53,45 +52,46 @@ export default function LoginPage() {
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+          <div className="relative">
+            <Mail
+              className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10"
+              required
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <PasswordField
+          id="password"
+          label="Password"
+          autoComplete="current-password"
+          placeholder="Your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-        <Button type="submit" className="w-full" disabled={login.isPending}>
-          {login.isPending && <Loader2 className="size-4 animate-spin" />}
+        <Button type="submit" size="lg" className="h-12 w-full gap-2 shadow-lg shadow-primary/20" disabled={login.isPending}>
+          {login.isPending ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <ArrowRight className="size-4" aria-hidden />
+          )}
           {login.isPending ? "Signing in..." : "Sign in"}
         </Button>
       </form>
-
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        New here?{" "}
-        <Link href="/register" className="font-medium text-primary hover:underline">
-          Create an account
-        </Link>
-      </p>
     </div>
   );
 }

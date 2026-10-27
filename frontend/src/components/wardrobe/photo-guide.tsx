@@ -178,7 +178,7 @@ export function PhotoGuide({ slot }: { slot: Slot }) {
   ];
 
   return (
-    <div>
+    <div className="rounded-2xl bg-muted/40 p-4">
       <p className="text-sm text-muted-foreground">
         The app cuts the background out for you. {guide.intro}
       </p>

@@ -1,4 +1,4 @@
-# Closette: An AI-Assisted Smart Wardrobe Management System
+# My Closette: An AI-Assisted Smart Wardrobe Management System
 
 ## Team Guide
 
@@ -8,7 +8,7 @@ group can answer a question from a judge about any part of it.
 
 It covers:
 
-- what Closette is and why it exists
+- what My Closette is and why it exists
 - every technology used, what it is, and why it was chosen
 - every feature, from the small ones to the large ones, with the exact steps
   that happen behind the screen
@@ -32,15 +32,15 @@ Words in **bold** are explained in the glossary at the very end.
 
 ---
 
-## 1. What Closette is
+## 1. What My Closette is
 
-Closette is a website that helps a person manage the clothes they own.
+My Closette is a website that helps a person manage the clothes they own.
 
-A real wardrobe cannot answer questions. Closette can. A person photographs
+A real wardrobe cannot answer questions. My Closette can. A person photographs
 the clothes they own, writes down where each one is kept, and the app then
 answers:
 
-| Question                         | What Closette does                                                   |
+| Question                         | What My Closette does                                                   |
 | -------------------------------- | -------------------------------------------------------------------- |
 | Where is my blue shirt?          | Remembers the room, the wardrobe, the drawer.                        |
 | What have I not worn for months? | Keeps a wear log and shows the forgotten things.                     |
@@ -58,7 +58,7 @@ It works in a web browser on a phone or a laptop. Nothing has to be installed.
 
 > People own far more clothes than they wear, forget what they have, buy
 > things they already own, and cannot find things in their own wardrobe.
-> Closette is a digital copy of a person's wardrobe. It knows what you own,
+> My Closette is a digital copy of a person's wardrobe. It knows what you own,
 > where it is, when you last wore it, and what it is worth. Around that
 > it adds four things a wardrobe alone can never do: it watches shop prices
 > for you, lets you sell what you no longer wear, lets you borrow from
@@ -66,9 +66,9 @@ It works in a web browser on a phone or a laptop. Nothing has to be installed.
 
 ### Where the name comes from
 
-**Closette** is "closet" plus "-ette". The ending "-ette" means small, as in
-"kitchenette" (a small kitchen). So Closette means "a little closet": a
-wardrobe small enough to carry in your pocket.
+**My Closette** is "my" plus "closet" plus "-ette". The ending "-ette" means
+small, as in "kitchenette" (a small kitchen). So My Closette means "my little
+closet": your own wardrobe, small enough to carry in your pocket.
 
 _Closet_ is the American word for what British English calls a _wardrobe_
 and Urdu calls an _almari_. The subtitle, "Smart Wardrobe Management System",
@@ -121,7 +121,7 @@ tuned for Lahore summers.
 
 ## 2. The big picture
 
-Closette is two separate programs that talk to each other over the internet.
+My Closette is two separate programs that talk to each other over the internet.
 
 ```
    The person's browser (phone or laptop)
@@ -537,13 +537,17 @@ and what to say if a judge asks about it.
 
 ### The pages
 
-- `/register` - "Create your closet": full name, email, city, who you shop
-  for, password, confirm password. The country is set to Pakistan.
+- `/register` - "Create your closet", in three short screens: about you
+  (name, email), where you are (city, who you shop for), your password. The
+  country is set to Pakistan. Each screen checks its own boxes before moving
+  on, and a refusal from the server jumps back to the screen it is about.
 - `/login` - "Welcome back": email and password.
 - `/profile` - "My details": name, email (cannot be changed), city, phone.
 
 Both sign-in pages share a layout with a photograph of a wardrobe on one
-side. The photo is a stock picture, not anybody's real clothes.
+side, under a plum tint. The photo is a stock picture, not anybody's real
+clothes. The front page at `/` is the public introduction: what the app does,
+how it works, privacy, and common questions.
 
 ### Step by step: signing up
 
@@ -1829,8 +1833,6 @@ after four seconds of silence. File: `frontend/src/lib/wake.ts`,
 - Every empty page says what to do next and links to it.
 - Animations switch off for anybody whose device asks for less motion.
 
-**Dark mode.** The site follows the device's light or dark setting.
-
 **The live API documentation.** `/api/docs/` on the backend is a clickable
 page listing every address, what it takes and what it returns, generated
 from the code itself (by drf-spectacular). Judges who know APIs like to see
@@ -2189,7 +2191,7 @@ Keep the answers short. Say the answer, then one reason.
 
 **What problem does this solve?**
 People forget what they own, cannot find things, buy duplicates, and wear a
-small part of their wardrobe. Closette gives them a searchable copy of their
+small part of their wardrobe. My Closette gives them a searchable copy of their
 wardrobe with wear history, and adds shopping, selling, lending and try-on
 around it.
 

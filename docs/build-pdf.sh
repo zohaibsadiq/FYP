@@ -31,8 +31,8 @@ fs.writeFileSync(`docs/build/${name}.html`,
 }
 
 if [ -z "$1" ] || [ "$1" = "project-guide" ]; then
-  build project-guide "Closette: An AI-Assisted Smart Wardrobe Management System"
+  build project-guide "My Closette: An AI-Assisted Smart Wardrobe Management System"
 fi
 if [ -z "$1" ] || [ "$1" = "team-guide" ]; then
-  build team-guide "Closette: Team Guide"
+  build team-guide "My Closette: Team Guide"
 fi

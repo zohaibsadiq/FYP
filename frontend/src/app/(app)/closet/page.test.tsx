@@ -186,4 +186,15 @@ describe("ClosetPage", () => {
     render(<ClosetPage />);
     expect(screen.getByText("4 items, 1 in the wash")).toBeInTheDocument();
   });
+
+  it("narrows the list to favourites when that chip is pressed, and widens it again", async () => {
+    stats = counts({ total: 3, favorites: 1 });
+    render(<ClosetPage />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Favourites" }));
+    expect(seenFilters.at(-1)).toMatchObject({ is_favorite: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "Favourites" }));
+    expect(seenFilters.at(-1)).not.toHaveProperty("is_favorite");
+  });
 });

@@ -1,4 +1,4 @@
-# Closette
+# My Closette
 
 A wardrobe app that tracks what you own and where it is physically kept, plans
 outfits around the weather, watches shop sales, and lets you sell, lend or

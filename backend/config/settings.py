@@ -215,8 +215,8 @@ SIMPLE_JWT = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Closette API",
-    "DESCRIPTION": "Wardrobe items, storage locations, outfits and planning data for Closette.",
+    "TITLE": "My Closette API",
+    "DESCRIPTION": "Wardrobe items, storage locations, outfits and planning data for My Closette.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,

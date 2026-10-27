@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useGarments, useToggleArchived } from "@/hooks/use-wardrobe";
 import { getErrorMessage } from "@/lib/api";
+import { thumbnail } from "@/lib/images";
+import { cn } from "@/lib/utils";
 import type { GarmentListItem } from "@/types/wardrobe";
 
 /**
@@ -26,9 +28,9 @@ export function GoneList({ search = "" }: { search?: string }) {
 
   if (isPending) {
     return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-xl" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-24 w-full rounded-2xl" />
         ))}
       </div>
     );
@@ -49,51 +51,62 @@ export function GoneList({ search = "" }: { search?: string }) {
   }
 
   return (
-    <ul className="space-y-3">
-      {items.map((item: GarmentListItem) => (
-        <li key={item.id}>
-          <article className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-              <GarmentPicture src={item.display_image_url} sizes="56px" className="p-1" iconClassName="size-5" />
-            </span>
-
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{item.name}</span>
-              <span className="block truncate text-xs text-muted-foreground">
-                {item.status_label}
-                {item.wear_count > 0
-                  ? ` - worn ${item.wear_count} ${item.wear_count === 1 ? "time" : "times"}`
-                  : " - never worn"}
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {items.map((item: GarmentListItem, index) => {
+        const sold = item.status === "SOLD";
+        return (
+          <li
+            key={item.id}
+            className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500"
+            style={{ animationDelay: `${Math.min(index, 7) * 50}ms` }}
+          >
+            <article className="flex h-full items-center gap-4 rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/30">
+              {/* Sold things go grey: they belong to somebody else now. */}
+              <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-b from-muted/80 to-muted/20">
+                <GarmentPicture
+                  src={thumbnail(item.display_image_url, 200)}
+                  sizes="80px"
+                  className={cn("p-2", sold && "opacity-70 grayscale")}
+                  iconClassName="size-6"
+                />
               </span>
-            </span>
 
-            {item.status === "ARCHIVED" ? (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={bringBack.isPending}
-                onClick={() =>
-                  bringBack.mutate(
-                    { id: item.id, archived: false },
-                    {
-                      onSuccess: () => toast.success("Back in your closet."),
-                      onError: (error: unknown) =>
-                        toast.error(getErrorMessage(error, "That did not save. Try again.")),
-                    },
-                  )
-                }
-                className="h-11 shrink-0"
-              >
-                Bring it back
-              </Button>
-            ) : (
-              <Badge variant="secondary" className="shrink-0">
-                Sold
-              </Badge>
-            )}
-          </article>
-        </li>
-      ))}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{item.name}</span>
+                <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <Badge variant={sold ? "default" : "secondary"}>{item.status_label}</Badge>
+                  <span>
+                    {item.wear_count > 0
+                      ? `worn ${item.wear_count} ${item.wear_count === 1 ? "time" : "times"}`
+                      : "never worn"}
+                  </span>
+                </span>
+              </span>
+
+              {item.status === "ARCHIVED" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={bringBack.isPending}
+                  onClick={() =>
+                    bringBack.mutate(
+                      { id: item.id, archived: false },
+                      {
+                        onSuccess: () => toast.success("Back in your closet."),
+                        onError: (error: unknown) =>
+                          toast.error(getErrorMessage(error, "That did not save. Try again.")),
+                      },
+                    )
+                  }
+                  className="h-10 shrink-0 rounded-full"
+                >
+                  Bring it back
+                </Button>
+              ) : null}
+            </article>
+          </li>
+        );
+      })}
     </ul>
   );
 }

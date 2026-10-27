@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, JetBrains_Mono } from "next/font/google";
+import { Fraunces, JetBrains_Mono, Outfit } from "next/font/google";
 
 import { AppProviders } from "@/providers/app-providers";
 import "./globals.css";
@@ -18,10 +18,17 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+// A serif with character for the big headlines on the public pages.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "Closette",
-    template: "%s - Closette",
+    default: "My Closette",
+    template: "%s - My Closette",
   },
   description:
     "Keep a list of the clothes you own, where each one is stored, and what you wore recently.",
@@ -32,7 +39,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${outfit.variable} ${mono.variable} h-full antialiased`}
+      // scroll-smooth: a link to a section on the same page glides there instead
+      // of jumping. The reduced-motion rule in globals.css turns it off again.
+      className={`${outfit.variable} ${mono.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
     >
       {/* Browser extensions such as ColorZilla add their own attributes to
           <body> before React starts, and React would otherwise report every

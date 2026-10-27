@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Archive, ArrowLeft, Lightbulb, Plus, Search, Shirt, X } from "lucide-react";
+import { Archive, ArrowLeft, Heart, Lightbulb, Plus, Search, Shirt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/wardrobe/empty-state";
@@ -21,7 +21,7 @@ import {
 } from "@/hooks/use-wardrobe";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { SLOT_LABELS, type Slot } from "@/types/wardrobe";
+import { SLOT_LABELS, type Slot, type WardrobeStats } from "@/types/wardrobe";
 
 const SLOT_TABS: { value: Slot | "ALL"; label: string }[] = [
   { value: "ALL", label: "Everything" },
@@ -40,9 +40,17 @@ const SLOT_TABS: { value: Slot | "ALL"; label: string }[] = [
  */
 type View = Slot | "ALL" | "GONE";
 
+/** How many owned things sit under one tab, once the counts have arrived. */
+function countFor(value: Slot | "ALL", stats: WardrobeStats | undefined): number | undefined {
+  if (!stats) return undefined;
+  if (value === "ALL") return stats.total;
+  return (stats.by_slot ?? []).find((row) => row.slot === value)?.count ?? 0;
+}
+
 export default function ClosetPage() {
   const [chosenView, setView] = useState<View>("ALL");
   const [search, setSearch] = useState("");
+  const [favourites, setFavourites] = useState(false);
 
   const { data: stats } = useWardrobeStats();
   const goneCount = stats?.gone ?? 0;
@@ -57,15 +65,16 @@ export default function ClosetPage() {
     () => ({
       ...(view !== "ALL" && view !== "GONE" ? { slot: view } : {}),
       ...(search.trim() ? { search: search.trim() } : {}),
+      ...(favourites ? { is_favorite: true } : {}),
     }),
-    [view, search],
+    [view, search, favourites],
   );
 
   const { data, isPending, isPlaceholderData, isError, error } = useGarments(filters);
 
   // Results for the previous filter stay in memory while the new ones load,
   // so the page does not jump. They must not be shown as the answer, though:
-  // on a slow connection, women's clothes under the Men tab looks like a bug.
+  // on a slow connection, clothes for women under the Men tab looks like a bug.
   const waiting = isPending || isPlaceholderData;
 
   const markWorn = useMarkWorn();
@@ -73,7 +82,7 @@ export default function ClosetPage() {
   const toggleFavorite = useToggleFavorite();
 
   const items = data?.results ?? [];
-  const isFiltering = view !== "ALL" || search.trim().length > 0;
+  const isFiltering = view !== "ALL" || favourites || search.trim().length > 0;
   const closetIsEmpty = (stats?.total ?? 0) === 0;
 
   // Somebody who has sold everything has an empty closet but still needs the
@@ -93,11 +102,17 @@ export default function ClosetPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="relative mx-auto max-w-6xl space-y-6">
+      <div aria-hidden className="pointer-events-none absolute -top-24 right-0 -z-10 h-72 w-full overflow-hidden">
+        <div className="animate-drift absolute -top-10 right-10 size-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="animate-drift absolute left-1/3 top-6 size-56 rounded-full bg-chart-2/10 blur-3xl [animation-delay:-8s]" />
+      </div>
+
+      <header className="animate-in fade-in slide-in-from-bottom-2 flex flex-wrap items-end justify-between gap-4 duration-500">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My Clothes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-sm font-medium text-primary">My closet</p>
+          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">My Clothes</h1>
+          <p className="mt-2 text-muted-foreground">
             {stats
               ? `${stats.total} ${stats.total === 1 ? "item" : "items"}, ${stats.in_laundry} in the wash`
               : "Loading your things"}
@@ -111,7 +126,7 @@ export default function ClosetPage() {
               variant={view === "GONE" ? "default" : "outline"}
               onClick={() => setView(view === "GONE" ? "ALL" : "GONE")}
               aria-pressed={view === "GONE"}
-              className="h-11 gap-2"
+              className="h-11 gap-2 rounded-full px-4"
             >
               <Archive className="size-4" aria-hidden />
               Sold and put away
@@ -130,70 +145,114 @@ export default function ClosetPage() {
 
           <Link
             href="/closet/add"
-            className={cn(buttonVariants({ size: "lg" }), "h-11 gap-2 px-5")}
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "h-11 gap-2 px-5 shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5",
+            )}
           >
             <Plus className="size-5" aria-hidden />
             Add an item
           </Link>
         </div>
-      </div>
+      </header>
 
       {showControls && (
-        <>
-          <div>
-            <Label htmlFor="closet-search" className="mb-2 block">
-              Search your clothes
-            </Label>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                id="closet-search"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Try: blue shirt"
-                className="pl-11"
-              />
-              {search ? (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setSearch("")}
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                >
-                  <X className="size-4" aria-hidden />
-                  <span className="sr-only">Clear the search box</span>
-                </Button>
-              ) : null}
-            </div>
+        <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both rounded-2xl border border-border bg-card p-3 duration-500 [animation-delay:80ms] sm:p-4">
+          <Label htmlFor="closet-search" className="sr-only">
+            Search your clothes
+          </Label>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="closet-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search your clothes, like: blue shirt"
+              className="h-12 rounded-full border-transparent bg-muted/60 pl-12 pr-12 focus-visible:border-ring focus-visible:bg-card"
+            />
+            {search ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => setSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full"
+              >
+                <X className="size-4" aria-hidden />
+                <span className="sr-only">Clear the search box</span>
+              </Button>
+            ) : null}
           </div>
 
           {!closetIsEmpty ? (
-          <div className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:px-0">
-            <div className="flex gap-2 pb-1">
-              {SLOT_TABS.map((tab) => (
+            <div className="-mx-3 mt-3 overflow-x-auto px-3 sm:-mx-4 sm:px-4">
+              <div className="flex gap-2 pb-1" role="group" aria-label="Narrow the list">
                 <Button
-                  key={tab.value}
                   type="button"
-                  variant={view === tab.value ? "default" : "outline"}
-                  onClick={() => setView(tab.value)}
-                  aria-pressed={view === tab.value}
-                  className="shrink-0"
+                  variant={favourites ? "default" : "outline"}
+                  onClick={() => setFavourites((on) => !on)}
+                  aria-pressed={favourites}
+                  className={cn(
+                    "h-9 shrink-0 gap-1.5 rounded-full px-4",
+                    favourites && "shadow-md shadow-primary/20",
+                  )}
                 >
-                  {tab.label}
+                  <Heart className={cn("size-3.5", favourites && "fill-current")} aria-hidden />
+                  Favourites
+                  {stats ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "rounded-full px-1.5 text-[0.7rem] tabular-nums",
+                        favourites ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {stats.favorites ?? 0}
+                    </span>
+                  ) : null}
                 </Button>
-              ))}
+                <span aria-hidden className="my-1.5 w-px shrink-0 bg-border" />
+                {SLOT_TABS.map((tab) => {
+                  const selected = view === tab.value;
+                  const count = countFor(tab.value, stats);
+                  return (
+                    <Button
+                      key={tab.value}
+                      type="button"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => setView(tab.value)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "h-9 shrink-0 gap-1.5 rounded-full px-4",
+                        selected && "shadow-md shadow-primary/20",
+                      )}
+                    >
+                      {tab.label}
+                      {count !== undefined ? (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "rounded-full px-1.5 text-[0.7rem] tabular-nums",
+                            selected ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      ) : null}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
           ) : null}
-        </>
+        </div>
       )}
 
-      <div key={view} className="space-y-6 duration-200 animate-in fade-in slide-in-from-bottom-1">
+      <div key={view} className="space-y-5 duration-300 animate-in fade-in slide-in-from-bottom-1">
         {view === "GONE" ? (
           <div className="space-y-4">
             {/* A plain way out. The button in the header toggles too, but it
@@ -209,18 +268,18 @@ export default function ClosetPage() {
               Back to my clothes
             </Button>
 
-            <h2 className="text-lg font-semibold tracking-tight">Sold and put away</h2>
+            <h2 className="font-display text-2xl font-semibold tracking-tight">Sold and put away</h2>
 
             <GoneList search={search.trim()} />
           </div>
         ) : isError ? (
-          <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
+          <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
             {getErrorMessage(error, "Your clothes could not be loaded just now.")}
           </p>
         ) : waiting ? (
-          <div aria-busy className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div aria-busy className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 8 }, (_, i) => (
-              <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+              <Skeleton key={i} className="aspect-3/5 rounded-2xl" />
             ))}
           </div>
         ) : items.length === 0 && closetIsEmpty && goneCount > 0 ? (
@@ -259,6 +318,7 @@ export default function ClosetPage() {
                 onClick={() => {
                   setSearch("");
                   setView("ALL");
+                  setFavourites(false);
                 }}
               >
                 Show everything
@@ -270,9 +330,9 @@ export default function ClosetPage() {
             {data?.spelling_guessed ? (
               <p
                 aria-live="polite"
-                className="flex items-start gap-2 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100"
+                className="flex items-start gap-2 rounded-xl border border-chart-4/50 bg-chart-4/10 px-4 py-3 text-sm"
               >
-                <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
                 <span>
                   Nothing is spelled <strong>{search.trim()}</strong>. These look closest.
                 </span>
@@ -283,27 +343,32 @@ export default function ClosetPage() {
               </p>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {items.map((item, index) => (
-                <ItemCard
+                <div
                   key={item.id}
-                  item={item}
-                  priority={index < 4}
-                  busy={
-                    markWorn.isPending ||
-                    toggleLaundry.isPending ||
-                    toggleFavorite.isPending
-                  }
-                  onWear={(id) => run(markWorn, id, "Saved. We will remember you wore it today.")}
-                  onToggleLaundry={(id) =>
-                    run(
-                      toggleLaundry,
-                      id,
-                      item.status === "IN_LAUNDRY" ? "Back in your closet." : "Moved to the wash.",
-                    )
-                  }
-                  onToggleFavorite={(id) => run(toggleFavorite, id, "Saved.")}
-                />
+                  className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500"
+                  style={{ animationDelay: `${Math.min(index, 7) * 50}ms` }}
+                >
+                  <ItemCard
+                    item={item}
+                    priority={index < 4}
+                    busy={
+                      markWorn.isPending ||
+                      toggleLaundry.isPending ||
+                      toggleFavorite.isPending
+                    }
+                    onWear={(id) => run(markWorn, id, "Saved. We will remember you wore it today.")}
+                    onToggleLaundry={(id) =>
+                      run(
+                        toggleLaundry,
+                        id,
+                        item.status === "IN_LAUNDRY" ? "Back in your closet." : "Moved to the wash.",
+                      )
+                    }
+                    onToggleFavorite={(id) => run(toggleFavorite, id, "Saved.")}
+                  />
+                </div>
               ))}
             </div>
           </>

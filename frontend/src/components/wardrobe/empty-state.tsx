@@ -14,21 +14,24 @@ interface Props {
   secondary?: React.ReactNode;
 }
 
+/** A friendly box for a page with nothing on it yet, with the way forward. */
 export function EmptyState({ icon: Icon, title, body, steps, action, secondary }: Props) {
   return (
-    <div className="mx-auto max-w-md rounded-xl border border-dashed border-border px-6 py-12 text-center">
-      <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+    <div className="relative mx-auto max-w-lg overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-primary/10 via-card to-chart-4/10 px-6 py-12 text-center">
+      <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-primary/10 blur-2xl" />
+
+      <span className="animate-float relative mx-auto flex size-16 items-center justify-center rounded-2xl bg-card text-primary shadow-lg shadow-primary/10">
         <Icon className="size-7" aria-hidden />
       </span>
 
-      <h2 className="mt-5 text-lg font-semibold tracking-tight">{title}</h2>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{body}</p>
+      <h2 className="relative mt-5 font-display text-2xl font-semibold tracking-tight">{title}</h2>
+      <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">{body}</p>
 
       {steps?.length ? (
-        <ol className="mx-auto mt-6 max-w-xs space-y-3 text-left">
+        <ol className="relative mx-auto mt-6 max-w-xs space-y-2 text-left">
           {steps.map((step, i) => (
-            <li key={step} className="flex gap-3 text-sm">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            <li key={step} className="flex items-center gap-3 rounded-xl bg-card/80 px-3 py-2 text-sm backdrop-blur">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                 {i + 1}
               </span>
               <span className="leading-snug">{step}</span>
@@ -40,13 +43,16 @@ export function EmptyState({ icon: Icon, title, body, steps, action, secondary }
       {action ? (
         <Link
           href={action.href}
-          className={cn(buttonVariants({ size: "lg" }), "mt-7 h-11 w-full px-6 sm:w-auto")}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            "relative mt-7 h-11 w-full px-6 shadow-lg shadow-primary/20 sm:w-auto",
+          )}
         >
           {action.label}
         </Link>
       ) : null}
 
-      {secondary ? <div className="mt-4">{secondary}</div> : null}
+      {secondary ? <div className="relative mt-4">{secondary}</div> : null}
     </div>
   );
 }

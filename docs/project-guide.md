@@ -1,4 +1,4 @@
-# Closette: An AI-Assisted Smart Wardrobe Management System
+# My Closette: An AI-Assisted Smart Wardrobe Management System
 
 Everything this project is made of, why each piece was chosen, and how the
 parts fit together. Part Four, at the end, explains every backend word used
@@ -7,7 +7,7 @@ code.
 
 ---
 
-## 1. What Closette is
+## 1. What My Closette is
 
 A smart wardrobe web app. A person photographs the clothes they own, and the
 app then answers questions a wardrobe cannot answer by itself:
@@ -22,9 +22,9 @@ It runs in a browser on a phone or a laptop.
 
 ### Where the name comes from
 
-**Closette** is **closet** plus **-ette**, the ending that means small or
-portable, as in kitchenette. It reads as "a little closet": a wardrobe small
-enough to carry.
+**My Closette** is **my** plus **closet** plus **-ette**, the ending that
+means small or portable, as in kitchenette. It reads as "my little closet": a
+person's own wardrobe, small enough to carry.
 
 *Closet* is American English for what British English calls a *wardrobe* and
 Urdu calls an *almari*, so the name and the subtitle say the same thing twice,
@@ -1031,7 +1031,7 @@ earlier parts of this guide is explained here in the same way:
 
 - **What** it is, in plain words.
 - **Why** this project uses it.
-- **Where** it is in Closette, with the file name.
+- **Where** it is in My Closette, with the file name.
 - **Example**, usually a few real lines from the code.
 
 Read it in order the first time. The sections build on each other: how the
@@ -1110,7 +1110,7 @@ address book."
 **What.** Every request has a *method*, a verb saying what kind of action
 it is:
 
-| Method | Meaning                     | Closette example                                 |
+| Method | Meaning                     | My Closette example                                 |
 | ------ | --------------------------- | ------------------------------------------------ |
 | GET    | Read. Changes nothing.      | `GET /api/wardrobe/items/` lists the closet      |
 | POST   | Create, or do an action.    | `POST /api/wardrobe/items/` adds a garment; `POST .../42/mark-worn/` records a wearing |
@@ -1178,16 +1178,16 @@ parser_classes = [MultiPartParser, FormParser]
 ### Status codes
 
 **What.** Every response starts with a three-digit number saying how it
-went. The ones Closette uses:
+went. The ones My Closette uses:
 
-| Code | Name                  | When Closette sends it                                                   |
+| Code | Name                  | When My Closette sends it                                                   |
 | ---- | --------------------- | ------------------------------------------------------------------------ |
 | 200  | OK                    | A successful read or change                                              |
 | 201  | Created               | Something new was made: an item, a listing, a friend request             |
 | 204  | No Content            | Deleted, nothing to send back                                            |
 | 400  | Bad Request           | The data was wrong or a rule refused it: "That day has not happened yet." |
 | 401  | Unauthorized          | No token, or an expired or forged one. Means "not signed in."            |
-| 403  | Forbidden             | Signed in but not allowed. Closette almost never sends this; see 404    |
+| 403  | Forbidden             | Signed in but not allowed. My Closette almost never sends this; see 404    |
 | 404  | Not Found             | No such thing *for this person*. Another person's item answers 404, not 403, so the id is not even confirmed to exist |
 | 429  | Too Many Requests     | The rate limit was hit: too many login tries                             |
 | 500  | Server Error          | A bug. The tests exist so this never happens in front of a judge         |
@@ -1405,7 +1405,7 @@ class GarmentItem(models.Model):
 
 **What.** The kind of value a column holds.
 
-| Field                     | Holds                              | Closette example                        |
+| Field                     | Holds                              | My Closette example                        |
 | ------------------------- | ---------------------------------- | --------------------------------------- |
 | `CharField`               | Short text, with a maximum length  | `name`, `brand`, `status`               |
 | `TextField`               | Long text                          | `notes`                                 |
@@ -1457,7 +1457,7 @@ says `related_name="garments"`.
 `on_delete` says what happens to this row when the row it points at is
 deleted:
 
-| on_delete   | Meaning                                         | Closette example                                             |
+| on_delete   | Meaning                                         | My Closette example                                             |
 | ----------- | ----------------------------------------------- | ------------------------------------------------------------ |
 | `CASCADE`   | Delete this row too                             | Delete an account, its garments go with it                   |
 | `SET_NULL`  | Keep this row, clear the link                   | Delete a drawer, the garments survive with no place           |
@@ -1793,7 +1793,7 @@ misspelled.
 **What.** A rule the database itself enforces. It cannot be bypassed by a
 bug in the Python code or by two requests arriving at once.
 
-| Kind                 | Meaning                                       | Closette example                                   |
+| Kind                 | Meaning                                       | My Closette example                                   |
 | -------------------- | --------------------------------------------- | -------------------------------------------------- |
 | Unique constraint    | No two rows share these values                | One wearing per garment per day                    |
 | Partial unique       | Unique, but only among rows matching a condition | One *open* loan per garment                    |
@@ -1922,7 +1922,7 @@ def get_garment_slot_label(self, attempt):
 
 **What.** The methods a viewset lets us override.
 
-| Method              | When it runs                               | What Closette does in it                               |
+| Method              | When it runs                               | What My Closette does in it                               |
 | ------------------- | ------------------------------------------ | ------------------------------------------------------ |
 | `get_queryset()`    | Before any list or detail                  | Limits rows to `owner=self.request.user`. The security of the app. |
 | `get_object()`      | For one row by id                          | Looks the id up *inside* `get_queryset()`, so another person's id answers 404 |
@@ -2139,7 +2139,7 @@ the first migration has run.
 ### Why 404 and not 403 for somebody else's item
 
 **What.** 403 says "that exists but you may not see it". 404 says "no such
-thing". Closette answers 404 for another person's item.
+thing". My Closette answers 404 for another person's item.
 
 **Why.** 403 would confirm the id exists, which is a small information
 leak. Looking the id up inside the owner-filtered queryset gives 404
@@ -2207,7 +2207,7 @@ bad site so a person clicks our buttons without knowing. `X_FRAME_OPTIONS =
 ### Enumeration
 
 **What.** Using an app's answers to list things you should not know, such
-as which emails have accounts. Closette gives the same answer for a wrong
+as which emails have accounts. My Closette gives the same answer for a wrong
 password and an unknown email, the same answer for a wrong friend code
 whatever was wrong with it, and 404 for another person's item.
 
@@ -2595,7 +2595,7 @@ Cover the right column and answer.
 | What does `select_related("category")` fix?                       | The N+1 problem: one query instead of one per row                                      |
 | What is a partial unique constraint, and give the example?        | Unique only among rows matching a condition: one open loan per garment                 |
 | What does `transaction.atomic` guarantee?                         | All the changes inside happen, or none do                                              |
-| What is `IntegrityError` and when does Closette catch it?         | The database refusing a rule; caught so two simultaneous taps get a sentence, not a crash |
+| What is `IntegrityError` and when does My Closette catch it?         | The database refusing a rule; caught so two simultaneous taps get a sentence, not a crash |
 | How long do the two tokens live?                                  | Access 60 minutes, refresh 7 days                                                      |
 | What is rotation with blacklisting?                               | Every refresh gives a new refresh token and kills the old one                          |
 | Why email as the login and why on day one?                        | Simpler for people; Django cannot swap the user model after the first migration        |

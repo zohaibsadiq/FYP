@@ -54,6 +54,24 @@ function skyIcon(weather: Weather): ReactNode {
   return SKY[weather.condition] ?? UNKNOWN_SKY;
 }
 
+// The card's colour follows the advice: hot days glow amber and terracotta,
+// cool days lean teal and plum, and night goes quiet.
+function tint(weather: Weather): string {
+  if (!weather.is_day) return "from-primary/15 via-card to-chart-2/10";
+  switch (weather.advice.headline) {
+    case "Very hot":
+      return "from-chart-5/20 via-chart-4/10 to-card";
+    case "Warm":
+      return "from-chart-4/20 via-card to-chart-5/10";
+    case "Mild":
+      return "from-chart-3/20 via-card to-chart-4/10";
+    case "Chilly":
+      return "from-chart-2/20 via-card to-primary/10";
+    default:
+      return "from-primary/15 via-card to-chart-2/15";
+  }
+}
+
 export function WeatherCard() {
   const { data: today, isPending, isError } = usePlannerToday();
 
@@ -73,20 +91,20 @@ export function WeatherCard() {
     <section aria-labelledby="weather-heading" className="space-y-4">
       <div
         className={cn(
-          "overflow-hidden rounded-2xl border border-border",
-          "bg-gradient-to-br from-sky-50 to-indigo-50",
-          "dark:from-sky-950/40 dark:to-indigo-950/30",
+          "relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br shadow-sm",
+          tint(weather),
         )}
       >
-        <div className="flex flex-wrap items-start justify-between gap-6 p-5">
+        <div aria-hidden className="animate-drift absolute -right-16 -top-16 size-48 rounded-full bg-card/60 blur-2xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-6 p-5">
           <div className="flex items-start gap-4">
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-sky-700 dark:bg-white/10 dark:text-sky-200">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-card/80 text-foreground shadow-sm backdrop-blur">
               {skyIcon(weather)}
             </span>
 
             <div>
               <h2 id="weather-heading" className="flex items-baseline gap-2">
-                <span className="text-4xl font-semibold tabular-nums">{weather.temp_c}</span>
+                <span className="font-display text-5xl font-semibold tabular-nums tracking-tight">{weather.temp_c}</span>
                 <span className="text-xl text-muted-foreground">C</span>
               </h2>
               <p className="mt-1 text-sm capitalize">{weather.description}</p>
@@ -109,7 +127,7 @@ export function WeatherCard() {
           </dl>
         </div>
 
-        <p className="border-t border-border/60 bg-white/50 px-5 py-3 text-sm dark:bg-black/20">
+        <p className="relative border-t border-border/60 bg-card/60 px-5 py-3 text-sm backdrop-blur">
           <span className="font-semibold">{weather.advice.headline}.</span>{" "}
           {weather.advice.wear}
         </p>
@@ -185,7 +203,7 @@ function NoWeather({ code, reason }: { code?: string; reason?: string }) {
   return (
     <form
       onSubmit={save}
-      className="space-y-4 rounded-2xl border border-border bg-muted/30 p-5"
+      className="space-y-4 rounded-2xl border border-border bg-gradient-to-br from-chart-2/10 via-card to-chart-4/10 p-5"
     >
       <div>
         <h2 className="flex items-center gap-2 font-semibold">

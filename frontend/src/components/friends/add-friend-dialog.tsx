@@ -56,7 +56,7 @@ export function AddFriendDialog({
     ask.mutate(typed, {
       onSuccess: () => {
         setTyped("");
-        toast.success("Asked. They will see it next time they open Closette.");
+        toast.success("Asked. They will see it next time they open My Closette.");
         onOpenChange(false);
       },
       onError: (error) => setProblem(getErrorMessage(error, "That did not work. Try again.")),

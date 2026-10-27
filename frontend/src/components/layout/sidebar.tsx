@@ -25,7 +25,7 @@ export function Sidebar() {
           <Shirt className="size-5" />
         </span>
         <span className="text-lg font-semibold tracking-tight text-sidebar-foreground">
-          Closette
+          My Closette
         </span>
       </div>
 

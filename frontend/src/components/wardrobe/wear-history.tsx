@@ -13,6 +13,7 @@ import { getErrorMessage } from "@/lib/api";
 import { friendlyDay, spanInWords, todayIso } from "@/lib/dates";
 import type { Garment } from "@/types/wardrobe";
 
+/** Every day this item was worn, newest first, with a way to add a past day. */
 export function WearHistory({ item }: { item: Garment }) {
   const { data: log, isPending, isError } = useItemWears(item.id);
   const record = useRecordWear();
@@ -56,13 +57,13 @@ export function WearHistory({ item }: { item: Garment }) {
   }
 
   return (
-    <section aria-labelledby="wear-history-heading" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section aria-labelledby="wear-history-heading" className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="wear-history-heading" className="text-lg font-semibold">
+          <h2 id="wear-history-heading" className="font-display text-xl font-semibold tracking-tight">
             When you wore it
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {item.wear_count === 0
               ? "Nothing recorded yet. Tap the button above on a day you wear it."
               : item.days_since_worn === null
@@ -78,7 +79,7 @@ export function WearHistory({ item }: { item: Garment }) {
             type="button"
             variant="outline"
             onClick={() => setAdding(true)}
-            className="h-11 gap-2 px-4"
+            className="h-10 gap-2 rounded-full px-4"
           >
             <CalendarPlus className="size-4" aria-hidden />
             I wore it on another day
@@ -89,7 +90,7 @@ export function WearHistory({ item }: { item: Garment }) {
       {adding ? (
         <form
           onSubmit={addPastDay}
-          className="space-y-4 rounded-xl border border-border bg-muted/30 p-4"
+          className="animate-in fade-in slide-in-from-bottom-1 space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 duration-300 sm:p-5"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -105,7 +106,7 @@ export function WearHistory({ item }: { item: Garment }) {
                 onChange={(event) => setDate(event.target.value)}
                 aria-describedby={problem ? "wear-problem" : "wear-date-hint"}
                 aria-invalid={problem ? true : undefined}
-                className="h-11"
+                className="h-11 bg-card"
               />
               <p id="wear-date-hint" className="mt-1 text-xs text-muted-foreground">
                 A day that has already passed.
@@ -122,7 +123,7 @@ export function WearHistory({ item }: { item: Garment }) {
                 maxLength={200}
                 placeholder="A wedding, office, Eid"
                 onChange={(event) => setNote(event.target.value)}
-                className="h-11"
+                className="h-11 bg-card"
               />
             </div>
           </div>
@@ -160,17 +161,26 @@ export function WearHistory({ item }: { item: Garment }) {
         </p>
       ) : isPending ? (
         <div className="space-y-2">
-          <Skeleton className="h-12 rounded-lg" />
-          <Skeleton className="h-12 rounded-lg" />
+          <Skeleton className="h-12 rounded-2xl" />
+          <Skeleton className="h-12 rounded-2xl" />
         </div>
       ) : log.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
           Once you start recording the days you wear this, they show up here, newest first.
         </p>
       ) : (
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {log.map((wear) => (
-            <li key={wear.id} className="flex items-center gap-3 px-4 py-3">
+        <ol className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+          {log.map((wear, index) => (
+            <li key={wear.id} className="relative flex items-start gap-4 pb-4 last:pb-0">
+              {/* A thin line joins each day to the next one down. */}
+              {index < log.length - 1 ? (
+                <span aria-hidden className="absolute bottom-0 left-[0.4rem] top-5 w-px bg-border" />
+              ) : null}
+              <span
+                aria-hidden
+                className="relative mt-1.5 size-3.5 shrink-0 rounded-full bg-primary ring-4 ring-primary/15"
+              />
+
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{friendlyDay(wear.worn_on)}</p>
                 <p className="truncate text-sm text-muted-foreground">
@@ -184,7 +194,7 @@ export function WearHistory({ item }: { item: Garment }) {
                 size="icon"
                 disabled={busy}
                 onClick={() => removeDay(wear.worn_on)}
-                className="size-11 shrink-0 text-muted-foreground hover:text-destructive"
+                className="-mt-1 size-10 shrink-0 rounded-full text-muted-foreground hover:text-destructive"
               >
                 <Undo2 className="size-4" aria-hidden />
                 <span className="sr-only">
@@ -193,7 +203,7 @@ export function WearHistory({ item }: { item: Garment }) {
               </Button>
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </section>
   );

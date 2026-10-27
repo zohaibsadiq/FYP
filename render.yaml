@@ -1,4 +1,4 @@
-# How Closette runs once it is hosted.
+# How My Closette runs once it is hosted.
 #
 # Render reads this file and creates everything in it. The two services here
 # are deliberately separate:

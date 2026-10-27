@@ -80,18 +80,39 @@ api.interceptors.response.use(
           Authorization: `Bearer ${newAccess}`,
         };
         return api.request(original);
-      } catch {
+      } catch (refreshError) {
         refreshInFlight = null;
-        tokens.clear();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
+
+        // Only a 401 from the refresh call means the refresh token is dead.
+        // A sleeping server or a dropped connection is not a sign-out: the
+        // request fails, the page says so, and the next attempt works.
+        if (isSignedOutAnswer(refreshError)) {
+          tokens.clear();
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
+          }
+          return Promise.reject(error);
         }
+        return Promise.reject(refreshError);
       }
     }
 
     return Promise.reject(error);
   },
 );
+
+/** True when the server said the token is dead (401), which is the only answer that means signed out. */
+export function isSignedOutAnswer(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401;
+}
+
+/**
+ * True when no answer came back at all: a timeout or a dropped connection.
+ * Usually the host waking the server up, so asking again a moment later works.
+ */
+export function gotNoAnswer(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response;
+}
 
 /** Flattens any error from the API into a single sentence for a toast. */
 export function getErrorMessage(error: unknown, fallback = "Something went wrong."): string {

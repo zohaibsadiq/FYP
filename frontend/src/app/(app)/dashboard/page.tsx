@@ -102,8 +102,8 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {recent?.results.slice(0, 4).map((item) => (
-              <ItemCard key={item.id} item={item} />
+            {recent?.results.slice(0, 4).map((item, index) => (
+              <ItemCard key={item.id} item={item} priority={index < 2} />
             ))}
           </div>
         </section>

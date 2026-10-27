@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Clock, Heart, MapPin, Shirt, WashingMachine } from "lucide-react";
+import { Clock, Heart, MapPin, WashingMachine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { thumbnail } from "@/lib/images";
 import { cn } from "@/lib/utils";
 import { lastWorn, lastWornSentence } from "@/lib/wear";
@@ -16,6 +16,8 @@ interface Props {
   onToggleLaundry?: (id: number) => void;
   onToggleFavorite?: (id: number) => void;
   busy?: boolean;
+  /** Loads the picture first. For the handful of cards at the top of a page. */
+  priority?: boolean;
 }
 
 export function ItemCard({
@@ -24,6 +26,7 @@ export function ItemCard({
   onToggleLaundry,
   onToggleFavorite,
   busy,
+  priority,
 }: Props) {
   const inWash = item.status === "IN_LAUNDRY";
   const worn = lastWorn(item);
@@ -31,19 +34,14 @@ export function ItemCard({
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card focus-within:ring-3 focus-within:ring-ring/50 hover:border-primary/40">
       <div className="relative aspect-square bg-muted/40">
-        {item.display_image_url ? (
-          <Image
-            src={thumbnail(item.display_image_url, 400)}
-            alt={item.name}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className={cn("object-contain p-3", inWash && "opacity-50")}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <Shirt className="size-10" aria-hidden />
-          </div>
-        )}
+        <GarmentPicture
+          src={thumbnail(item.display_image_url, 400)}
+          alt={item.name}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className={cn("p-3", inWash && "opacity-50")}
+          iconClassName="size-10"
+          priority={priority}
+        />
 
         {onToggleFavorite ? (
           <Button

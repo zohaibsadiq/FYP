@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { History, Shirt } from "lucide-react";
+import { History } from "lucide-react";
 
 import {
   Dialog,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useItemWears } from "@/hooks/use-wardrobe";
 import { friendlyDay, parseDay } from "@/lib/dates";
 import { lastWorn, lastWornSentence } from "@/lib/wear";
@@ -46,17 +46,7 @@ export function WearHistoryDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-left">
             <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-              {item.display_image_url ? (
-                <Image
-                  src={item.display_image_url}
-                  alt=""
-                  fill
-                  sizes="44px"
-                  className="object-contain p-1"
-                />
-              ) : (
-                <Shirt className="size-5 text-muted-foreground" aria-hidden />
-              )}
+              <GarmentPicture src={item.display_image_url} sizes="44px" className="p-1" iconClassName="size-5" />
             </span>
             <span className="min-w-0">
               <span className="block truncate">{item.name}</span>

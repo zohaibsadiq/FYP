@@ -1,19 +1,18 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowLeft,
+  Camera,
   Check,
   HandHeart,
   Heart,
   Loader2,
   MapPin,
   Pencil,
-  Shirt,
   Trash2,
   WashingMachine,
 } from "lucide-react";
@@ -38,10 +37,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
+import { PhotoField } from "@/components/wardrobe/photo-field";
 import {
   useCategories,
   useCreateStorageLocation,
   useDeleteGarment,
+  useDiscardUpload,
   useGarment,
   useRecordWear,
   useStorageLocations,
@@ -61,6 +63,7 @@ import {
   SEASONS,
   SEASON_LABELS,
   type Garment,
+  type ImageUploadResult,
   type Occasion,
   type Pattern,
   type Season,
@@ -76,7 +79,7 @@ export default function ItemPage() {
   const router = useRouter();
 
   const { data: item, isPending, isError } = useGarment(Number.isFinite(id) ? id : null);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<false | "details" | "photo">(false);
 
   if (isPending) {
     return (
@@ -116,11 +119,16 @@ export default function ItemPage() {
       </Link>
 
       {editing ? (
-        <EditForm item={item} onDone={() => setEditing(false)} />
+        <EditForm
+          item={item}
+          startWithPhoto={editing === "photo"}
+          onDone={() => setEditing(false)}
+        />
       ) : (
         <Details
           item={item}
-          onEdit={() => setEditing(true)}
+          onEdit={() => setEditing("details")}
+          onEditPhoto={() => setEditing("photo")}
           onDeleted={() => router.push("/closet")}
         />
       )}
@@ -131,10 +139,12 @@ export default function ItemPage() {
 function Details({
   item,
   onEdit,
+  onEditPhoto,
   onDeleted,
 }: {
   item: Garment;
   onEdit: () => void;
+  onEditPhoto: () => void;
   onDeleted: () => void;
 }) {
   const recordWear = useRecordWear();
@@ -192,21 +202,26 @@ function Details({
   return (
     <>
       <div className="grid gap-6 sm:grid-cols-2">
-        <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/40">
-          {item.display_image_url ? (
-            <Image
-              src={item.display_image_url}
-              alt={item.name}
-              fill
-              sizes="(max-width: 640px) 100vw, 360px"
-              className={cn("object-contain p-4", inWash && "opacity-50")}
-              priority
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <Shirt className="size-12" aria-hidden />
-            </div>
-          )}
+        <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-primary/40">
+          <GarmentPicture
+            src={item.display_image_url}
+            alt={item.name}
+            sizes="(max-width: 640px) 100vw, 360px"
+            className={cn("p-4", inWash && "opacity-50")}
+            iconClassName="size-12"
+            priority
+          />
+
+          {/* Always on screen rather than shown on hover: a phone has no hover. */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onEditPhoto}
+            className="absolute bottom-2 right-2 z-10 h-10 gap-2 bg-card/90 shadow-sm backdrop-blur hover:bg-card"
+          >
+            <Camera className="size-4" aria-hidden />
+            {item.display_image_url ? "Change photo" : "Add a photo"}
+          </Button>
         </div>
 
         <div className="space-y-4">
@@ -414,14 +429,73 @@ function LendingSwitch({ item }: { item: Garment }) {
   );
 }
 
-function EditForm({ item, onDone }: { item: Garment; onDone: () => void }) {
+/**
+ * What a saved edit says about the photo. Nothing when it was left alone; the
+ * new upload's addresses and its colour when one was chosen; empty addresses
+ * when it was removed, which also deletes the old files from the image host.
+ */
+function photoChanges(uploaded: ImageUploadResult | null, removed: boolean) {
+  if (uploaded) {
+    return {
+      original_image_url: uploaded.original_image_url,
+      original_image_public_id: uploaded.original_image_public_id,
+      clean_image_url: uploaded.clean_image_url,
+      clean_image_public_id: uploaded.clean_image_public_id,
+      ...(uploaded.detected.primary_color_name
+        ? {
+            primary_color_hex: uploaded.detected.primary_color_hex,
+            primary_color_name: uploaded.detected.primary_color_name,
+          }
+        : {}),
+    };
+  }
+  if (removed) {
+    return {
+      original_image_url: "",
+      original_image_public_id: "",
+      clean_image_url: "",
+      clean_image_public_id: "",
+    };
+  }
+  return {};
+}
+
+function EditForm({
+  item,
+  startWithPhoto,
+  onDone,
+}: {
+  item: Garment;
+  /** Opens with the photo section in view, for the button on the picture. */
+  startWithPhoto?: boolean;
+  onDone: () => void;
+}) {
   const { data: categories } = useCategories();
   const { data: locations } = useStorageLocations();
   const update = useUpdateGarment();
   const createPlace = useCreateStorageLocation();
+  const discard = useDiscardUpload();
+  const photoSection = useRef<HTMLElement>(null);
 
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [uploaded, setUploaded] = useState<ImageUploadResult | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (startWithPhoto) {
+      photoSection.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    }
+  }, [startWithPhoto]);
+
+  function cancel() {
+    // A photo uploaded and then abandoned would sit on the image host for ever.
+    if (uploaded) {
+      discard.mutate([uploaded.original_image_public_id, uploaded.clean_image_public_id]);
+    }
+    onDone();
+  }
 
   const [form, setForm] = useState({
     name: item.name,
@@ -484,6 +558,7 @@ function EditForm({ item, onDone }: { item: Garment; onDone: () => void }) {
         notes: form.notes.trim(),
         seasons: form.seasons as Season[],
         occasions: form.occasions as Occasion[],
+        ...photoChanges(uploaded, photoRemoved),
       },
       {
         onSuccess: () => {
@@ -517,6 +592,19 @@ function EditForm({ item, onDone }: { item: Garment; onDone: () => void }) {
           {formError}
         </p>
       ) : null}
+
+      <section ref={photoSection} className="space-y-4 rounded-xl border border-border p-4">
+        <h2 className="text-base font-semibold">Photo</h2>
+        <PhotoField
+          current={item.display_image_url}
+          uploaded={uploaded}
+          removed={photoRemoved}
+          onUploaded={setUploaded}
+          onRemoved={setPhotoRemoved}
+          onBusyChange={setUploading}
+          autoFocus={startWithPhoto}
+        />
+      </section>
 
       <section className="space-y-5 rounded-xl border border-border p-4">
         <Field
@@ -621,7 +709,7 @@ function EditForm({ item, onDone }: { item: Garment; onDone: () => void }) {
       </section>
 
       <div className="flex flex-col gap-3 sm:flex-row-reverse">
-        <Button type="submit" disabled={update.isPending} className="h-11 gap-2 px-6">
+        <Button type="submit" disabled={update.isPending || uploading} className="h-11 gap-2 px-6">
           {update.isPending ? (
             <Loader2 className="size-5 animate-spin" aria-hidden />
           ) : (
@@ -630,7 +718,7 @@ function EditForm({ item, onDone }: { item: Garment; onDone: () => void }) {
           {update.isPending ? "Saving" : "Save changes"}
         </Button>
 
-        <Button type="button" variant="ghost" onClick={onDone} className="h-11 px-6">
+        <Button type="button" variant="ghost" onClick={cancel} className="h-11 px-6">
           Cancel
         </Button>
       </div>

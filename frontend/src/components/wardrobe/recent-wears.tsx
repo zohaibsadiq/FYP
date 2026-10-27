@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, Shirt } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useRecentWears } from "@/hooks/use-wardrobe";
 import { friendlyDay } from "@/lib/dates";
 import type { WearEvent } from "@/types/wardrobe";
@@ -74,17 +74,7 @@ export function RecentWears({ days = 7 }: { days?: number }) {
                       className="flex items-center gap-2 rounded-lg border border-border bg-card py-1.5 pl-1.5 pr-3 text-sm transition-colors hover:border-primary hover:bg-accent"
                     >
                       <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                        {wear.item_image_url ? (
-                          <Image
-                            src={wear.item_image_url}
-                            alt=""
-                            fill
-                            sizes="36px"
-                            className="object-contain p-0.5"
-                          />
-                        ) : (
-                          <Shirt className="size-4 text-muted-foreground" aria-hidden />
-                        )}
+                        <GarmentPicture src={wear.item_image_url} sizes="36px" className="p-0.5" iconClassName="size-4" />
                       </span>
                       {wear.item_name}
                     </Link>

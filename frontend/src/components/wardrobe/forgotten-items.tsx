@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Clock, Shirt } from "lucide-react";
+import { Clock } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useGarments } from "@/hooks/use-wardrobe";
 import { spanInWords } from "@/lib/dates";
 
@@ -64,17 +64,7 @@ export function ForgottenItems({ days = 90, limit = 4 }: { days?: number; limit?
               className="flex h-full items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary hover:bg-accent"
             >
               <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                {item.display_image_url ? (
-                  <Image
-                    src={item.display_image_url}
-                    alt=""
-                    fill
-                    sizes="56px"
-                    className="object-contain p-1"
-                  />
-                ) : (
-                  <Shirt className="size-5 text-muted-foreground" aria-hidden />
-                )}
+                <GarmentPicture src={item.display_image_url} sizes="56px" className="p-1" iconClassName="size-5" />
               </span>
 
               <div className="min-w-0">

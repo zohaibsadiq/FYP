@@ -10,12 +10,19 @@ const seenFilters: Record<string, unknown>[] = [];
 let owned: Partial<GarmentListItem>[] = [];
 let gone: Partial<GarmentListItem>[] = [];
 let stats: Partial<WardrobeStats> | undefined;
+let placeholder = false;
 
 vi.mock("@/hooks/use-wardrobe", () => ({
   useGarments: (filters: Record<string, unknown>) => {
     seenFilters.push(filters);
     const rows = filters.gone ? gone : owned;
-    return { data: { count: rows.length, results: rows }, isPending: false, isError: false, error: null };
+    return {
+      data: { count: rows.length, results: rows },
+      isPending: false,
+      isPlaceholderData: placeholder,
+      isError: false,
+      error: null,
+    };
   },
   useWardrobeStats: () => ({ data: stats }),
   useMarkWorn: () => ({ mutate: vi.fn(), isPending: false }),
@@ -50,6 +57,7 @@ beforeEach(() => {
   owned = [item()];
   gone = [];
   stats = counts();
+  placeholder = false;
 });
 
 // Anchored, so it never also matches "See what is sold and put away" in the
@@ -57,6 +65,12 @@ beforeEach(() => {
 const goneButton = () => screen.queryByRole("button", { name: /^sold and put away/i });
 
 describe("ClosetPage", () => {
+  it("shows loading tiles instead of the last tab's clothes while a new tab loads", () => {
+    placeholder = true;
+    render(<ClosetPage />);
+    expect(screen.queryByText("Blue Shirt")).not.toBeInTheDocument();
+  });
+
   it("does not offer a way to sold things when nothing has been sold", () => {
     render(<ClosetPage />);
     expect(goneButton()).not.toBeInTheDocument();

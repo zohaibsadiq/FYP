@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Check, Shirt, Store, Undo2 } from "lucide-react";
+import { ArrowLeft, Check, Store, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { EnquiryCard } from "@/components/market/enquiry-card";
@@ -12,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import {
   useAnswerEnquiry,
   useMarkSold,
@@ -197,17 +197,7 @@ function MyListingRow({
     <article className="rounded-xl border border-border p-3">
       <div className="flex gap-3">
         <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-          {listing.item.display_image_url ? (
-            <Image
-              src={listing.item.display_image_url}
-              alt=""
-              fill
-              sizes="64px"
-              className="object-contain p-1"
-            />
-          ) : (
-            <Shirt className="size-5 text-muted-foreground" aria-hidden />
-          )}
+          <GarmentPicture src={listing.item.display_image_url} sizes="64px" className="p-1" iconClassName="size-5" />
         </span>
 
         <div className="min-w-0 flex-1">

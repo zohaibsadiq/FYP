@@ -63,8 +63,21 @@ export default function ShopPage() {
 
   const { data: freshness } = useFreshness();
   const { data: options } = useFilterOptions();
-  const { data, isPending, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useDeals({ ...filters, audience });
+  const {
+    data,
+    isPending,
+    isPlaceholderData,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useDeals({ ...filters, audience });
+
+  // Results for the previous filter stay in memory while the new ones load,
+  // so the page does not jump. They must not be shown as the answer, though:
+  // on a slow connection, women's clothes under the Men tab looks like a bug.
+  const waiting = isPending || isPlaceholderData;
 
   const deals = useMemo(() => data?.pages.flatMap((page) => page.results) ?? [], [data]);
   const total = data?.pages[0]?.count ?? 0;
@@ -235,7 +248,7 @@ export default function ShopPage() {
 
             <section>
               <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
-                {isPending
+                {waiting
                   ? "Looking..."
                   : `${total.toLocaleString("en-US")} ${total === 1 ? "thing" : "things"} found`}
               </p>
@@ -244,6 +257,7 @@ export default function ShopPage() {
                   the new results in rather than swapping them in one frame. */}
               <div
                 key={audience ?? "all"}
+                aria-busy={waiting}
                 className="duration-200 animate-in fade-in slide-in-from-bottom-1"
               >
               {isError ? (
@@ -253,7 +267,7 @@ export default function ShopPage() {
                 >
                   {getErrorMessage(error, "The sales could not be loaded. Try again shortly.")}
                 </p>
-              ) : isPending ? (
+              ) : waiting ? (
                 <LoadingGrid />
               ) : deals.length === 0 ? (
                 <NothingMatched onClear={clearAll} activeCount={activeCount} />

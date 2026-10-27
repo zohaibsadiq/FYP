@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import { Check, Clock, MapPin, Shirt } from "lucide-react";
+import { Check, Clock, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { money } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { Listing } from "@/types/market";
@@ -30,19 +30,11 @@ export function ListingCard({
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md">
       <div className="relative aspect-[3/4] bg-muted/40">
-        {listing.item.display_image_url ? (
-          <Image
-            src={listing.item.display_image_url}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-contain p-2"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <Shirt className="size-8 text-muted-foreground" aria-hidden />
-          </div>
-        )}
+        <GarmentPicture
+          src={listing.item.display_image_url}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="p-2"
+        />
 
         <Badge variant="secondary" className="absolute left-2 top-2 shadow-sm">
           {listing.condition_label}

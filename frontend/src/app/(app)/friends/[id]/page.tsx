@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -11,6 +10,7 @@ import { BorrowDialog } from "@/components/friends/borrow-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useFriendCloset, useFriends } from "@/hooks/use-friends";
 import { getErrorMessage } from "@/lib/api";
 import type { GarmentToBorrow } from "@/types/friends";
@@ -107,19 +107,7 @@ function BorrowCard({
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card">
       <div className="relative aspect-square bg-muted/40">
-        {item.display_image_url ? (
-          <Image
-            src={item.display_image_url}
-            alt=""
-            fill
-            sizes="(min-width: 1024px) 25vw, 50vw"
-            className="object-contain p-2"
-          />
-        ) : (
-          <span className="flex h-full items-center justify-center">
-            <Shirt className="size-8 text-muted-foreground" aria-hidden />
-          </span>
-        )}
+        <GarmentPicture src={item.display_image_url} sizes="(min-width: 1024px) 25vw, 50vw" className="p-2" />
         {!free ? (
           <Badge variant="secondary" className="absolute left-2 top-2">
             {item.availability}

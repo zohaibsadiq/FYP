@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useRegister } from "@/hooks/use-auth";
+import { useRegister, useSkipIfSignedIn } from "@/hooks/use-auth";
 import { getErrorMessage, getFieldErrors } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SHOPPING_FOR, SHOPPING_FOR_LABELS, type ShoppingFor } from "@/types";
@@ -28,6 +28,7 @@ export default function RegisterPage() {
   const [formError, setFormError] = useState("");
 
   const register = useRegister();
+  useSkipIfSignedIn();
 
   function update(event: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;

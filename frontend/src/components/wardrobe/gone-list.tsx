@@ -1,13 +1,13 @@
 "use client";
 
-import Image from "next/image";
-import { Archive, Shirt } from "lucide-react";
+import { Archive } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/wardrobe/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useGarments, useToggleArchived } from "@/hooks/use-wardrobe";
 import { getErrorMessage } from "@/lib/api";
 import type { GarmentListItem } from "@/types/wardrobe";
@@ -54,17 +54,7 @@ export function GoneList({ search = "" }: { search?: string }) {
         <li key={item.id}>
           <article className="flex items-center gap-3 rounded-xl border border-border p-3">
             <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-              {item.display_image_url ? (
-                <Image
-                  src={item.display_image_url}
-                  alt=""
-                  fill
-                  sizes="56px"
-                  className="object-contain p-1"
-                />
-              ) : (
-                <Shirt className="size-5 text-muted-foreground" aria-hidden />
-              )}
+              <GarmentPicture src={item.display_image_url} sizes="56px" className="p-1" iconClassName="size-5" />
             </span>
 
             <span className="min-w-0 flex-1">

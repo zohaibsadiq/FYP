@@ -1,14 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Check, Search, Shirt, X } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 
 import { HistoryButton, WearHistoryDialog } from "@/components/wardrobe/wear-history-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useGarments } from "@/hooks/use-wardrobe";
 import { cn } from "@/lib/utils";
 import { lastWorn, lastWornSentence } from "@/lib/wear";
@@ -90,17 +90,7 @@ export function ItemPicker({
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-background p-2"
                 >
                   <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                    {item.display_image_url ? (
-                      <Image
-                        src={item.display_image_url}
-                        alt=""
-                        fill
-                        sizes="44px"
-                        className="object-contain p-0.5"
-                      />
-                    ) : (
-                      <Shirt className="size-4 text-muted-foreground" aria-hidden />
-                    )}
+                    <GarmentPicture src={item.display_image_url} sizes="44px" className="p-0.5" iconClassName="size-4" />
                   </span>
 
                   <span className="min-w-40 flex-1">
@@ -211,17 +201,12 @@ export function ItemPicker({
                   )}
                 >
                   <span className="relative flex w-full flex-1 items-center justify-center overflow-hidden">
-                    {item.display_image_url ? (
-                      <Image
-                        src={item.display_image_url}
-                        alt=""
-                        fill
-                        sizes="(max-width: 640px) 30vw, 120px"
-                        className="object-contain p-1"
-                      />
-                    ) : (
-                      <Shirt className="size-7 text-muted-foreground" aria-hidden />
-                    )}
+                    <GarmentPicture
+                      src={item.display_image_url}
+                      sizes="(max-width: 640px) 30vw, 120px"
+                      className="p-1"
+                      iconClassName="size-7"
+                    />
                   </span>
 
                   <span className="line-clamp-2 text-xs leading-tight">{item.name}</span>

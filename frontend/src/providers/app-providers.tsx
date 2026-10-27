@@ -1,21 +1,12 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import axios from "axios";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 
 import { WakingNotice } from "@/components/layout/waking-notice";
 import { Toaster } from "@/components/ui/sonner";
-
-/**
- * A request that never got an answer at all is usually the host starting the
- * server back up, and asking again a moment later works. A refusal is an
- * answer, and asking again just gets refused again.
- */
-function gotNoAnswer(error: unknown): boolean {
-  return axios.isAxiosError(error) && !error.response;
-}
+import { gotNoAnswer } from "@/lib/api";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   // Created inside the component, not once for the whole file. One shared cache

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import { Shirt, TriangleAlert } from "lucide-react";
 
@@ -15,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { useCreateListing, usePriceSuggestion } from "@/hooks/use-market";
 import { useGarments } from "@/hooks/use-wardrobe";
@@ -270,19 +270,7 @@ function PickItem({
             className="w-full rounded-lg border border-border p-1.5 text-left transition-colors hover:border-primary hover:bg-accent"
           >
             <span className="relative block aspect-square overflow-hidden rounded bg-muted">
-              {item.display_image_url ? (
-                <Image
-                  src={item.display_image_url}
-                  alt=""
-                  fill
-                  sizes="100px"
-                  className="object-contain p-1"
-                />
-              ) : (
-                <span className="flex size-full items-center justify-center">
-                  <Shirt className="size-5 text-muted-foreground" aria-hidden />
-                </span>
-              )}
+              <GarmentPicture src={item.display_image_url} sizes="100px" className="p-1" iconClassName="size-5" />
             </span>
             <span className="mt-1 block truncate text-xs">{item.name}</span>
           </button>
@@ -296,11 +284,7 @@ function Chosen({ item, onChange }: { item: GarmentListItem; onChange: () => voi
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border p-2.5">
       <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-        {item.display_image_url ? (
-          <Image src={item.display_image_url} alt="" fill sizes="56px" className="object-contain p-1" />
-        ) : (
-          <Shirt className="size-5 text-muted-foreground" aria-hidden />
-        )}
+        <GarmentPicture src={item.display_image_url} sizes="56px" className="p-1" iconClassName="size-5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{item.name}</span>

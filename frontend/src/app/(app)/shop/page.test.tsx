@@ -12,6 +12,7 @@ let dealsState: {
   results: Deal[];
   count: number;
   isPending: boolean;
+  isPlaceholderData?: boolean;
   isError: boolean;
   hasNextPage: boolean;
 };
@@ -32,6 +33,7 @@ vi.mock("@/hooks/use-shopping", () => ({
         ? undefined
         : { pages: [{ results: dealsState.results, count: dealsState.count, next: null, previous: null }] },
       isPending: dealsState.isPending,
+      isPlaceholderData: dealsState.isPlaceholderData ?? false,
       isError: dealsState.isError,
       // Shaped the way axios really hands a server failure over, so the
       // page is tested against the message a person would actually see.
@@ -144,6 +146,13 @@ describe("Sales page", () => {
   it("lists what came back", () => {
     render(<ShopPage />);
     expect(screen.getByText("Mandarin Collar Shirt")).toBeInTheDocument();
+  });
+
+  it("shows loading tiles, not the last tab's results, while a new tab loads", () => {
+    dealsState = { ...dealsState, isPlaceholderData: true };
+    render(<ShopPage />);
+    expect(screen.queryByText("Mandarin Collar Shirt")).not.toBeInTheDocument();
+    expect(screen.getByText("Looking...")).toBeInTheDocument();
   });
 
   it("waits for a pause in typing before searching", async () => {

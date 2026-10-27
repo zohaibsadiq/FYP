@@ -686,6 +686,7 @@ The add page (`/closet/add`) walks the person through four steps:
 3. **Take a photo** (optional). Pick a photo from the phone or take one.
    Within a couple of seconds the background disappears and a preview of the
    cutout appears, with the detected colour and its name.
+   A photo can also be added or changed later, from the item's own page.
 4. **The rest.** Name, brand, size, material, pattern, colour (already
    filled from the photo), seasons, occasions, warmth level, waterproof,
    price and date bought, where it is kept, notes, and whether friends may
@@ -801,7 +802,8 @@ and for what, and cost per wear. The actions:
 | Save to favourites / Remove from favourites | Flips the favourite flag.                                                     |
 | Allow lending / Do not lend this one        | Decides whether friends who can see the closet see this item at all.          |
 | Put it away / Bring it back                 | Moves the status to Put away and back. Explained below.                       |
-| Change details                              | Opens the edit form. Replacing the photo deletes the old one from Cloudinary. |
+| Add a photo / Change photo (on the picture)  | Opens the edit form at its Photo section: choose a photo, replace it, or remove it.        |
+| Change details                               | Opens the edit form: every detail, and the photo at the top. A replaced or removed photo is deleted from Cloudinary. |
 | Delete                                      | Two presses. Deletes the item and both its pictures from Cloudinary.          |
 | The wear history                            | Opens a list of every day it was worn, newest first, with the note for each.  |
 
@@ -910,7 +912,7 @@ asks the database once and returns every number together.
 | Closet grid page                                                         | `frontend/src/app/(app)/closet/page.tsx`                    |
 | Add item page (four steps)                                               | `frontend/src/app/(app)/closet/add/page.tsx`                |
 | Item page                                                                | `frontend/src/app/(app)/closet/[id]/page.tsx`               |
-| Item card, photo guide, wear history, sold list, forgotten, recent wears | `frontend/src/components/wardrobe/`                         |
+| Item card, photo field, photo guide, wear history, sold list, forgotten, recent wears | `frontend/src/components/wardrobe/`                         |
 | Home page                                                                | `frontend/src/app/(app)/dashboard/page.tsx`                 |
 | All closet requests                                                      | `frontend/src/hooks/use-wardrobe.ts`                        |
 | Words for "worn 3 days ago"                                              | `frontend/src/lib/wear.ts`, `frontend/src/lib/dates.ts`     |
@@ -2152,6 +2154,7 @@ Useful commands:
 python manage.py seed_shops     adds the eight shops (once)
 python manage.py sync_deals     reads the shops and refreshes prices (about two minutes)
 python manage.py prune_images   lists Cloudinary pictures nothing points at; --delete removes them
+python manage.py missing_images lists items whose pictures are gone from Cloudinary; --clear removes the dead links
 pytest                          runs the backend tests
 ```
 

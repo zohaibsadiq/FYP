@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import { ArrowDown, ExternalLink, Shirt } from "lucide-react";
+import { ArrowDown, ExternalLink } from "lucide-react";
 
 import { PriceHistory } from "@/components/shop/price-history";
 import { Badge } from "@/components/ui/badge";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { money, savingLabel } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { Deal } from "@/types/shopping";
@@ -26,19 +26,11 @@ export function DealCard({ deal }: { deal: Deal }) {
       )}
     >
       <div className="relative aspect-[3/4] bg-muted/40">
-        {deal.image_url ? (
-          <Image
-            src={deal.image_url}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <Shirt className="size-8 text-muted-foreground" aria-hidden />
-          </div>
-        )}
+        <GarmentPicture
+          src={deal.image_url}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          cover
+        />
 
         <div className="absolute left-2 top-2 flex flex-col items-start gap-1.5">
           {deal.discount_percent > 0 ? (

@@ -34,7 +34,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       className={`${outfit.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground">
+      {/* Browser extensions such as ColorZilla add their own attributes to
+          <body> before React starts, and React would otherwise report every
+          one as a mismatch. Only this element's attributes are left unchecked. */}
+      <body className="min-h-full bg-background text-foreground" suppressHydrationWarning>
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

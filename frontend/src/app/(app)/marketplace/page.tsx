@@ -60,8 +60,21 @@ export default function MarketplacePage() {
   const audience = touchedAudience ? filters.audience : (filters.audience ?? preferred);
 
   const { data: stats } = useMarketStats();
-  const { data, isPending, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useListings({ ...filters, audience });
+  const {
+    data,
+    isPending,
+    isPlaceholderData,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useListings({ ...filters, audience });
+
+  // Results for the previous filter stay in memory while the new ones load,
+  // so the page does not jump. They must not be shown as the answer, though:
+  // on a slow connection, women's clothes under the Men tab looks like a bug.
+  const waiting = isPending || isPlaceholderData;
 
   const listings = useMemo(() => data?.pages.flatMap((page) => page.results) ?? [], [data]);
   const total = data?.pages[0]?.count ?? 0;
@@ -159,7 +172,7 @@ export default function MarketplacePage() {
 
       <section>
         <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
-          {isPending
+          {waiting
             ? "Looking..."
             : `${total.toLocaleString("en-US")} ${total === 1 ? "thing" : "things"} for sale`}
         </p>
@@ -168,13 +181,14 @@ export default function MarketplacePage() {
             eases the new results in instead of snapping to them. */}
         <div
           key={audience ?? "all"}
+          aria-busy={waiting}
           className="duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
         {isError ? (
           <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
             {getErrorMessage(error, "The marketplace could not be loaded. Try again shortly.")}
           </p>
-        ) : isPending ? (
+        ) : waiting ? (
           <LoadingGrid />
         ) : listings.length === 0 ? (
           <NothingHere activeCount={activeCount} onClear={clearAll} onSell={() => setSelling(true)} />

@@ -1,15 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import { ArrowLeft, Camera, Check, Loader2, Upload } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ChoiceField } from "@/components/form/choice-field";
 import { PlaceField } from "@/components/form/place-field";
-import { PhotoGuide } from "@/components/wardrobe/photo-guide";
+import { PhotoField } from "@/components/wardrobe/photo-field";
 import { SlotPicker } from "@/components/wardrobe/slot-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,25 +17,19 @@ import {
   useCategories,
   useCreateGarment,
   useCreateStorageLocation,
-  useDiscardUpload,
   useStorageLocations,
-  useUploadGarmentImage,
 } from "@/hooks/use-wardrobe";
 import { getErrorMessage, getFieldErrors, isStaleChoiceError } from "@/lib/api";
 import { guessStorageKind } from "@/lib/storage-kind";
 import { cn } from "@/lib/utils";
 import type { ImageUploadResult, Slot } from "@/types/wardrobe";
 
-const MAX_MB = 12;
-
 export default function AddItemPage() {
   const router = useRouter();
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [uploaded, setUploaded] = useState<ImageUploadResult | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
   const [formError, setFormError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -59,8 +52,6 @@ export default function AddItemPage() {
 
   const { data: categories } = useCategories();
   const { data: locations } = useStorageLocations();
-  const upload = useUploadGarmentImage();
-  const discard = useDiscardUpload();
   const create = useCreateGarment();
   const createPlace = useCreateStorageLocation();
 
@@ -92,13 +83,6 @@ export default function AddItemPage() {
     }));
   }
 
-  // Nothing waits on this, and a photo left behind costs storage rather than
-  // breaking anything.
-  function letGoOfPhoto(previous: ImageUploadResult | null) {
-    if (!previous) return;
-    discard.mutate([previous.original_image_public_id, previous.clean_image_public_id]);
-  }
-
   function handleCreatePlace(name: string) {
     setFormError("");
     createPlace.mutate(
@@ -113,37 +97,16 @@ export default function AddItemPage() {
     );
   }
 
-  function handleFile(file: File) {
-    if (file.size > MAX_MB * 1024 * 1024) {
-      setFormError(`That photo is too big. Please pick one under ${MAX_MB} MB.`);
-      return;
-    }
-    letGoOfPhoto(uploaded);
-    setUploaded(null);
-    setFormError("");
-    setProgress(0);
-    setPreview(URL.createObjectURL(file));
-
-    upload.mutate(
-      { file, onProgress: setProgress },
-      {
-        onSuccess: (result) => {
-          setUploaded(result);
-          setForm((f) => ({
-            ...f,
-            name: nameEdited
-              ? f.name
-              : suggestName(chosenCategory?.name, result.detected.primary_color_name),
-          }));
-          if (result.warning) toast.warning(result.warning);
-          else toast.success("Background removed.");
-        },
-        onError: (e) => {
-          setPreview(null);
-          setFormError(getErrorMessage(e, "That photo could not be used. Please try another one."));
-        },
-      },
-    );
+  function handleUploaded(result: ImageUploadResult | null) {
+    setUploaded(result);
+    if (!result) return;
+    // The colour found in the photo goes into the suggested name: "Navy Kurta".
+    setForm((f) => ({
+      ...f,
+      name: nameEdited
+        ? f.name
+        : suggestName(chosenCategory?.name, result.detected.primary_color_name),
+    }));
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -242,99 +205,12 @@ export default function AddItemPage() {
         {slot && form.category ? (
           <>
             <Step number={3} title="Take a photo" optional>
-              {!preview ? <PhotoGuide slot={slot} /> : null}
-
-              <input
-                ref={fileInput}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFile(file);
-                }}
+              <PhotoField
+                slot={slot}
+                uploaded={uploaded}
+                onUploaded={handleUploaded}
+                onBusyChange={setUploading}
               />
-
-              {!preview ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInput.current?.click()}
-                  className="mt-4 h-28 w-full flex-col gap-2 border-dashed"
-                >
-                  <Camera className="size-7" aria-hidden />
-                  <span className="text-base font-medium">Take or choose a photo</span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    JPG or PNG, up to {MAX_MB} MB
-                  </span>
-                </Button>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <figure>
-                    <figcaption className="mb-2 text-xs font-medium text-muted-foreground">
-                      Your photo
-                    </figcaption>
-                    <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/40">
-                      {/* Object URL from the local file, so next/image is not involved. */}
-                      <img src={preview} alt="" className="size-full object-contain" />
-                    </div>
-                  </figure>
-
-                  <figure>
-                    <figcaption className="mb-2 text-xs font-medium text-muted-foreground">
-                      Background removed
-                    </figcaption>
-                    <div className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted/40">
-                      {upload.isPending ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
-                          <Loader2 className="size-6 animate-spin text-primary" aria-hidden />
-                          <p aria-live="polite" className="text-xs text-muted-foreground">
-                            {progress < 100
-                              ? `Sending your photo, ${progress}%`
-                              : "Cutting out the background. This takes a few seconds."}
-                          </p>
-                        </div>
-                      ) : uploaded ? (
-                        <Image
-                          src={uploaded.clean_image_url}
-                          alt="The item with its background removed"
-                          fill
-                          sizes="(max-width: 640px) 100vw, 300px"
-                          className="object-contain p-2"
-                        />
-                      ) : null}
-                    </div>
-                  </figure>
-
-                  <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        letGoOfPhoto(uploaded);
-                        setPreview(null);
-                        setUploaded(null);
-                        if (fileInput.current) fileInput.current.value = "";
-                      }}
-                    >
-                      <Upload className="size-4" aria-hidden />
-                      Use a different photo
-                    </Button>
-
-                    {detectedColour ? (
-                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span
-                          aria-hidden
-                          className="size-4 rounded border border-border"
-                          style={{ background: uploaded?.detected.primary_color_hex }}
-                        />
-                        We think this is {detectedColour.toLowerCase()}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              )}
             </Step>
 
             <Step number={4} title="The rest">
@@ -389,7 +265,7 @@ export default function AddItemPage() {
               <Button
                 type="submit"
                 size="lg"
-                disabled={create.isPending || upload.isPending}
+                disabled={create.isPending || uploading}
                 className="h-11 gap-2 px-6"
               >
                 {create.isPending ? (

@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarPlus, Check, Loader2, Pencil, Shirt, Trash2 } from "lucide-react";
+import { CalendarPlus, Check, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ItemPicker } from "@/components/planner/item-picker";
@@ -22,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import {
   useConfirmWorn,
   useDeletePlan,
@@ -110,17 +110,7 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
                   className="flex min-w-40 flex-1 items-center gap-3 rounded-lg transition-colors hover:text-primary"
                 >
                   <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                    {item.display_image_url ? (
-                      <Image
-                        src={item.display_image_url}
-                        alt=""
-                        fill
-                        sizes="48px"
-                        className="object-contain p-1"
-                      />
-                    ) : (
-                      <Shirt className="size-5 text-muted-foreground" aria-hidden />
-                    )}
+                    <GarmentPicture src={item.display_image_url} sizes="48px" className="p-1" iconClassName="size-5" />
                   </span>
 
                   <span className="min-w-0">

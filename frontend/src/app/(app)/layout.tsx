@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
 
+import { isSignedOutAnswer } from "@/lib/api";
+
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
@@ -15,24 +17,34 @@ import { tokens } from "@/lib/tokens";
 // empty page frame with nothing in it.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isError } = useCurrentUser();
+  const { error } = useCurrentUser();
 
   // These pages are built before the browser gets them, and the token lives
   // in the browser, so it can only be read once the browser is running the
-  // page. Listening for changes, rather than reading once, also signs this tab
-  // out when another tab signs out.
-  const signedIn = useSyncExternalStore(tokens.subscribe, tokens.isLoggedIn, () => false);
+  // page. Until then the answer is "not known yet" (null), never "no". On a
+  // reload, React draws the page once with the not-known answer before it
+  // reads the browser's storage, and a "no" at that moment sent every
+  // signed-in person back to the sign-in page. Listening for changes, rather
+  // than reading once, also signs this tab out when another tab signs out.
+  const signedIn = useSyncExternalStore<boolean | null>(
+    tokens.subscribe,
+    tokens.isLoggedIn,
+    () => null,
+  );
 
   useEffect(() => {
-    if (!signedIn) router.replace("/login");
+    if (signedIn === false) router.replace("/login");
   }, [signedIn, router]);
 
+  // Only "your token is dead" means signed out. A server that is asleep, a
+  // slow connection or a bug must not throw somebody out of their account.
+  const signedOut = isSignedOutAnswer(error);
   useEffect(() => {
-    if (isError) {
+    if (signedOut) {
       tokens.clear();
       router.replace("/login");
     }
-  }, [isError, router]);
+  }, [signedOut, router]);
 
   if (!signedIn) {
     return (

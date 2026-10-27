@@ -149,6 +149,13 @@ python manage.py sync_deals          # the refresh itself
 python manage.py sync_deals --shop outfitters   # one shop, when one misbehaves
 ```
 
+Two housekeeping commands for pictures:
+
+```bash
+python manage.py prune_images            # Cloudinary files no item points at; --delete removes them
+python manage.py missing_images          # items whose pictures are gone from Cloudinary; --clear removes the dead links
+```
+
 A full run reads about seven and a half thousand products in under two
 minutes, and honours each shop's requested gap between requests. Twice a day
 is plenty for clothing, where a sale runs for weeks.

@@ -7,9 +7,10 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import { plannerKeys } from "@/hooks/use-planner";
-import { api } from "@/lib/api";
+import { api, gotNoAnswer } from "@/lib/api";
 import { tokens } from "@/lib/tokens";
 import type { AuthResponse, LoginPayload, RegisterPayload, User } from "@/types";
 
@@ -24,8 +25,18 @@ export function useCurrentUser(): UseQueryResult<User> {
     },
     enabled: tokens.isLoggedIn(),
     staleTime: 5 * 60 * 1000,
-    retry: false, // a failed /auth/me/ means signed out, and trying again gives the same answer
+    // A refusal means signed out, and asking again gives the same refusal. No
+    // answer at all is usually the server waking up, so that gets one more try.
+    retry: (failureCount, error) => gotNoAnswer(error) && failureCount < 2,
   });
+}
+
+/** Sends somebody who is already signed in past the sign-in pages. */
+export function useSkipIfSignedIn() {
+  const router = useRouter();
+  useEffect(() => {
+    if (tokens.isLoggedIn()) router.replace("/dashboard");
+  }, [router]);
 }
 
 export function useLogin() {

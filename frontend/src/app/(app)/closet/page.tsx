@@ -61,7 +61,12 @@ export default function ClosetPage() {
     [view, search],
   );
 
-  const { data, isPending, isError, error } = useGarments(filters);
+  const { data, isPending, isPlaceholderData, isError, error } = useGarments(filters);
+
+  // Results for the previous filter stay in memory while the new ones load,
+  // so the page does not jump. They must not be shown as the answer, though:
+  // on a slow connection, women's clothes under the Men tab looks like a bug.
+  const waiting = isPending || isPlaceholderData;
 
   const markWorn = useMarkWorn();
   const toggleLaundry = useToggleLaundry();
@@ -212,8 +217,8 @@ export default function ClosetPage() {
           <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm">
             {getErrorMessage(error, "Your clothes could not be loaded just now.")}
           </p>
-        ) : isPending ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        ) : waiting ? (
+          <div aria-busy className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
             ))}
@@ -279,10 +284,11 @@ export default function ClosetPage() {
             ) : null}
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {items.map((item) => (
+              {items.map((item, index) => (
                 <ItemCard
                   key={item.id}
                   item={item}
+                  priority={index < 4}
                   busy={
                     markWorn.isPending ||
                     toggleLaundry.isPending ||

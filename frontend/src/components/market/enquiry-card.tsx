@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import { Check, Mail, Phone, Shirt, X } from "lucide-react";
+import { Check, Mail, Phone, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { money } from "@/lib/money";
 import type { Enquiry } from "@/types/market";
 
@@ -38,11 +38,7 @@ export function EnquiryCard({
     <article className="rounded-xl border border-border p-3">
       <div className="flex gap-3">
         <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-          {item.display_image_url ? (
-            <Image src={item.display_image_url} alt="" fill sizes="64px" className="object-contain p-1" />
-          ) : (
-            <Shirt className="size-5 text-muted-foreground" aria-hidden />
-          )}
+          <GarmentPicture src={item.display_image_url} sizes="64px" className="p-1" iconClassName="size-5" />
         </span>
 
         <div className="min-w-0 flex-1">

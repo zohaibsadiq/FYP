@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useLogin } from "@/hooks/use-auth";
+import { useLogin, useSkipIfSignedIn } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/api";
 
 export default function LoginPage() {
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [formError, setFormError] = useState("");
 
   const login = useLogin();
+  useSkipIfSignedIn();
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();

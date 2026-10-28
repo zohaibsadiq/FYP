@@ -143,11 +143,35 @@ def check(task_id: str) -> Progress:
         return Progress(done=True, error="The picture came back empty.")
 
     if status == "failed":
-        reason = ((data.get("error") or {}).get("message") or "").strip()
-        logger.warning("Try-on task %s failed: %s", task_id, reason or "no reason given")
+        error = data.get("error") or {}
+        reason = (error.get("message") or "").strip()
+        logger.warning(
+            "Try-on task %s failed: code %s, %s", task_id, error.get("code"), reason or "no reason given"
+        )
+        if _service_fault(error):
+            # Kling gave up on its own side, after processing for its full
+            # time allowance. The photos were never the problem, so the
+            # sentence must not send anybody off to take a new one.
+            return Progress(
+                done=True,
+                error=(
+                    "The drawing service could not finish this one on its side. "
+                    "Try again in a little while."
+                ),
+            )
         return Progress(done=True, error="That picture did not work. Try a different photo.")
 
     return Progress(done=False)
+
+
+def _service_fault(error: dict) -> bool:
+    """
+    True when the supplier reports trouble of its own rather than with the
+    pictures. Code 10000 "Internal error." is what it sends when a picture
+    times out on its side; nothing is charged for those.
+    """
+    message = (error.get("message") or "").lower()
+    return error.get("code") == 10000 or "internal error" in message
 
 
 def _first_image(data: dict) -> str:

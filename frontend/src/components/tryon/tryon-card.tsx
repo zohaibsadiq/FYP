@@ -28,14 +28,19 @@ export function TryOnCard({
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10">
+      {/* The pictures are given a size of their own rather than "fill". The box
+          takes its height from its width, and a picture that finishes loading
+          before the box has been measured made Next.js warn about a height of
+          zero in development. Sized, it stretches over the box all the same. */}
       <div className="relative aspect-3/4 overflow-hidden bg-gradient-to-b from-muted/80 to-muted/20">
         {ready ? (
           <Image
             src={picture.result_url}
             alt={`You wearing ${picture.garment_name}`}
-            fill
+            width={600}
+            height={800}
             sizes="(min-width: 1024px) 25vw, 50vw"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+            className="absolute inset-0 size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
           />
         ) : (
           <>
@@ -43,9 +48,10 @@ export function TryOnCard({
               <Image
                 src={picture.garment_image_url}
                 alt=""
-                fill
+                width={600}
+                height={800}
                 sizes="(min-width: 1024px) 25vw, 50vw"
-                className={cn("object-contain p-6", waiting ? "opacity-30" : "opacity-15")}
+                className={cn("absolute inset-0 size-full object-contain p-6", waiting ? "opacity-30" : "opacity-15")}
               />
             ) : null}
 

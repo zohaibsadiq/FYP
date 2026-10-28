@@ -221,6 +221,7 @@ export default function TryOnPage() {
                     >
                       <GarmentChoice
                         item={item}
+                        priority={index < 3}
                         busy={ask.isPending}
                         onPick={(chosen) =>
                           ask.mutate(chosen.id, {
@@ -458,10 +459,13 @@ function Gallery({
 function GarmentChoice({
   item,
   busy,
+  priority,
   onPick,
 }: {
   item: GarmentListItem;
   busy?: boolean;
+  /** Loads the picture first. For the first few tiles, which are in view on arrival. */
+  priority?: boolean;
   onPick: (item: GarmentListItem) => void;
 }) {
   return (
@@ -477,6 +481,7 @@ function GarmentChoice({
             src={item.display_image_url}
             alt=""
             fill
+            priority={priority}
             sizes="(min-width: 1024px) 20vw, 33vw"
             className="object-contain p-4 transition-transform duration-500 ease-out group-hover:scale-105"
           />

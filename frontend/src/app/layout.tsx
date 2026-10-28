@@ -41,7 +41,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
       // scroll-smooth: a link to a section on the same page glides there instead
       // of jumping. The reduced-motion rule in globals.css turns it off again.
+      // The data attribute tells Next.js the gliding is deliberate, so it can
+      // switch it off for the instant while it moves between pages.
       className={`${outfit.variable} ${mono.variable} ${fraunces.variable} h-full scroll-smooth antialiased`}
+      data-scroll-behavior="smooth"
     >
       {/* Browser extensions such as ColorZilla add their own attributes to
           <body> before React starts, and React would otherwise report every

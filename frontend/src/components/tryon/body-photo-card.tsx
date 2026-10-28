@@ -59,10 +59,13 @@ export function BodyPhotoCard() {
         className="animate-in fade-in zoom-in-95 overflow-hidden rounded-3xl border border-border bg-card duration-500"
       >
         <div className="relative aspect-3/4 bg-gradient-to-b from-muted/80 to-muted/20">
+          {/* The biggest thing on the page, so it is fetched first rather
+              than lazily when it scrolls into view. */}
           <Image
             src={photo.body_photo_url}
             alt="The photo of you that clothes are drawn onto"
             fill
+            priority
             sizes="(max-width: 1024px) 100vw, 320px"
             className="object-cover"
           />

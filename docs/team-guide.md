@@ -228,6 +228,7 @@ Smaller frontend libraries worth knowing by name:
 | Base UI and shadcn/ui      | Ready-made accessible building blocks: dialogs, tabs, menus, switches.                |
 | lucide-react               | The icons.                                                                            |
 | sonner                     | The small "Saved." pop-up messages (toasts).                                          |
+| tw-animate-css             | The short easing-in of cards and sections when a page opens.                          |
 | Vitest and Testing Library | The frontend test tools.                                                              |
 
 ### 3.3 The database: PostgreSQL on Neon
@@ -496,16 +497,16 @@ price refresh).
 | `/login`               |                     | Sign in                                                    | `src/app/(auth)/login/page.tsx`              |
 | `/register`            |                     | Create an account                                          | `src/app/(auth)/register/page.tsx`           |
 | `/dashboard`           | Home                | Greeting, weather, counts, recent things, forgotten things | `src/app/(app)/dashboard/page.tsx`           |
-| `/closet`              | My Clothes          | The closet grid, search, tabs, sold and put away           | `src/app/(app)/closet/page.tsx`              |
-| `/closet/add`          |                     | Add an item in four steps                                  | `src/app/(app)/closet/add/page.tsx`          |
+| `/closet`              | My Clothes          | The closet grid, search, filter chips, sold and put away   | `src/app/(app)/closet/page.tsx`              |
+| `/closet/add`          |                     | Add an item in four steps, with a live preview             | `src/app/(app)/closet/add/page.tsx`          |
 | `/closet/42`           |                     | One item: details, actions, history                        | `src/app/(app)/closet/[id]/page.tsx`         |
 | `/storage`             | Where Things Are    | The tree of rooms, wardrobes and drawers                   | `src/app/(app)/storage/page.tsx`             |
-| `/plan`                | My Plans            | Calendar and day planner                                   | `src/app/(app)/plan/page.tsx`                |
-| `/try-on`              | Try It On           | Body photo, pick a garment, pictures                       | `src/app/(app)/try-on/page.tsx`              |
+| `/plan`                | My Plans            | Calendar, coming-up list and day planner                   | `src/app/(app)/plan/page.tsx`                |
+| `/try-on`              | Try It On           | Three steps: your photo, pick a garment, your pictures     | `src/app/(app)/try-on/page.tsx`              |
 | `/shop`                | Sales               | Clothes on sale in real shops                              | `src/app/(app)/shop/page.tsx`                |
 | `/marketplace`         | Buy and Sell        | Things other users are selling                             | `src/app/(app)/marketplace/page.tsx`         |
 | `/marketplace/selling` |                     | My listings and the requests I received and sent           | `src/app/(app)/marketplace/selling/page.tsx` |
-| `/friends`             | Borrow from Friends | My code, requests, friends, loans                          | `src/app/(app)/friends/page.tsx`             |
+| `/friends`             | Borrow from Friends | How it works, sharing, requests, friends, loans            | `src/app/(app)/friends/page.tsx`             |
 | `/friends/9`           |                     | One friend's lendable clothes                              | `src/app/(app)/friends/[id]/page.tsx`        |
 | `/profile`             | (top-right menu)    | My details                                                 | `src/app/(app)/profile/page.tsx`             |
 
@@ -542,7 +543,13 @@ and what to say if a judge asks about it.
   country is set to Pakistan. Each screen checks its own boxes before moving
   on, and a refusal from the server jumps back to the screen it is about.
 - `/login` - "Welcome back": email and password.
-- `/profile` - "My details": name, email (cannot be changed), city, phone.
+- `/profile` - "My details": an identity card on the left (initials, name,
+  email, "With My Closette since September 2026", city, what you see first,
+  whether friends can see your closet, whether a try-on photo is saved, each
+  with a "Change" link to the page that sets it) and three boxes on the right:
+  About you (name, and the email, which cannot be changed), Where you are and
+  how to reach you (city, phone), and What you see first (pill buttons). The
+  Save button stays grey and says "Nothing to save" until something changes.
 
 Both sign-in pages share a layout with a photograph of a wardrobe on one
 side, under a plum tint. The photo is a stock picture, not anybody's real
@@ -665,9 +672,9 @@ This is the heart of the app. Everything else is built on it.
 - Add a piece of clothing, with or without a photo.
 - When a photo is added, the background is cut away and the colour is found
   automatically.
-- See all clothes in a grid, search them (even with spelling mistakes), and
-  switch between tops, bottoms, full body, outerwear, footwear and
-  accessories.
+- See all clothes in a grid, search them (even with spelling mistakes), show
+  only the favourites, and switch between tops, bottoms, full body,
+  outerwear, footwear and accessories.
 - Open one item to see everything about it and act on it: mark it worn, put
   it in the wash, favourite it, allow or refuse lending, put it away, change
   its details, delete it.
@@ -679,25 +686,32 @@ This is the heart of the app. Everything else is built on it.
 
 ### 7.1 Adding an item: the four steps
 
-The add page (`/closet/add`) walks the person through four steps:
+The add page (`/closet/add`) walks the person through four numbered boxes.
+Each box opens once the one before it is answered, and its number turns
+into a tick when it is done:
 
-1. **What sort of thing is it?** Six big tiles: Tops, Bottoms, Full body,
-   Outerwear, Footwear, Accessories (and Headwear). Each tile shows example
-   names taken from the real categories.
-2. **Which one exactly?** The categories in that group, such as Kurta,
-   Shirt, T-Shirt, Polo, Sweater, Hoodie. A person can also add their own
-   category.
+1. **What sort of thing is it?** Big tiles, one per sort, each with a drawn
+   outline: Tops, Bottoms, Full body, Outerwear, Footwear, Accessories,
+   Headwear, Other. Each tile shows example names taken from the real
+   categories.
+2. **Which one exactly?** The categories in that group as a row of pill
+   buttons, such as Kurta, Shirt, T-Shirt, Polo, Sweater, Hoodie.
 3. **Take a photo** (optional). Pick a photo from the phone or take one.
    Within a couple of seconds the background disappears and a preview of the
    cutout appears, with the detected colour and its name.
    A photo can also be added or changed later, from the item's own page.
-4. **The rest.** Name, brand, size, material, pattern, colour (already
-   filled from the photo), seasons, occasions, warmth level, waterproof,
-   price and date bought, where it is kept, notes, and whether friends may
-   borrow it.
+4. **The rest.** A name (suggested from the colour and the kind, such as
+   "Navy Kurta", and free to change), the brand, what it cost, and where it
+   is kept. A place typed here that does not exist yet is added to Where
+   Things Are on the spot. Size, material, pattern, seasons, occasions and
+   notes are added later from the item's page, with "Change details".
 
-Nothing is saved until the final Save button. If the person leaves after
-uploading a photo, the frontend tells the backend to throw the unused
+On a wide screen a card called "How it will look" sits on the right and
+fills in as the form is answered. It is the same card the item will get in
+My Clothes, so there are no surprises after saving.
+
+Nothing is saved until "Save to my closet" is pressed. If the person leaves
+after uploading a photo, the frontend tells the backend to throw the unused
 pictures away, so they do not sit on Cloudinary costing money.
 
 ### 7.2 Step by step: what happens to a photo
@@ -773,15 +787,29 @@ asked.
 The closet page (`/closet`) shows:
 
 - a heading with the counts: "12 items, 2 in the wash"
-- a search box
-- tabs: All, Tops, Bottoms, Full body, Outerwear, Footwear, Accessories
-- a grid of item cards, 24 per page, newest first
-- "Add an item"
-- "Sold and put away", with a count, which only appears once something has
-  been sold or put away
+- "Add an item", and "Sold and put away" with a count, which only appears
+  once something has been sold or put away
+- a rounded search box ("Search your clothes, like: blue shirt")
+- a row of filter chips under it: **Favourites** (with a heart), then
+  Everything, Tops, Bottoms, Full body, Outerwear, Footwear, Accessories.
+  Every chip carries its count, and the chosen one is filled in plum.
+  Favourites combines with a sort, so "favourite tops" is one tap away
+- "Showing 8 of 24" when a filter or a search is on
+- a grid of item cards, newest first: two across on a phone, up to five on
+  a wide screen, easing in one after another
 
-Each card shows the cutout picture, name, brand, colour, status, when it was
-last worn, and quick buttons for "I wore this", the wash, and favourite.
+Every card has exactly the same lines, whether or not the facts are known,
+so a grid of them lines up:
+
+- the cutout picture, with a small dot of the colour the app found, a heart
+  to favourite it, and an "In the wash" label when it is in the wash
+- the name, then the brand and kind ("Khaadi, Kurta")
+- where it is kept ("Bedroom > Main Wardrobe > Drawer 2"), or "No place
+  yet"
+- two buttons: "I wore this" and "To the wash" (or "It is clean")
+
+How often it was worn and what it cost are not on the card. They live on
+the item page, which opens when the card is tapped.
 
 **Search that forgives spelling mistakes.** Typing "snekers" would normally
 find nothing. When the normal search finds nothing, the backend tries a
@@ -795,21 +823,41 @@ letters are not tried: "j" alone would match both Jeans and Jacket.
 
 ### 7.4 The item page
 
-Opening a card goes to `/closet/42`. The page shows the picture, every
-detail, where it is kept, how many times it was worn, when it was last worn
-and for what, and cost per wear. The actions:
+Opening a card goes to `/closet/42`. On a wide screen the picture sits on
+the left and stays in view while the rest scrolls; on a phone it comes
+first. Around it:
+
+- on the picture: a heart to favourite it, "In the wash" when it is, and a
+  "Change photo" (or "Add a photo") button
+- the kind as a small line, the name as the heading, and a sentence such as
+  "Worn 3 times, last worn 2 weeks ago."
+- chips for the status (with a coloured dot), the place it is kept, and
+  Favourite
+- the main buttons: "I wore this today", "To the wash" or "It is clean",
+  and "Change details"
+- three tiles: Times worn, Each wear costs ("Not yet" until it has been
+  worn once), What you paid ("Not set" if no price was given)
+- "About this item": brand, size, material, pattern, colour (with a
+  swatch), the seasons it is good for, the occasions it is worn to, notes.
+  Only the facts that were filled in are shown
+- "When you wore it": every day it was worn, newest first, with the note
+  for each, and "I wore it on another day" to record a past day
+- a "More" box with three rows, each explained in a sentence: lending to
+  friends, putting it away, removing it
+
+The actions:
 
 | Button                                      | What happens                                                                  |
 | ------------------------------------------- | ----------------------------------------------------------------------------- |
 | I wore this today                           | Writes one row in the wear log for today. Pressing twice counts once.         |
 | To the wash / It is clean                   | Moves the status between In wardrobe and In the wash.                         |
-| Save to favourites / Remove from favourites | Flips the favourite flag.                                                     |
+| The heart on the picture                    | Flips the favourite flag.                                                     |
 | Allow lending / Do not lend this one        | Decides whether friends who can see the closet see this item at all.          |
 | Put it away / Bring it back                 | Moves the status to Put away and back. Explained below.                       |
-| Add a photo / Change photo (on the picture)  | Opens the edit form at its Photo section: choose a photo, replace it, or remove it.        |
-| Change details                               | Opens the edit form: every detail, and the photo at the top. A replaced or removed photo is deleted from Cloudinary. |
-| Delete                                      | Two presses. Deletes the item and both its pictures from Cloudinary.          |
-| The wear history                            | Opens a list of every day it was worn, newest first, with the note for each.  |
+| Add a photo / Change photo (on the picture) | Opens the edit form at its Photo section: choose a photo, replace it, or remove it. |
+| Change details                              | Opens the edit form in four boxes: Photo, The basics, Where it lives and what it cost, When and where you wear it. A replaced or removed photo is deleted from Cloudinary. |
+| Remove from my closet                       | Two presses ("Yes, remove it"). Deletes the item and both its pictures from Cloudinary. |
+| I wore it on another day                    | Records a past day, with a note. A future day is refused.                     |
 
 ### 7.5 The wear log and cost per wear
 
@@ -826,8 +874,8 @@ Rules:
 - **A past day can be recorded**: "I wore this on the 14th". A future day
   cannot: "That day has not happened yet."
 - **A mistaken tap can be undone** with "unmark worn".
-- **A note can be attached**: "Ayesha's mehndi". The grid shows the most
-  recent note under the item.
+- **A note can be attached**: "Ayesha's mehndi". It shows in the item's wear
+  history, and on Home beside the day it was worn.
 - **Cost per wear** = price paid / times worn. Example: a 4,000 rupee kurta
   worn 8 times costs 500 per wear. Never worn, it shows the full price. No
   price recorded, it shows nothing rather than a made-up number.
@@ -849,8 +897,8 @@ Both are reached through the "Sold and put away" button on the closet page.
 The button only appears when there is something to show, and the count on it
 is live, so putting the last thing back takes the button away. Somebody who
 has sold everything has an empty closet but still needs the way in, so the
-button sits in the header next to "Add an item", not in the row of tabs that
-an empty closet hides.
+button sits in the header next to "Add an item", not in the row of filter
+chips that an empty closet hides.
 
 Behind the screen, the closet list leaves sold and put-away things out
 unless asked for them by name (`?gone=true`). The counts do the same, so
@@ -873,9 +921,10 @@ Thirty-four built-in categories come with the app, created by a migration
 | HEADWEAR  | Cap, Hat                                            |
 | OTHER     | Unstitched Fabric                                   |
 
-Built-in categories belong to nobody and cannot be changed or deleted. A
-person can add their own, such as "Lawn suits", which only they see. A
-category still holding items cannot be deleted.
+Built-in categories belong to nobody and cannot be changed or deleted. The
+API lets a person add their own, such as "Lawn suits", which only they would
+see; the pages do not offer a button for it yet. A category still holding
+items cannot be deleted.
 
 The slot is what the rest of the app reads. The planner, the try-on and the
 shop prices all ask "is this a top or a bottom?", never "is this a kurta or
@@ -883,17 +932,26 @@ a shirt?".
 
 ### 7.8 What Home shows
 
-The Home page (`/dashboard`) greets the person by name and shows:
+The Home page (`/dashboard`) says "Good morning, Ayesha" with the date above
+it, and shows:
 
+- three quick buttons: Add an item, Plan today, Try something on
 - the weather card (section 9)
-- four counts: things you own, in the wash, places you keep them, worn this
-  week
-- the four most recently added items
-- "worn recently": the last few days of the wear log, grouped by day
-- "forgotten": things not worn for 90 days, shown as a gentle reminder, not
-  a warning
+- four tiles: a wide "Things you own" tile with a small bar for each sort
+  (tops, bottoms, and so on), then In the wash, Places you keep them, and
+  Worn this week. The numbers count up when the page opens, and each tile
+  opens the page it belongs to
+- "Added recently": the four newest items, as the same cards My Clothes uses
+- "What you wore this week": a strip of the last seven days, today marked,
+  with the clothes worn on each day as small round pictures and a count
+  under each; below it, the last three busy days written out with their
+  notes ("Friday: Blue Kurta, Jeans - Ayesha's mehndi")
+- "You have not worn these in a while": up to four picture cards of things
+  untouched for 90 days or more, each labelled "3 months ago" or "Never
+  worn", with a "See all" link. A gentle reminder, not a warning
 
-A brand new account sees "Start with one item" and a big "Add my first
+A brand new account sees "Start with one item" with three steps (take a
+photo, say where it lives, watch the closet grow) and a big "Add my first
 item" button instead.
 
 All the counts come from one address, `/api/wardrobe/items/stats/`, which
@@ -916,7 +974,7 @@ asks the database once and returns every number together.
 | Closet grid page                                                         | `frontend/src/app/(app)/closet/page.tsx`                    |
 | Add item page (four steps)                                               | `frontend/src/app/(app)/closet/add/page.tsx`                |
 | Item page                                                                | `frontend/src/app/(app)/closet/[id]/page.tsx`               |
-| Item card, photo field, photo guide, wear history, sold list, forgotten, recent wears | `frontend/src/components/wardrobe/`                         |
+| Item card, slot picker, photo field, photo guide, wear history, sold list, forgotten, week strip, empty state | `frontend/src/components/wardrobe/`                         |
 | Home page                                                                | `frontend/src/app/(app)/dashboard/page.tsx`                 |
 | All closet requests                                                      | `frontend/src/hooks/use-wardrobe.ts`                        |
 | Words for "worn 3 days ago"                                              | `frontend/src/lib/wear.ts`, `frontend/src/lib/dates.ts`     |
@@ -973,10 +1031,20 @@ shirt?" is answered.
 
 ### The page
 
-`/storage` ("Where Things Are") shows the tree with the number of items in
-each place. From there a person can add a place ("What is it called?",
-what kind it is, where it is inside), rename it, move it inside another
-place, or remove it.
+`/storage` ("Where Things Are") shows, under the heading, three small
+counts: "4 places", "7 items have a place", and "2 items have no place yet"
+when that is so. Then one card per room (or any place that stands on its
+own), with a picture for its kind, its name, and a line such as "Room, 2
+places inside, 7 items". The places inside it hang off a line down the
+left, each with its own picture, name and line, so a wardrobe full of
+drawers reads like the real thing.
+
+Every row has a Change and a Remove button. "Add a place" opens the form:
+"What is it called?", "What kind of place is it?" as a row of pill buttons
+with pictures (Room, Wardrobe / Closet, Cabinet, Drawer, Shelf, Hanging
+rail, Hanger slot, Box / Storage bin, Suitcase, Other), and "Is it inside
+another place?". Changing a place opens the same form in its row, so it can
+be renamed or moved inside another place.
 
 When a place is created from inside the item form, the kind is guessed
 from the name: "Drawer 2" becomes a drawer, "Suitcase" a suitcase. Without
@@ -996,8 +1064,8 @@ the guess, every quickly added place would land in the tree as "Other".
   "There is already a Drawer 2 in Bedroom > Main Wardrobe."
 - **Deleting a place deletes the places inside it.** The clothes survive;
   they simply have no recorded place any more. The confirmation says exactly
-  what will go: "The 3 places inside it go as well. 12 items will be left
-  without a place."
+  what will go: "The 3 places inside it go as well. Your 12 items kept there
+  stay in your closet, but the app will no longer know where they are."
 - **Item counts leave out sold and put-away things**, the same as everywhere
   else.
 - A person can only use their own places. Trying to put a garment in another
@@ -1043,7 +1111,7 @@ the guess, every quickly added place would land in the tree as "Other".
 
 ### 9.1 The weather card
 
-The card appears on Home and on My Plans. It shows the city, temperature,
+The card appears on Home. It shows the city, temperature,
 how it feels, today's high and low, humidity, wind, rain chance, and a
 headline with a sentence of advice:
 
@@ -1083,10 +1151,21 @@ nothing.
 
 ### 9.2 Planning a day
 
-`/plan` ("Plan your days") shows a month grid. Days with a plan are marked.
-Tapping a day opens it: a label ("Ayesha's mehndi", "Job interview"), a
-note, and "Pick what you will wear", which opens a picker of the closet as
-tappable pictures. Up to 12 items per day.
+`/plan` ("Plan your days") has the calendar on the left and the chosen day
+on the right. On a wide screen the calendar stays put while the day
+scrolls. Days with a plan are marked, a "Go to today" button jumps back,
+and under the calendar "Coming up" lists the next three planned days as
+shortcuts, each with its label and how many items are picked.
+
+The day panel says how far off the day is ("Today", "Tomorrow", "In 3
+days"), the full date, and a chip: Free day, Planned, or Already worn. A
+free day shows the form: "What is the day?" ("A wedding, office, Eid"),
+"Anything to remember?", and "Pick what you will wear", a picker of the
+closet as tappable pictures with a search box. Up to 12 items per day. The
+Save button only appears once something has been picked or written. A
+planned day shows its items as picture cards, each saying when it was last
+worn, with "I wore this" (once the day has come), "Change it" and "Clear
+this day".
 
 ### Step by step: saving and confirming a plan
 
@@ -1160,10 +1239,10 @@ tappable pictures. Up to 12 items per day.
 ### What it does
 
 Shows what is on sale right now in eight real Pakistani clothing shops,
-with the price, the old price, the percentage off, the sizes still in
-stock, and a link to the shop's own page. A person can filter by who it is
-for, what it is, colour, size, shop and price, and see how the price of one
-product has moved over time.
+with the price, the old price, what that saves, and a Buy button that opens
+the shop's own page. A person can filter by who it is for, what it is,
+colour, size, shop and price. Every real price change is recorded behind
+the scenes, which is what makes "Price just dropped" possible.
 
 ### How the prices get into the app
 
@@ -1214,21 +1293,35 @@ a failure the scheduler can see.
 
 `/shop` ("Sales") shows:
 
+- a heading with "1,234 things on sale" beside it
 - a **freshness bar**: "Prices checked 2 hours ago", or a warning when they
-  are older than 24 hours ("...and may have moved since")
+  are older than 24 hours ("...and may have moved since"), with a button
+  that opens the list of shops and when each was last read
 - tabs: **Everyone, Women, Men, Kids**, each with a count
-- a search box
-- quick choices: Half price or better, Under Rs 2,000, In stock only
-- a filter panel: only reduced things, price dropped this week, how big a
+- a toolbar card: a rounded search box ("Search the sales, like: navy
+  kurta"), an "Order by" dropdown (biggest saving, cheapest first, dearest
+  first, price dropped most recently, newly added), and on a phone a
+  Filters button that opens the filter panel from the bottom of the screen
+- quick chips under it: Half price or better, Under Rs 2,000, In stock only
+- the filter panel, on the left on a wide screen and staying in view while
+  the grid scrolls: only reduced things, price dropped this week, how big a
   cut, where it is worn, kind, colour, size, shop, price range, leave out
   sold-out things
-- sort: biggest saving, cheapest first, dearest first, price dropped most
-  recently, newly added
-- a grid of deal cards: picture, title, shop, price, old price, % off, sizes
-  (with "+3 more"), a "just dropped" mark when the price fell in the last 7
-  days, and a link that opens the shop's page in a new tab
-- a **price history** for each product: every price it has been seen at,
-  with dates
+- "2,310 things found", then a grid of deal cards, two across on a phone and
+  four on a wide screen, with "Show more" at the bottom until everything is
+  in
+
+Each deal card shows only what a person needs to decide: the shop's photo,
+the title, the price, the old price struck through, what that saves ("Rs
+3,530 off"), and what kind of thing it is ("Shirt"). Small badges on the
+photo say "40% off", "Price just dropped" when the price fell in the last 7
+days, and "Sold out". The Buy button opens the shop's own page in a new tab,
+and for screen readers it says which shop. Sizes, colours and the shop's name
+were taken off the card on purpose, so a row of cards reads at a glance.
+
+The price history of a product (every price it has been seen at, with
+dates) is still recorded and served by the API, and a component for it
+exists in `components/shop/`, but no page shows it at the moment.
 
 The page opens on the tab matching what the person said they shop for. The
 counts on the tabs come from the shops' own labelling, so a tab that would be
@@ -1299,12 +1392,36 @@ happen between them, in person.
 
 ### The pages
 
-- `/marketplace` ("Buy and Sell"): what other people are selling. Tabs for
-  Everyone, Women, Men, Kids; a search box ("Try: kurta"); filters for city,
-  near me, size and highest price; sort by newest, cheapest, dearest. Each card shows the garment photo, name, brand,
-  size, condition, price, seller's name and city, and an "Ask to buy" button.
-- `/marketplace/selling` ("My selling and requests"): my listings, the
-  requests people sent me, and the requests I sent.
+Both pages open with a "How it works" box of three numbered steps, so
+nobody has to guess what a request does.
+
+- `/marketplace` ("Buy and Sell"): what other people are selling. The three
+  steps: Find something you like, Tap Ask to buy, Meet and pay in person.
+  Then tabs for Everyone, Women, Men, Kids; a strip of your own numbers when
+  there are any ("2 people are waiting on your answer", "1 of yours is up
+  for sale", "1 of your requests was accepted") with a link to the selling
+  page; a rounded search box ("Search what is for sale, like: kurta"); an
+  "Order by" dropdown (newest, cheapest, dearest); and filters: "In my
+  city", the four conditions as chips, where it is worn, city, size, highest
+  price, with a "Clear 2 filters" button. Each card shows the garment photo
+  with its condition on a badge, the name, the price, "Kurta - Size M -
+  Khaadi", the seller's note, the seller's first name and city, an "Ask to
+  buy" button, and a small "Report this" link. Once asked, the button
+  becomes "Waiting for a reply", then "They said yes" or "This one is
+  closed".
+- `/marketplace/selling` ("My selling and requests"): the three steps of
+  selling (Put something up; Answer the people who ask; Meet, hand it over,
+  mark it sold), three counts ("1 request waits for your answer", "2 up for
+  sale", "1 request sent by you"), and three tabs, each opening with a line
+  that says what it is for: **Requests for me**, **Things I am selling**
+  (each row with Sold and Take it down), **Things I asked for**.
+- "Sell something" opens a dialog in two steps: "Step 1 of 2: What are you
+  selling?" picks from your own clothes; "Step 2 of 2: Set your price" asks
+  how worn it is, the price (with the suggestion), who it would suit, and a
+  note, then "Put it up for sale".
+- "Ask to buy" opens a dialog that first says what will happen (the seller
+  says yes or no; if yes, you both see each other's details; you arrange
+  where to meet and pay directly), then takes an optional message.
 
 ### Step by step: a complete sale
 
@@ -1337,11 +1454,11 @@ Ali sells his trousers to Sara.
 
 6. Sara presses "Ask to buy" and writes "Is it still available?".
    POST /api/market/listings/31/enquire/  saves the request. One request
-   per person per listing. Her card now says "Asked" instead of offering
-   the button again.
+   per person per listing. Her card now says "Waiting for a reply" instead
+   of offering the button again.
 
-7. Ali's menu badge shows 1. On "My selling and requests" he sees Sara's
-   request, with her name and city only.
+7. Ali's menu badge shows 1. Under "Requests for me" on My selling and
+   requests he sees Sara's request, with her name and city only.
 
 8. Ali presses Accept.  POST /api/market/enquiries-received/12/accept/
    The listing becomes Held for a buyer and stops taking new requests.
@@ -1472,27 +1589,40 @@ account. But a person would. So:
 
 ### The page
 
-`/friends` ("Borrow from Friends") shows:
+`/friends` ("Borrow from Friends") shows, from the top:
 
-- **Your code**, with a copy button and "new code", and the switch "Let my
-  friends see what I can lend" (off for every new account)
-- **Add a friend**: type the code a friend gave you
-- **Requests**: people who asked to be your friend, with Accept (and the
-  nickname box) and Decline
-- **Your friends**: nickname, their name and city, whether they have opened
-  their closet, how many things you could borrow; rename, block, remove
-- **Asks waiting for you**, **Lent out**, **Borrowed**: the loans from both
-  sides, with Agree / Decline / Returned / Cancel, and an overdue mark
+- a **How it works** box with three steps: Swap codes, Open your closet,
+  Ask and lend. It says plainly that nobody can find you by name and that
+  friends see only the name, brand, size and colour of each thing
+- a line in amber if you are late giving something back
+- the sharing switch, as a card: "Let my friends see what I can lend", with
+  "Turn it on" / "Turn it off" and a sentence saying what friends see (off
+  for every new account)
+- four counts: friends, asks waiting for your answer, lent out, borrowed
+- **"1 person wants to be your friend"**: requests, each with Accept (and
+  the nickname box) and Decline
+- four tabs in one pill, each opening with a line that says what it is for:
+  **My friends** (nickname, their name and city, "3 things you could borrow"
+  or "They have not opened their closet yet", a "See what they lend" button;
+  Rename, Block, Remove), **Asked of me** ("Yes, lend it" / "Not this
+  time"), **Lent out** ("I got it back"), **Things I borrowed** ("I changed
+  my mind"), with a "3 days late" mark where a return date has passed
 
-Opening a friend goes to `/friends/9`: their lendable clothes with a picture,
-name, brand, size and whether each is free, in the wash or lent out just now.
-Each has "Ask to borrow".
+**Add a friend** (the button at the top) opens one dialog with everything
+about codes: the three steps in short, **Your code** with Copy and "Make a
+new code", and **Their code** with "Ask to be friends".
+
+Opening a friend goes to `/friends/9`: "3 things free to borrow right now",
+then their lendable clothes with a picture, name, brand, size and whether
+each is free or in the wash. Anything already out with somebody else is not
+offered at all. Each free one has "Ask to borrow", which asks for the day you
+want it, the day you will give it back, and a message if you like.
 
 ### Step by step: becoming friends
 
 ```
-1. Ali opens Borrow from Friends. His code appears (it is made the first
-   time anybody looks at it).
+1. Ali opens Borrow from Friends and taps Add a friend. His code appears in
+   the dialog (it is made the first time anybody looks at it).
 2. He tells Sara his code.
 3. Sara presses "Add a friend" and types it. Capital letters, spaces and
    dashes do not matter.
@@ -1532,11 +1662,12 @@ the other way.
    The backend checks everything again, not trusting the list on her
    screen, which may be minutes old: still friends, not blocked either way,
    closet still shared, item still lendable and free, no other open loan.
-5. Ali's badge shows 1. He presses Agree.  POST /api/friends/loans/7/agree/
+5. Ali's badge shows 1. He presses "Yes, lend it".
+   POST /api/friends/loans/7/agree/
    The kurta's status becomes Lent to a friend. It stays in Ali's counts
    (it is still his) but cannot be worn, washed, planned or sold.
 6. Sara wears it to the wedding.
-7. Ali presses Returned.  POST /api/friends/loans/7/returned/
+7. Ali presses "I got it back".  POST /api/friends/loans/7/returned/
    The kurta is back In wardrobe.
 ```
 
@@ -1658,34 +1789,49 @@ for this.
 
 ### The page
 
-`/try-on` ("Try It On") shows, from the top:
+`/try-on` ("Try It On") is built as three steps, and the page itself shows
+how far along the person is:
 
-1. A line saying whether Try-On is switched on and how many pictures are
-   left today ("7 of 10 left today").
-2. **Add a photo of yourself**: guidance (a full-length, front-facing photo,
-   plain background, fitted clothes), a "Before you add it" explanation of
-   where the photo goes, a consent tick box, and the file picker. Once a
-   photo is saved it is shown here, with a two-step delete.
-3. **Pick something to try**: the closet garments that have a photo and can
-   be drawn (tops, bottoms, outerwear, full outfits; not shoes, bags or
-   watches). Tap one to start.
-4. **Upload a photo instead**: for a garment that is not in the closet. It
+1. At the top: "7 of 10 left today" with a small bar, and an "Upload a
+   photo instead" button. If Try-On is switched off on the server, a line
+   says so and that everything else works as normal.
+2. A strip of three steps, each ticked once done: **Your photo**, **Pick a
+   garment**, **See it on you**.
+3. Before a body photo exists, a **How it works** box explains the three
+   steps in a sentence each: add one photo of yourself, full length and on
+   a plain background; pick something from the closet or a photo from a
+   shop; see it on you in two to four minutes.
+4. **Add a photo of yourself**: two lists (what works well, what gives a
+   poor result), a drawn outline saying "Head to knees, facing you", a
+   "Before you add it" explanation of where the photo goes and what deleting
+   it does, and the button "Choose a photo and agree". Once a photo is saved
+   it is shown here with "Use a different photo" and a two-step delete. On a
+   wide screen this card sits on the left and stays in view.
+5. **Step 2, Pick something to try**: the closet garments that have a photo
+   and can be drawn (tops, bottoms, outerwear, full outfits; not shoes, bags
+   or watches), as picture tiles. Hovering or focusing one shows "Try it
+   on"; tapping starts the picture. When the day's pictures are used up it
+   says "That is all for today. Come back tomorrow."
+6. **Upload a photo instead**: for a garment that is not in the closet. It
    asks which part of the body it covers (Top half / Bottom half / Full
    outfit) and whether to keep it in the closet under a name.
-5. **Your pictures**: every picture made, newest first. A waiting one shows
-   "Drawing it on you. This takes two to four minutes." A finished one shows
-   the picture with Save and Delete. A failed one shows the reason in plain
-   words.
-6. A note: "These pictures are a guide to how something looks, not how it
-   fits."
+7. **Step 3, Your pictures**: every picture made, newest first, with a
+   summary ("2 ready, 1 on the way"). A waiting one shows the garment
+   faintly with a moving shimmer, "Drawing it on you" and "This takes two to
+   four minutes." A finished one shows the picture with Save and Delete. A
+   failed one shows the reason in plain words.
+8. A note: "These pictures are a guide to how something looks, not how it
+   fits. Check the size before buying anything."
 
 ### Step by step: the body photo
 
 ```
-1. Ali reads the explanation, ticks the consent box, picks a photo.
+1. Ali reads "Before you add it", presses "Choose a photo and agree", and
+   picks a photo. Pressing that button is the agreement.
 2. POST /api/try-on/body-photo/  with the photo and consent=true.
-3. Without the tick: "Tick the box to say the photo may be sent away to be
-   processed." Nothing is saved.
+3. Without consent=true the server refuses and saves nothing. The page
+   always sends it with the button, so the refusal is a safety net rather
+   than something a person sees.
 4. The photo is checked like any other (12 MB, real image) and sent to
    Cloudinary under closette/users/body/u<id>/body. A fixed name means one
    photo per account: a new upload replaces the old one.
@@ -1743,8 +1889,8 @@ under the built-in category for that body part.
 ### Rules worth knowing
 
 - **Consent is recorded on the server, with a time**, not just remembered
-  by a tick box in the browser, because the permission has to be provable by
-  the server that acts on it.
+  by the browser, because the permission has to be provable by the server
+  that acts on it.
 - **10 pictures per account per day**, counted in the database. A rate limit
   on top slows down a burst.
 - **Every picture costs about 7 US cents.** Nothing is sent to the supplier
@@ -1801,9 +1947,12 @@ feature. Know them.
 
 **Lists come in pages of 24.** Every list address answers with `count`,
 `next`, `previous` and `results`. Twenty-four divides evenly into the two,
-three and four column grids, so the last row is never ragged. A page may ask
-for more with `?page_size=` (up to 200), which the category dropdown uses to
-get all 34 categories at once.
+three and four column grids a phone, a tablet and a laptop get, so the last
+row is rarely ragged (a very wide screen shows five columns in My Clothes,
+and there it can be short). The Sales and Buy and Sell grids load the next
+page when "Show more" is pressed. A page may ask for more with
+`?page_size=` (up to 200), which the category choices use to get all 34
+categories at once.
 
 **Every list is filtered by owner first.** Said three times in this guide
 because it is the security of the whole app.
@@ -1826,12 +1975,28 @@ after four seconds of silence. File: `frontend/src/lib/wake.ts`,
 
 **Accessibility rules followed throughout** (good to mention):
 
-- Every icon has a visible text label. Hover-only labels do not exist on a
-  touch screen.
-- Every button is at least 44 by 44 pixels, the recommended size for a thumb.
+- Icons never stand alone. Each one sits next to a text label, or carries a
+  hidden label that screen readers read out ("Save Blue Kurta to
+  favourites" on the heart). Nothing depends on hovering, which does not
+  exist on a touch screen.
+- Buttons are made for thumbs. The main ones are 44 pixels tall, and even
+  the small round icon buttons are 36.
 - Meaning never depends on colour alone. A red badge always carries a number.
 - Every empty page says what to do next and links to it.
 - Animations switch off for anybody whose device asks for less motion.
+
+**One look everywhere.** Every page is built the same way, so once a person
+knows one they know them all: a short line in plum above the heading that
+says where they are ("My closet", "Your places", "Your circle"), a large
+heading in the Fraunces typeface, rounded cards, pill-shaped choice buttons
+that fill in plum when chosen, counts in small rounded chips, and a soft lift
+with a plum shadow when a card is hovered. Sections ease in one after
+another as a page loads. Pages with a long right-hand side (Add an item,
+the item page, My Plans, Try It On, Sales) keep their left-hand panel in
+view while the rest scrolls. The colours are named in one file,
+`frontend/src/app/globals.css`, under the name "Linen and plum": a warm
+off-white ground, warm dark ink, deep plum for anything that can be
+pressed, and teal, olive, amber and terracotta for the small charts.
 
 **The live API documentation.** `/api/docs/` on the backend is a clickable
 page listing every address, what it takes and what it returns, generated
@@ -1977,7 +2142,7 @@ A judge will ask "how is this secure?". Here is the list.
 | Secret key guard                                 | The server refuses to start in production with the development key.                                                                                               | `config/settings.py`            |
 | Contact details refused                          | Phone numbers, emails and "WhatsApp me" hints are refused in listing notes, buy requests and borrow messages.                                                     | `apps/community/models.py`      |
 | Phone number privacy                             | A phone number is shown to exactly one other person, and only after the seller accepts them.                                                                      | `apps/community/serializers.py` |
-| Body photo consent                               | The person must tick a consent box. The time is recorded. Deleting the photo deletes every picture made from it.                                                  | `apps/tryon`                    |
+| Body photo consent                               | The person must agree before the photo is accepted. The time is recorded. Deleting the photo deletes every picture made from it.                                  | `apps/tryon`                    |
 | Spending limits                                  | 10 try-on pictures per account per day, counted in the database.                                                                                                  | `apps/tryon/views.py`           |
 | Metadata stripped                                | Hidden phone data in photos (GPS location, camera model) is removed by Cloudinary on upload.                                                                      | `apps/vision/storage.py`        |
 
@@ -2017,11 +2182,12 @@ compares them with the backend's published schema, in both directions. A
 field renamed on one side fails this test instead of breaking a page in
 front of a judge. It exists because exactly that bug happened once.
 
-### Frontend: 360 automated tests
+### Frontend: 433 automated tests
 
 Written with **Vitest** and **Testing Library**, which test what a person
-sees ("a button called Delete exists") rather than internal details. Run
-with:
+sees ("a button called Delete exists") rather than internal details. The
+433 tests sit in 48 files, each next to the page or component it checks
+(`page.test.tsx` beside `page.tsx`). Run with:
 
 ```
 cd frontend
@@ -2180,7 +2346,7 @@ to say.
 | Notifications only while the app is open           | The badges update every minute while a page is open. Email or push notifications are a next step.                                                                                                                                         |
 | No outfit suggester yet                            | The columns for it exist (warmth level, waterproof) and the weather already says which warmth suits today. Matching clothes to that is the next feature.                                                                                  |
 | Shops are Pakistani only                           | By design, for the first users. Adding a shop is one line, as long as it runs on Shopify.                                                                                                                                                 |
-| Shop classification is about 90% accurate          | Measured. The remaining products are shown under "Everything" rather than in a wrong tab.                                                                                                                                                 |
+| Shop classification is about 90% accurate          | Measured. The remaining products are shown under "Everyone" rather than in a wrong tab.                                                                                                                                                   |
 | No payment inside the app                          | By design. Buyer and seller settle in person. It keeps card details and payment law out of the project.                                                                                                                                   |
 
 ---
@@ -2296,7 +2462,7 @@ limit on top, and garments the model cannot draw (shoes, watches) are refused
 before anything is sent.
 
 **How do you know it works?**
-237 backend tests and 360 frontend tests, all automated. One test file
+237 backend tests and 433 frontend tests, all automated. One test file
 attacks the app. One checks the frontend's data shapes against the backend's.
 A full walkthrough as two users passed 94 of 94 checks.
 
@@ -2317,7 +2483,8 @@ and a second one on a phone for the friend and buyer parts.
 
 1. **Home.** Sign in. Point at the weather card and the four counts. Say
    "every number here comes from the database through the API".
-2. **Add an item.** Choose Tops, Kurta, take or pick a photo, show the
+2. **Add an item.** Choose Tops, then Kurta from the pills, and point at the
+   preview card filling in on the right. Take or pick a photo, show the
    background disappearing and the colour being detected. Fill the name,
    price and drawer. Save. (If demoing on the live site, skip the photo and
    say why.)
@@ -2331,15 +2498,18 @@ and a second one on a phone for the friend and buyer parts.
 7. **My Plans.** Plan today with two items. Press "I wore this". Show the
    wear log filled in.
 8. **Sales.** Show the freshness bar ("Prices checked 2 hours ago"), the
-   Women/Men/Kids tabs, a filter, a price history.
+   Women/Men/Kids tabs, a quick chip such as Half price or better, and a
+   card's Buy button opening the shop's own page.
 9. **Buy and Sell.** List the kurta; show the suggested price. On the phone,
    find it, ask to buy. On the laptop, accept; show the phone number appears
    on both sides. Mark sold; show the kurta leave the closet.
-10. **Borrow from Friends.** Show your code. On the phone, enter it. Accept
-    with a nickname. Switch sharing on. On the phone, open the closet, ask to
-    borrow. Agree; show "Lent to a friend". Mark returned.
+10. **Borrow from Friends.** Tap Add a friend and show your code. On the
+    phone, enter it. Accept with a nickname. Switch sharing on. On the phone,
+    open the closet, ask to borrow. Press "Yes, lend it"; show "Lent to a
+    friend". Press "I got it back".
 11. **Try It On.** Show an existing finished picture (made before, since it
-    takes three minutes). Explain the consent box and the daily limit.
+    takes three minutes). Point at the three-step strip, the "Before you add
+    it" explanation and the "7 of 10 left today" counter.
 12. **Close** with the tests: run `pytest` on the laptop if time allows, or
     show the numbers.
 

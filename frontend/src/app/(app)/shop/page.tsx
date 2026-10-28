@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, SlidersHorizontal, Store, X } from "lucide-react";
+import { Search, SlidersHorizontal, Store, Tag, X } from "lucide-react";
 
 import { AudienceTabs } from "@/components/shop/audience-tabs";
 import { DealCard } from "@/components/shop/deal-card";
@@ -116,126 +116,153 @@ export default function ShopPage() {
   const nothingLoaded = (freshness?.deals_listed ?? 0) === 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sales</h1>
-        <p className="mt-2 max-w-prose text-muted-foreground">
-          What is reduced right now at {freshness?.shops_total ?? "several"} shops, read
-          from what each shop publishes. Tap anything to buy it on the shop&apos;s own site.
-        </p>
+    <div className="relative mx-auto max-w-7xl space-y-6">
+      <div aria-hidden className="pointer-events-none absolute -top-24 right-0 -z-10 h-72 w-full overflow-hidden">
+        <div className="animate-drift absolute -top-10 right-10 size-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="animate-drift absolute left-1/3 top-6 size-56 rounded-full bg-chart-5/10 blur-3xl [animation-delay:-8s]" />
+      </div>
+
+      <header className="animate-in fade-in slide-in-from-bottom-2 flex flex-wrap items-end justify-between gap-4 duration-500">
+        <div>
+          <p className="text-sm font-medium text-primary">Reduced right now</p>
+          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Sales
+          </h1>
+          <p className="mt-2 max-w-prose text-muted-foreground">
+            What is reduced right now at {freshness?.shops_total ?? "several"} shops, read
+            from what each shop publishes. Tap anything to buy it on the shop&apos;s own site.
+          </p>
+        </div>
+
+        {freshness && freshness.deals_on_sale > 0 ? (
+          <span className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium">
+            <Tag className="size-4 text-primary" aria-hidden />
+            {freshness.deals_on_sale.toLocaleString("en-US")} things on sale
+          </span>
+        ) : null}
       </header>
 
-      <FreshnessBar freshness={freshness} />
+      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:60ms]">
+        <FreshnessBar freshness={freshness} />
+      </div>
 
       {nothingLoaded ? (
         <NothingLoadedYet />
       ) : (
         <>
-          <AudienceTabs
-            value={audience ?? ""}
-            counts={options?.audiences}
-            total={freshness?.deals_listed}
-            onChange={changeAudience}
-          />
-
-          {/* Aligned from the TOP, not the bottom. Both sides are a label, an
-              eight-pixel gap and a 44px control, so their tops match exactly.
-              Aligning bottoms instead let the few invisible pixels an <input>
-              leaves under itself push one side out of line. */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="deal-search">Search the sales</Label>
-              {/* flex, so the input is a flex item and stops leaving baseline
-                  space beneath it. The wrapper is then exactly the input's
-                  height. */}
-              <div className="relative flex">
-                <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  id="deal-search"
-                  type="search"
-                  value={typed}
-                  onChange={(event) => setTyped(event.target.value)}
-                  placeholder="Try: navy kurta"
-                  className="pl-11"
-                />
-                {typed ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setTyped("")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                  >
-                    <X className="size-4" aria-hidden />
-                    <span className="sr-only">Clear the search box</span>
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="sm:w-56">
-              <ChoiceField
-                id="deal-sort"
-                label="Order by"
-                choices={SORT_OPTIONS}
-                value={filters.ordering ?? SORT_OPTIONS[0].value}
-                onChange={(ordering) =>
-                  change({ ordering: ordering ?? SORT_OPTIONS[0].value })
-                }
-              />
-            </div>
-
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-              <SheetTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 gap-2 sm:self-end lg:hidden"
-                  >
-                    <SlidersHorizontal className="size-4" aria-hidden />
-                    Filters
-                    {activeCount > 0 ? (
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                        {activeCount}
-                      </span>
-                    ) : null}
-                  </Button>
-                }
-              />
-              <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Filters</SheetTitle>
-                </SheetHeader>
-                <div className="px-4 pb-6">
-                  <FilterPanel
-                    filters={filters}
-                    options={options}
-                    onChange={change}
-                    onClear={clearAll}
-                    activeCount={activeCount}
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => setSheetOpen(false)}
-                    className="mt-6 h-11 w-full"
-                  >
-                    Show {total.toLocaleString("en-US")}{" "}
-                    {total === 1 ? "result" : "results"}
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:120ms]">
+            <AudienceTabs
+              value={audience ?? ""}
+              counts={options?.audiences}
+              total={freshness?.deals_listed}
+              onChange={changeAudience}
+            />
           </div>
 
-          <QuickChips filters={filters} onChange={change} />
+          <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both rounded-2xl border border-border bg-card p-3 duration-500 [animation-delay:180ms] sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex-1">
+                <Label htmlFor="deal-search" className="sr-only">
+                  Search the sales
+                </Label>
+                <div className="relative flex">
+                  <Search
+                    className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    id="deal-search"
+                    type="search"
+                    value={typed}
+                    onChange={(event) => setTyped(event.target.value)}
+                    placeholder="Search the sales, like: navy kurta"
+                    className="h-12 rounded-full border-transparent bg-muted/60 pl-12 pr-12 focus-visible:border-ring focus-visible:bg-card"
+                  />
+                  {typed ? (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setTyped("")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full"
+                    >
+                      <X className="size-4" aria-hidden />
+                      <span className="sr-only">Clear the search box</span>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* The dropdown keeps its label for screen readers; on screen the
+                  word in front of it says what it does. */}
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 text-sm text-muted-foreground">Order by</span>
+                <div className="min-w-48 flex-1 [&_label]:sr-only">
+                  <ChoiceField
+                    id="deal-sort"
+                    label="Order by"
+                    choices={SORT_OPTIONS}
+                    value={filters.ordering ?? SORT_OPTIONS[0].value}
+                    onChange={(ordering) =>
+                      change({ ordering: ordering ?? SORT_OPTIONS[0].value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+                <SheetTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 gap-2 rounded-full px-4 lg:hidden"
+                    >
+                      <SlidersHorizontal className="size-4" aria-hidden />
+                      Filters
+                      {activeCount > 0 ? (
+                        <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                          {activeCount}
+                        </span>
+                      ) : null}
+                    </Button>
+                  }
+                />
+                <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl">
+                  <SheetHeader>
+                    <SheetTitle className="font-display text-xl font-semibold tracking-tight">
+                      Filters
+                    </SheetTitle>
+                  </SheetHeader>
+                  <div className="px-4 pb-6">
+                    <FilterPanel
+                      filters={filters}
+                      options={options}
+                      onChange={change}
+                      onClear={clearAll}
+                      activeCount={activeCount}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => setSheetOpen(false)}
+                      className="mt-6 h-11 w-full shadow-lg shadow-primary/20"
+                    >
+                      Show {total.toLocaleString("en-US")}{" "}
+                      {total === 1 ? "result" : "results"}
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            <div className="mt-3">
+              <QuickChips filters={filters} onChange={change} />
+            </div>
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
+              <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto rounded-2xl border border-border bg-card p-4">
                 <FilterPanel
                   filters={filters}
                   options={options}
@@ -260,46 +287,50 @@ export default function ShopPage() {
                 aria-busy={waiting}
                 className="duration-200 animate-in fade-in slide-in-from-bottom-1"
               >
-              {isError ? (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm"
-                >
-                  {getErrorMessage(error, "The sales could not be loaded. Try again shortly.")}
-                </p>
-              ) : waiting ? (
-                <LoadingGrid />
-              ) : deals.length === 0 ? (
-                <NothingMatched onClear={clearAll} activeCount={activeCount} />
-              ) : (
-                <>
-                  <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-                    {deals.map((deal) => (
-                      <li key={deal.id}>
-                        <DealCard deal={deal} />
-                      </li>
-                    ))}
-                  </ul>
+                {isError ? (
+                  <p
+                    role="alert"
+                    className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm"
+                  >
+                    {getErrorMessage(error, "The sales could not be loaded. Try again shortly.")}
+                  </p>
+                ) : waiting ? (
+                  <LoadingGrid />
+                ) : deals.length === 0 ? (
+                  <NothingMatched onClear={clearAll} activeCount={activeCount} />
+                ) : (
+                  <>
+                    <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                      {deals.map((deal, index) => (
+                        <li
+                          key={deal.id}
+                          className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500"
+                          style={{ animationDelay: `${Math.min(index, 7) * 40}ms` }}
+                        >
+                          <DealCard deal={deal} />
+                        </li>
+                      ))}
+                    </ul>
 
-                  {hasNextPage ? (
-                    <div className="mt-6 flex justify-center">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="h-11 px-8"
-                      >
-                        {isFetchingNextPage ? "Loading more..." : "Show more"}
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="mt-6 text-center text-sm text-muted-foreground">
-                      That is everything that matched.
-                    </p>
-                  )}
-                </>
-              )}
+                    {hasNextPage ? (
+                      <div className="mt-6 flex justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fetchNextPage()}
+                          disabled={isFetchingNextPage}
+                          className="h-11 rounded-full px-8"
+                        >
+                          {isFetchingNextPage ? "Loading more..." : "Show more"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="mt-6 text-center text-sm text-muted-foreground">
+                        That is everything that matched.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </section>
           </div>
@@ -345,10 +376,11 @@ function QuickChips({
           aria-pressed={chip.on}
           className={cn(
             // Tall enough to be tapped by a thumb, like every other control here.
-            "min-h-11 rounded-full border px-4 text-sm transition-colors",
+            "h-10 rounded-full border px-4 text-sm font-medium transition-all duration-200",
+            "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
             chip.on
-              ? "border-primary bg-primary font-medium text-primary-foreground"
-              : "border-border hover:border-primary hover:bg-accent",
+              ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+              : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5",
           )}
         >
           {chip.label}
@@ -363,7 +395,7 @@ function LoadingGrid() {
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="space-y-2">
-          <Skeleton className="aspect-[3/4] w-full rounded-xl" />
+          <Skeleton className="aspect-3/4 w-full rounded-2xl" />
           <Skeleton className="h-3 w-1/2" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
@@ -381,8 +413,10 @@ function NothingMatched({
   activeCount: number;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-10 text-center">
-      <Store className="mx-auto size-8 text-muted-foreground" aria-hidden />
+    <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Store className="size-6" aria-hidden />
+      </span>
       <p className="mt-3 font-medium">Nothing matched</p>
       <p className="mt-1 text-sm text-muted-foreground">
         {activeCount > 0
@@ -390,7 +424,7 @@ function NothingMatched({
           : "Try a different word in the search box."}
       </p>
       {activeCount > 0 ? (
-        <Button type="button" variant="outline" onClick={onClear} className="mt-4 h-11">
+        <Button type="button" variant="outline" onClick={onClear} className="mt-4 h-11 rounded-full px-5">
           Clear the filters
         </Button>
       ) : null}
@@ -400,8 +434,10 @@ function NothingMatched({
 
 function NothingLoadedYet() {
   return (
-    <div className="rounded-xl border border-dashed border-border p-10 text-center">
-      <Store className="mx-auto size-8 text-muted-foreground" aria-hidden />
+    <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Store className="size-6" aria-hidden />
+      </span>
       <p className="mt-3 font-medium">No prices have been loaded yet</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
         The shops are read on a schedule rather than while you wait. Once the first

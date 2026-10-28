@@ -76,17 +76,11 @@ describe("DealCard", () => {
     expect(screen.queryByText(/ off$/)).not.toBeInTheDocument();
   });
 
-  it("lists the sizes still in stock where a reader can get at them", () => {
+  it("keeps the card short: no shop line, no colour, no sizes", () => {
     render(<DealCard deal={deal()} />);
-    expect(screen.getByLabelText(/sizes in stock: s, m, l/i)).toBeInTheDocument();
-  });
-
-  it("does not run a long size list off the card", () => {
-    const many = ["XS", "S", "M", "L", "XL", "XXL", "3XL"];
-    render(<DealCard deal={deal({ sizes: many })} />);
-    expect(screen.getByText("+2 more")).toBeInTheDocument();
-    // The full list is still readable, just not printed in full.
-    expect(screen.getByLabelText(/xs, s, m, l, xl, xxl, 3xl/i)).toBeInTheDocument();
+    expect(screen.queryByText("Outfitters")).not.toBeInTheDocument();
+    expect(screen.queryByText(/navy/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/sizes in stock/i)).not.toBeInTheDocument();
   });
 
   it("marks something that cannot be bought today", () => {
@@ -108,9 +102,9 @@ describe("DealCard", () => {
     expect(screen.queryByRole("link", { name: /see it/i })).not.toBeInTheDocument();
   });
 
-  it("shows what kind of thing it is and its colour", () => {
+  it("shows what kind of thing it is", () => {
     render(<DealCard deal={deal()} />);
-    expect(screen.getByText("Shirt - Navy")).toBeInTheDocument();
+    expect(screen.getByText("Shirt")).toBeInTheDocument();
   });
 
   it("falls back to where it is worn when the exact kind is unknown", () => {

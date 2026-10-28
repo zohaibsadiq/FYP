@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 
 import {
   Dialog,
@@ -70,34 +70,47 @@ export function ReportDialog({
 
   return (
     <Dialog open={listing !== null} onOpenChange={(open) => (open ? null : onClose())}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl p-6 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Report this listing</DialogTitle>
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+            Report this listing
+          </DialogTitle>
           <DialogDescription>
             Somebody will look at it. Nothing is hidden automatically.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 px-4 pb-6">
+        <div className="space-y-4">
           <fieldset className="space-y-2">
             <legend className="mb-2 text-sm font-medium">What is wrong with it?</legend>
             <div className="grid gap-2">
-              {REPORT_REASONS.map((choice) => (
-                <button
-                  key={choice.value}
-                  type="button"
-                  onClick={() => setReason(choice.value)}
-                  aria-pressed={reason === choice.value}
-                  className={cn(
-                    "min-h-11 rounded-lg border px-3 text-left text-sm transition-colors",
-                    reason === choice.value
-                      ? "border-primary bg-primary/10 font-medium"
-                      : "border-border hover:border-primary hover:bg-accent",
-                  )}
-                >
-                  {choice.label}
-                </button>
-              ))}
+              {REPORT_REASONS.map((choice) => {
+                const on = reason === choice.value;
+                return (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    onClick={() => setReason(choice.value)}
+                    aria-pressed={on}
+                    className={cn(
+                      "flex min-h-11 items-center gap-3 rounded-xl border px-3 text-left text-sm transition-all duration-200",
+                      on
+                        ? "border-primary bg-primary/5 font-medium shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-primary/5",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-5 shrink-0 items-center justify-center rounded-full border",
+                        on ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                      )}
+                    >
+                      {on ? <Check className="size-3" aria-hidden /> : null}
+                    </span>
+                    {choice.label}
+                  </button>
+                );
+              })}
             </div>
           </fieldset>
 
@@ -115,7 +128,7 @@ export function ReportDialog({
           {problem ? (
             <p
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
               {problem}
@@ -126,12 +139,12 @@ export function ReportDialog({
             type="button"
             onClick={send}
             disabled={!reason || report.isPending}
-            className="h-11 w-full"
+            className="h-11 w-full shadow-lg shadow-primary/20"
           >
             {report.isPending ? "Sending..." : "Send the report"}
           </Button>
 
-          <div className="border-t border-border pt-4">
+          <div className="rounded-2xl border border-border p-4">
             <p className="text-sm font-medium">Would you rather not see them at all?</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Blocking hides their things from you and yours from them, straight away.
@@ -141,7 +154,7 @@ export function ReportDialog({
               variant="outline"
               onClick={blockSeller}
               disabled={block.isPending}
-              className="mt-2 h-11 w-full"
+              className="mt-3 h-11 w-full"
             >
               {block.isPending
                 ? "Blocking..."

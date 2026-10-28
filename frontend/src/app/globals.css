@@ -139,6 +139,18 @@
   html {
     @apply font-sans;
   }
+  /* Browsers add tiny up and down arrows to a number box when the mouse is
+     over it. They are fiddly to hit and clutter the filter rows, so they are
+     hidden; typing a number works exactly as before. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 /* Motion used on the public pages. Decorative, so the reduced-motion rule
@@ -155,12 +167,18 @@
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+/* A soft band of light sweeping across something still being made. */
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
 
 @layer components {
   .animate-float { animation: float 6s ease-in-out infinite; }
   .animate-float-slow { animation: float 9s ease-in-out infinite; }
   .animate-drift { animation: drift 18s ease-in-out infinite; }
   .animate-marquee { animation: marquee 40s linear infinite; }
+  .animate-shimmer { animation: shimmer 1.8s ease-in-out infinite; }
 
   /* Hidden until it scrolls into view, then eased up. Reveal sets data-shown. */
   .reveal {

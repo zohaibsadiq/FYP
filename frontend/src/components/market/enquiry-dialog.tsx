@@ -18,6 +18,12 @@ import { getErrorMessage } from "@/lib/api";
 import { money } from "@/lib/money";
 import type { Listing } from "@/types/market";
 
+const WHAT_HAPPENS = [
+  "The seller sees your request and says yes or no.",
+  "If they say yes, you both see each other's details.",
+  "You arrange where to meet and pay each other directly.",
+];
+
 /** Asking a seller for something. A message is optional; asking is the point. */
 export function EnquiryDialog({
   listing,
@@ -50,9 +56,11 @@ export function EnquiryDialog({
 
   return (
     <Dialog open={listing !== null} onOpenChange={(open) => (open ? null : onClose())}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl p-6 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ask to buy</DialogTitle>
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+            Ask to buy
+          </DialogTitle>
           <DialogDescription>
             {listing
               ? `${listing.item.name} for ${money(listing.asking_price, listing.currency)}`
@@ -60,7 +68,18 @@ export function EnquiryDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 px-4 pb-6">
+        <div className="space-y-4">
+          <ol className="space-y-1.5 rounded-2xl bg-muted/40 p-3 text-xs text-muted-foreground">
+            {WHAT_HAPPENS.map((line, index) => (
+              <li key={line} className="flex gap-2">
+                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[0.6rem] font-semibold text-primary-foreground">
+                  {index + 1}
+                </span>
+                {line}
+              </li>
+            ))}
+          </ol>
+
           <div className="space-y-2">
             <Label htmlFor="enquiry-message">Say something (optional)</Label>
             <Textarea
@@ -80,7 +99,7 @@ export function EnquiryDialog({
           {problem ? (
             <p
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
               {problem}
@@ -91,7 +110,7 @@ export function EnquiryDialog({
             type="button"
             onClick={send}
             disabled={enquire.isPending}
-            className="h-11 w-full"
+            className="h-11 w-full shadow-lg shadow-primary/20"
           >
             {enquire.isPending ? "Sending..." : "Send the request"}
           </Button>

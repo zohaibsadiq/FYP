@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Ban, Clock, Pencil, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  Ban,
+  Clock,
+  Eye,
+  EyeOff,
+  HandHeart,
+  KeyRound,
+  Pencil,
+  Send,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { AddFriendDialog } from "@/components/friends/add-friend-dialog";
@@ -10,7 +22,7 @@ import { Initials } from "@/components/friends/initials";
 import { LoanCard } from "@/components/friends/loan-card";
 import { RequestCard } from "@/components/friends/request-card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,7 +38,32 @@ import {
 } from "@/hooks/use-friends";
 import { useCurrentUser, useUpdateProfile } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { Friend, Loan } from "@/types/friends";
+
+// The three things that happen here, in the order they happen.
+const HOW_IT_WORKS = [
+  {
+    icon: KeyRound,
+    title: "Swap codes",
+    body: "Tap Add a friend. Give them your code or type theirs. Nobody can find you by name.",
+  },
+  {
+    icon: Eye,
+    title: "Open your closet",
+    body: "Turn on sharing below. Friends see only the name, brand, size and colour of each thing.",
+  },
+  {
+    icon: HandHeart,
+    title: "Ask and lend",
+    body: "Open a friend, tap Ask to borrow and pick the days. They say yes or no. Nothing is charged.",
+  },
+];
+
+// On a phone the four tabs scroll sideways inside their pill; on a wider
+// screen they share the width.
+const TAB_CLASS =
+  "h-10 shrink-0 gap-2 rounded-full px-4 text-sm sm:flex-1 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-md data-active:shadow-primary/20";
 
 export default function FriendsPage() {
   const [adding, setAdding] = useState(false);
@@ -66,54 +103,110 @@ export default function FriendsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="relative mx-auto max-w-4xl space-y-6">
+      <div aria-hidden className="pointer-events-none absolute -top-24 right-0 -z-10 h-72 w-full overflow-hidden">
+        <div className="animate-drift absolute -top-10 right-10 size-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="animate-drift absolute left-1/3 top-6 size-56 rounded-full bg-chart-2/10 blur-3xl [animation-delay:-8s]" />
+      </div>
+
+      <header className="animate-in fade-in slide-in-from-bottom-2 flex flex-wrap items-end justify-between gap-4 duration-500">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <p className="text-sm font-medium text-primary">Your circle</p>
+          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
             Borrow from Friends
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-2 max-w-prose text-muted-foreground">
             Swap a code with somebody you know, then borrow from each other instead of
             buying something for one evening.
           </p>
         </div>
 
-        <Button type="button" onClick={() => setAdding(true)} className="h-11 gap-2 px-5">
+        <Button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="h-11 gap-2 px-5 shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5"
+        >
           <UserPlus className="size-4" aria-hidden />
           Add a friend
         </Button>
-      </div>
+      </header>
+
+      <section
+        aria-labelledby="how-heading"
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-chart-2/10 p-5 duration-500 [animation-delay:60ms] sm:p-6"
+      >
+        <p className="text-sm font-medium text-primary">How it works</p>
+        <h2 id="how-heading" className="mt-1 font-display text-xl font-semibold tracking-tight sm:text-2xl">
+          Three steps, and only people you let in can see anything.
+        </h2>
+
+        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+          {HOW_IT_WORKS.map(({ icon: Icon, title, body }, index) => (
+            <li key={title} className="flex gap-3 rounded-2xl border border-border/70 bg-card/80 p-4 backdrop-blur">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="size-4" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-mono text-[0.7rem] text-muted-foreground">Step {index + 1}</span>
+                <span className="block text-sm font-medium">{title}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{body}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       {stats && stats.overdue > 0 ? (
-        <p className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
-          <Clock className="mt-0.5 size-4 shrink-0" aria-hidden />
-          You are late giving back {stats.overdue}{" "}
-          {stats.overdue === 1 ? "thing" : "things"}. Have a look under Things I borrowed.
+        <p className="flex items-start gap-2 rounded-2xl border border-chart-4/50 bg-chart-4/10 p-4 text-sm">
+          <Clock className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+          <span>
+            You are late giving back {stats.overdue}{" "}
+            {stats.overdue === 1 ? "thing" : "things"}. Have a look under Things I borrowed.
+          </span>
         </p>
       ) : null}
 
-      <SharingSwitch
-        on={Boolean(me?.shares_closet)}
-        busy={updateProfile.isPending}
-        onChange={(next) =>
-          updateProfile.mutate(
-            { shares_closet: next },
-            {
-              onSuccess: () =>
-                toast.success(
-                  next
-                    ? "Your friends can see what you are happy to lend."
-                    : "Your closet is private again.",
-                ),
-              onError: complain,
-            },
-          )
-        }
-      />
+      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:120ms]">
+        <SharingSwitch
+          on={Boolean(me?.shares_closet)}
+          busy={updateProfile.isPending}
+          onChange={(next) =>
+            updateProfile.mutate(
+              { shares_closet: next },
+              {
+                onSuccess: () =>
+                  toast.success(
+                    next
+                      ? "Your friends can see what you are happy to lend."
+                      : "Your closet is private again.",
+                  ),
+                onError: complain,
+              },
+            )
+          }
+        />
+      </div>
+
+      {stats ? (
+        <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-wrap gap-2 duration-500 [animation-delay:160ms]">
+          <Stat icon={Users}>
+            {stats.friends} {stats.friends === 1 ? "friend" : "friends"}
+          </Stat>
+          <Stat icon={HandHeart} strong={stats.asks_waiting_on_me > 0}>
+            {stats.asks_waiting_on_me} {stats.asks_waiting_on_me === 1 ? "ask waits" : "asks wait"} for your answer
+          </Stat>
+          <Stat icon={Send}>
+            {stats.lent_out} lent out
+          </Stat>
+          <Stat icon={Clock}>
+            {stats.borrowed} borrowed
+          </Stat>
+        </div>
+      ) : null}
 
       {waiting.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold tracking-tight">
+        <section className="animate-in fade-in slide-in-from-bottom-2 space-y-3 duration-500">
+          <h2 className="font-display text-xl font-semibold tracking-tight">
             {waiting.length} {waiting.length === 1 ? "person wants" : "people want"} to be
             your friend
           </h2>
@@ -143,23 +236,26 @@ export default function FriendsPage() {
         </section>
       ) : null}
 
-      <Tabs defaultValue="friends">
-        <TabsList className="w-full">
-          <TabsTrigger value="friends" className="flex-1">
+      <Tabs
+        defaultValue="friends"
+        className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:220ms]"
+      >
+        <TabsList className="w-full justify-start overflow-x-auto overflow-y-hidden rounded-full border border-border bg-muted/50 p-1 [scrollbar-width:none] group-data-horizontal/tabs:h-auto [&::-webkit-scrollbar]:hidden">
+          <TabsTrigger value="friends" className={TAB_CLASS}>
             My friends
           </TabsTrigger>
-          <TabsTrigger value="asks" className="flex-1 gap-2">
+          <TabsTrigger value="asks" className={TAB_CLASS}>
             Asked of me
             {asksForMe.length > 0 ? (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+              <span className="rounded-full bg-card px-2 py-0.5 text-xs text-foreground">
                 {asksForMe.length}
               </span>
             ) : null}
           </TabsTrigger>
-          <TabsTrigger value="lent" className="flex-1">
+          <TabsTrigger value="lent" className={TAB_CLASS}>
             Lent out
           </TabsTrigger>
-          <TabsTrigger value="borrowed" className="flex-1">
+          <TabsTrigger value="borrowed" className={TAB_CLASS}>
             Things I borrowed
           </TabsTrigger>
         </TabsList>
@@ -168,6 +264,10 @@ export default function FriendsPage() {
           value="friends"
           className="mt-4 space-y-3 duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
+          <Hint>
+            Open a friend to see what they are happy to lend. The name you give each friend is
+            only ever seen by you.
+          </Hint>
           {friendsLoading ? (
             <Loading />
           ) : (friends ?? []).length === 0 ? (
@@ -175,7 +275,11 @@ export default function FriendsPage() {
               title="No friends yet"
               detail="Swap codes with somebody you know. Nobody can find you by name or email, so you decide who is in."
               action={
-                <Button type="button" onClick={() => setAdding(true)} className="mt-4 h-11">
+                <Button
+                  type="button"
+                  onClick={() => setAdding(true)}
+                  className="mt-4 h-11 rounded-full px-5 shadow-lg shadow-primary/20"
+                >
                   Add a friend
                 </Button>
               }
@@ -189,6 +293,10 @@ export default function FriendsPage() {
           value="asks"
           className="mt-4 space-y-3 duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
+          <Hint>
+            Friends who want to borrow something of yours. Say yes and it counts as lent out
+            until you get it back.
+          </Hint>
           {loansLoading ? (
             <Loading />
           ) : asksForMe.length === 0 ? (
@@ -214,6 +322,9 @@ export default function FriendsPage() {
           value="lent"
           className="mt-4 space-y-3 duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
+          <Hint>
+            Things of yours that are out with a friend. Tap I got it back once it is home.
+          </Hint>
           {lentOut.length === 0 ? (
             <Empty
               title="Nothing is out on loan"
@@ -236,6 +347,10 @@ export default function FriendsPage() {
           value="borrowed"
           className="mt-4 space-y-3 duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
+          <Hint>
+            What you asked for and what you have on loan. The friend marks it returned once
+            they have it back.
+          </Hint>
           {iAsked.length === 0 ? (
             <Empty
               title="You have not borrowed anything"
@@ -260,6 +375,36 @@ export default function FriendsPage() {
   );
 }
 
+/** One small number under the heading. */
+function Stat({
+  icon: Icon,
+  strong,
+  children,
+}: {
+  icon: typeof Users;
+  strong?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm",
+        strong
+          ? "border-primary bg-primary font-medium text-primary-foreground shadow-md shadow-primary/20"
+          : "border-border bg-card text-muted-foreground",
+      )}
+    >
+      <Icon className={cn("size-4", !strong && "text-primary")} aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+/** One line of plain help at the top of a tab. */
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="px-1 text-sm text-muted-foreground">{children}</p>;
+}
+
 /** Gates every friend-facing read of this account's closet. */
 function SharingSwitch({
   on,
@@ -271,8 +416,21 @@ function SharingSwitch({
   onChange: (next: boolean) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border p-4">
-      <div className="min-w-0">
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-4 rounded-2xl border p-4 transition-colors",
+        on ? "border-primary/30 bg-primary/5" : "border-border bg-card",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-11 shrink-0 items-center justify-center rounded-xl",
+          on ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {on ? <Eye className="size-5" aria-hidden /> : <EyeOff className="size-5" aria-hidden />}
+      </span>
+      <div className="min-w-0 flex-1 basis-56">
         <p className="font-medium">Let my friends see what I can lend</p>
         <p className="mt-0.5 text-sm text-muted-foreground">
           {on
@@ -286,7 +444,7 @@ function SharingSwitch({
         onClick={() => onChange(!on)}
         disabled={busy}
         aria-pressed={on}
-        className="h-11 shrink-0"
+        className={cn("h-10 shrink-0 rounded-full px-4", !on && "shadow-md shadow-primary/20")}
       >
         {on ? "Turn it off" : "Turn it on"}
       </Button>
@@ -305,11 +463,11 @@ function FriendRow({ friend }: { friend: Friend }) {
   }
 
   return (
-    <article className="rounded-xl border border-border p-3">
-      <div className="flex items-center gap-3">
-        <Initials name={friend.nickname} id={friend.person.id} />
+    <article className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/30">
+      <div className="flex flex-wrap items-center gap-4">
+        <Initials name={friend.nickname} id={friend.person.id} className="size-12 text-base" />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           <p className="flex flex-wrap items-center gap-2">
             <span className="truncate font-medium">{friend.nickname}</span>
             {friend.blocked ? <Badge variant="secondary">Blocked</Badge> : null}
@@ -330,15 +488,19 @@ function FriendRow({ friend }: { friend: Friend }) {
         {friend.shares_closet && !friend.blocked ? (
           <Link
             href={`/friends/${friend.id}`}
-            className="inline-flex h-11 shrink-0 items-center rounded-lg border border-border px-4 text-sm font-medium hover:bg-accent"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-10 shrink-0 basis-full gap-2 rounded-full px-4 sm:basis-auto",
+            )}
           >
+            <HandHeart className="size-4" aria-hidden />
             See what they lend
           </Link>
         ) : null}
       </div>
 
       {renaming ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -377,12 +539,13 @@ function FriendRow({ friend }: { friend: Friend }) {
           </Button>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1 border-t border-border pt-3">
           <Button
             type="button"
             variant="ghost"
+            size="sm"
             onClick={() => setRenaming(true)}
-            className="h-11 gap-2"
+            className="h-9 gap-2 rounded-full text-muted-foreground hover:text-foreground"
           >
             <Pencil className="size-4" aria-hidden />
             Rename
@@ -390,6 +553,7 @@ function FriendRow({ friend }: { friend: Friend }) {
           <Button
             type="button"
             variant="ghost"
+            size="sm"
             onClick={() =>
               update.mutate(
                 { id: friend.id, blocked: !friend.blocked },
@@ -401,7 +565,7 @@ function FriendRow({ friend }: { friend: Friend }) {
               )
             }
             disabled={update.isPending}
-            className="h-11 gap-2"
+            className="h-9 gap-2 rounded-full text-muted-foreground hover:text-foreground"
           >
             <Ban className="size-4" aria-hidden />
             {friend.blocked ? "Unblock" : "Block"}
@@ -409,6 +573,7 @@ function FriendRow({ friend }: { friend: Friend }) {
           <Button
             type="button"
             variant="ghost"
+            size="sm"
             onClick={() =>
               remove.mutate(friend.id, {
                 onSuccess: () => toast.success("Removed."),
@@ -416,7 +581,7 @@ function FriendRow({ friend }: { friend: Friend }) {
               })
             }
             disabled={remove.isPending}
-            className="h-11 gap-2 text-destructive hover:text-destructive"
+            className="h-9 gap-2 rounded-full text-destructive hover:text-destructive"
           >
             <Trash2 className="size-4" aria-hidden />
             Remove
@@ -429,9 +594,9 @@ function FriendRow({ friend }: { friend: Friend }) {
 
 function Loading() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" aria-busy>
       {Array.from({ length: 3 }, (_, index) => (
-        <Skeleton key={index} className="h-24 w-full rounded-xl" />
+        <Skeleton key={index} className="h-28 w-full rounded-2xl" />
       ))}
     </div>
   );
@@ -447,8 +612,10 @@ function Empty({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-10 text-center">
-      <Users className="mx-auto size-8 text-muted-foreground" aria-hidden />
+    <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Users className="size-6" aria-hidden />
+      </span>
       <p className="mt-3 font-medium">{title}</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{detail}</p>
       {action}

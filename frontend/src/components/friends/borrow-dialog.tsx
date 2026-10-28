@@ -70,9 +70,11 @@ export function BorrowDialog({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl p-6 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Ask to borrow</DialogTitle>
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+            Ask to borrow
+          </DialogTitle>
           <DialogDescription>
             {item ? `${item.name} from ${friendName}. They can say yes or no.` : ""}
           </DialogDescription>
@@ -120,7 +122,7 @@ export function BorrowDialog({
           {problem ? (
             <p
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
               {problem}
@@ -132,7 +134,7 @@ export function BorrowDialog({
               type="button"
               onClick={send}
               disabled={askToBorrow.isPending || !from || !until}
-              className="h-11 flex-1"
+              className="h-11 flex-1 shadow-lg shadow-primary/20"
             >
               {askToBorrow.isPending ? "Asking..." : "Ask"}
             </Button>
@@ -140,6 +142,11 @@ export function BorrowDialog({
               Not now
             </Button>
           </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            What happens next: they say yes or no. After a yes it counts as lent out until
+            the day you give it back.
+          </p>
         </div>
       </DialogContent>
     </Dialog>

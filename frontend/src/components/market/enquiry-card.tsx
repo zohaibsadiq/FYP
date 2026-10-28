@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GarmentPicture } from "@/components/wardrobe/garment-picture";
 import { money } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import type { Enquiry } from "@/types/market";
 
 /**
@@ -32,24 +33,28 @@ export function EnquiryCard({
 }) {
   const item = enquiry.listing.item;
   const waiting = enquiry.status === "SENT";
+  const agreed = enquiry.status === "ACCEPTED";
   const other = side === "seller" ? enquiry.buyer : enquiry.listing.seller;
 
   return (
-    <article className="rounded-xl border border-border p-3">
-      <div className="flex gap-3">
-        <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+    <article
+      className={cn(
+        "rounded-2xl border bg-card p-4 transition-colors",
+        agreed ? "border-primary/30" : "border-border",
+      )}
+    >
+      <div className="flex gap-4">
+        <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-b from-muted/80 to-muted/20">
           <GarmentPicture src={item.display_image_url} sizes="64px" className="p-1" iconClassName="size-5" />
         </span>
 
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
             <span className="truncate font-medium">{item.name}</span>
-            <Badge variant={enquiry.status === "ACCEPTED" ? "default" : "secondary"}>
-              {enquiry.status_label}
-            </Badge>
+            <Badge variant={agreed ? "default" : "secondary"}>{enquiry.status_label}</Badge>
           </p>
 
-          <p className="text-sm tabular-nums">
+          <p className="font-display text-lg font-semibold tabular-nums tracking-tight">
             {money(enquiry.listing.asking_price, enquiry.listing.currency)}
           </p>
 
@@ -59,7 +64,7 @@ export function EnquiryCard({
           </p>
 
           {enquiry.message ? (
-            <p className="mt-2 rounded-lg bg-muted/50 p-2 text-sm">{enquiry.message}</p>
+            <p className="mt-2 rounded-xl bg-muted/50 px-3 py-2 text-sm">{enquiry.message}</p>
           ) : null}
         </div>
       </div>
@@ -67,40 +72,47 @@ export function EnquiryCard({
       {enquiry.contact ? <ContactBlock enquiry={enquiry} /> : null}
 
       {waiting ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {side === "seller" ? (
-            <>
-              <Button
-                type="button"
-                onClick={() => onAccept?.(enquiry)}
-                disabled={busy}
-                className="h-11 flex-1 gap-2"
-              >
-                <Check className="size-4" aria-hidden />
-                Yes, deal
-              </Button>
+        <div className="mt-4 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {side === "seller" ? (
+              <>
+                <Button
+                  type="button"
+                  onClick={() => onAccept?.(enquiry)}
+                  disabled={busy}
+                  className="h-11 flex-1 gap-2 shadow-md shadow-primary/20"
+                >
+                  <Check className="size-4" aria-hidden />
+                  Yes, deal
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onDecline?.(enquiry)}
+                  disabled={busy}
+                  className="h-11 flex-1 gap-2"
+                >
+                  <X className="size-4" aria-hidden />
+                  No thanks
+                </Button>
+              </>
+            ) : (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onDecline?.(enquiry)}
+                onClick={() => onWithdraw?.(enquiry)}
                 disabled={busy}
-                className="h-11 flex-1 gap-2"
+                className="h-11 w-full"
               >
-                <X className="size-4" aria-hidden />
-                No thanks
+                Change my mind
               </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onWithdraw?.(enquiry)}
-              disabled={busy}
-              className="h-11 w-full"
-            >
-              Change my mind
-            </Button>
-          )}
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {side === "seller"
+              ? "Say yes and you both see each other's details, so you can arrange the handover."
+              : "The seller has not answered yet. You can take the request back at any time."}
+          </p>
         </div>
       ) : null}
     </article>
@@ -112,8 +124,11 @@ function ContactBlock({ enquiry }: { enquiry: Enquiry }) {
   const contact = enquiry.contact!;
 
   return (
-    <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
-      <p className="text-sm font-medium">You both agreed. Here is how to reach them.</p>
+    <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <Check className="size-4 text-primary" aria-hidden />
+        You both agreed. Here is how to reach them.
+      </p>
       <p className="mt-1 text-sm">{contact.name}{contact.city ? `, ${contact.city}` : ""}</p>
 
       <ul className="mt-2 space-y-1 text-sm">

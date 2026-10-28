@@ -17,6 +17,12 @@ import { Label } from "@/components/ui/label";
 import { useAskToBeFriends, useMyFriendCode, useNewFriendCode } from "@/hooks/use-friends";
 import { getErrorMessage } from "@/lib/api";
 
+const HOW = [
+  "Send your code to somebody you know, or ask for theirs.",
+  "Type their code below and tap Ask to be friends.",
+  "Once they say yes, you can each see what the other is happy to lend.",
+];
+
 /**
  * There is deliberately no search field. A name search cannot distinguish an
  * account from one reusing its name, and an email search would confirm whether
@@ -65,23 +71,36 @@ export function AddFriendDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="rounded-3xl p-6 sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add a friend</DialogTitle>
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+            Add a friend
+          </DialogTitle>
           <DialogDescription>
             Friends are added by swapping a code. Nobody can find you by name or email.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <div className="space-y-2">
+        <div className="space-y-5">
+          <ol className="space-y-1.5 rounded-2xl bg-muted/40 p-3 text-xs text-muted-foreground">
+            {HOW.map((line, index) => (
+              <li key={line} className="flex gap-2">
+                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[0.6rem] font-semibold text-primary-foreground">
+                  {index + 1}
+                </span>
+                {line}
+              </li>
+            ))}
+          </ol>
+
+          <div className="space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-4">
             <Label htmlFor="my-friend-code">Your code</Label>
             <div className="flex gap-2">
               <Input
                 id="my-friend-code"
                 readOnly
                 value={mine?.code ?? ""}
-                className="font-mono text-lg tracking-widest"
+                className="bg-card font-mono text-lg tracking-widest"
               />
               <Button
                 type="button"
@@ -109,14 +128,14 @@ export function AddFriendDialog({
                 })
               }
               disabled={newCode.isPending}
-              className="h-11 gap-2 px-0 text-sm"
+              className="h-9 gap-2 rounded-full px-3 text-sm"
             >
               <RefreshCw className="size-4" aria-hidden />
               Make a new code
             </Button>
           </div>
 
-          <div className="space-y-2 border-t border-border pt-5">
+          <div className="space-y-2">
             <Label htmlFor="their-friend-code">Their code</Label>
             <Input
               id="their-friend-code"
@@ -135,7 +154,7 @@ export function AddFriendDialog({
             {problem ? (
               <p
                 role="alert"
-                className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+                className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"
               >
                 <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
                 {problem}
@@ -146,7 +165,7 @@ export function AddFriendDialog({
               type="button"
               onClick={send}
               disabled={!typed.trim() || ask.isPending}
-              className="h-11 w-full"
+              className="h-11 w-full shadow-lg shadow-primary/20"
             >
               {ask.isPending ? "Asking..." : "Ask to be friends"}
             </Button>

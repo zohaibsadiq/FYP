@@ -28,28 +28,31 @@ export function ListingCard({
   const asked = listing.my_enquiry_status;
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md">
-      <div className="relative aspect-[3/4] bg-muted/40">
-        <GarmentPicture
-          src={listing.item.display_image_url}
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="p-2"
-        />
+    <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10">
+      <div className="relative aspect-3/4 overflow-hidden bg-gradient-to-b from-muted/80 to-muted/20">
+        {/* The picture grows a little on hover. The frame clips the growth. */}
+        <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-105">
+          <GarmentPicture
+            src={listing.item.display_image_url}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="p-3"
+          />
+        </div>
 
-        <Badge variant="secondary" className="absolute left-2 top-2 shadow-sm">
+        <Badge variant="secondary" className="absolute left-2 top-2 bg-card/90 shadow-sm backdrop-blur">
           {listing.condition_label}
         </Badge>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
         <h3
-          className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug"
+          className="line-clamp-2 min-h-10 text-sm font-medium leading-snug"
           title={listing.item.name}
         >
           {listing.item.name}
         </h3>
 
-        <p className="text-base font-semibold tabular-nums">
+        <p className="font-display text-lg font-semibold tabular-nums tracking-tight">
           {money(listing.asking_price, listing.currency)}
         </p>
 
@@ -65,19 +68,19 @@ export function ListingCard({
         ) : null}
 
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="size-3 shrink-0" aria-hidden />
+          <MapPin className="size-3 shrink-0 text-primary" aria-hidden />
           {listing.seller.display_name}
           {listing.city ? `, ${listing.city}` : ""}
         </p>
 
-        <div className="mt-auto space-y-1.5 pt-1">
+        <div className="mt-auto space-y-1.5 pt-2">
           {asked ? (
             <AlreadyAsked status={asked} />
           ) : (
             <Button
               type="button"
               onClick={() => onAsk(listing)}
-              className="h-11 w-full"
+              className="h-10 w-full rounded-xl shadow-md shadow-primary/20"
             >
               Ask to buy
             </Button>
@@ -115,10 +118,10 @@ function AlreadyAsked({ status }: { status: string }) {
   return (
     <p
       className={cn(
-        "flex h-11 items-center justify-center gap-2 rounded-lg border text-sm",
+        "flex h-10 items-center justify-center gap-2 rounded-xl border text-sm",
         settled
           ? "border-primary/40 bg-primary/10 font-medium text-foreground"
-          : "border-border text-muted-foreground",
+          : "border-border bg-muted/40 text-muted-foreground",
       )}
     >
       {settled ? (

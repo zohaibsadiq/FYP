@@ -36,9 +36,9 @@ export function RequestCard({
   const empty = nickname.trim().length === 0;
 
   return (
-    <article className="rounded-xl border border-border p-4">
+    <article className="rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
       <div className="flex items-center gap-3">
-        <Initials name={them.display_name} id={them.id} />
+        <Initials name={them.display_name} id={them.id} className="size-12 text-base" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{them.display_name}</p>
           <p className="truncate text-sm text-muted-foreground">
@@ -54,6 +54,7 @@ export function RequestCard({
           value={nickname}
           onChange={(event) => setNickname(event.target.value)}
           aria-invalid={taken || empty}
+          className="bg-card"
         />
         {taken ? (
           <p
@@ -76,7 +77,7 @@ export function RequestCard({
           type="button"
           onClick={() => onAccept(request, nickname.trim())}
           disabled={busy || taken || empty}
-          className="h-11 flex-1 gap-2"
+          className="h-11 flex-1 gap-2 shadow-md shadow-primary/20"
         >
           <UserPlus className="size-4" aria-hidden />
           Yes, add them

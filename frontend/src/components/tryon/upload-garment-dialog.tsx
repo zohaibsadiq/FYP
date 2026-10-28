@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ImagePlus, TriangleAlert } from "lucide-react";
+import { ImagePlus, TriangleAlert, WandSparkles } from "lucide-react";
 
 import {
   Dialog,
@@ -73,9 +73,11 @@ export function UploadGarmentDialog({
         if (!next) close();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="rounded-3xl p-6 sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Try on a photo</DialogTitle>
+          <DialogTitle className="font-display text-2xl font-semibold tracking-tight">
+            Try on a photo
+          </DialogTitle>
           <DialogDescription>
             A picture of a garment, from a shop page or your own camera. It does not
             have to be in your closet.
@@ -85,22 +87,27 @@ export function UploadGarmentDialog({
         <div className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="garment-file">The garment</Label>
-            <div className="flex items-center gap-3">
-              <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+            <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-3">
+              <span className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-card shadow-sm">
                 {preview ? (
                   <Image src={preview} alt="" fill sizes="80px" className="object-contain p-1" />
                 ) : (
-                  <ImagePlus className="size-6 text-muted-foreground" aria-hidden />
+                  <ImagePlus className="size-6 text-primary" aria-hidden />
                 )}
               </span>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInput.current?.click()}
-                className="h-11"
-              >
-                {file ? "Choose a different one" : "Choose a picture"}
-              </Button>
+              <div className="min-w-0 flex-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInput.current?.click()}
+                  className="h-10 rounded-full px-4"
+                >
+                  {file ? "Choose a different one" : "Choose a picture"}
+                </Button>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A plain background works best. A shop&apos;s own product photo is ideal.
+                </p>
+              </div>
             </div>
             <input
               ref={fileInput}
@@ -113,9 +120,6 @@ export function UploadGarmentDialog({
                 setFile(event.target.files?.[0] ?? null);
               }}
             />
-            <p className="text-xs text-muted-foreground">
-              A plain background works best. A shop&apos;s own product photo is ideal.
-            </p>
           </div>
 
           <fieldset className="space-y-2">
@@ -124,7 +128,7 @@ export function UploadGarmentDialog({
               Needed because the picture alone does not say. Your closet items
               answer this on their own.
             </p>
-            <div className="grid gap-2 pt-1 sm:grid-cols-3">
+            <div className="flex flex-wrap gap-2 pt-1">
               {UPLOAD_SLOTS.map((choice) => (
                 <button
                   key={choice.value}
@@ -132,10 +136,11 @@ export function UploadGarmentDialog({
                   onClick={() => setSlot(choice.value)}
                   aria-pressed={slot === choice.value}
                   className={cn(
-                    "min-h-11 rounded-lg border px-3 text-sm transition-colors",
+                    "h-10 rounded-full border px-4 text-sm font-medium transition-all duration-200",
+                    "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                     slot === choice.value
-                      ? "border-primary bg-primary/10 font-medium"
-                      : "border-border hover:border-primary hover:bg-accent",
+                      ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                      : "border-border bg-card hover:border-primary/40 hover:bg-primary/5",
                   )}
                 >
                   {choice.label}
@@ -144,7 +149,7 @@ export function UploadGarmentDialog({
             </div>
           </fieldset>
 
-          <div className="space-y-2 rounded-lg border border-border p-3">
+          <div className="space-y-2 rounded-2xl border border-border p-3">
             <button
               type="button"
               onClick={() => setKeep(!keep)}
@@ -162,13 +167,13 @@ export function UploadGarmentDialog({
               <span
                 aria-hidden
                 className={cn(
-                  "h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors",
+                  "h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors duration-200",
                   keep ? "bg-primary" : "bg-muted-foreground/30",
                 )}
               >
                 <span
                   className={cn(
-                    "block size-5 rounded-full bg-white transition-transform",
+                    "block size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
                     keep && "translate-x-5",
                   )}
                 />
@@ -176,7 +181,7 @@ export function UploadGarmentDialog({
             </button>
 
             {keep ? (
-              <div className="space-y-1.5 pt-1">
+              <div className="animate-in fade-in slide-in-from-top-1 space-y-1.5 pt-1 duration-200">
                 <Label htmlFor="garment-name">What is it called?</Label>
                 <Input
                   id="garment-name"
@@ -192,7 +197,7 @@ export function UploadGarmentDialog({
           {problem ? (
             <p
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm"
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
               {problem}
@@ -210,8 +215,9 @@ export function UploadGarmentDialog({
                 );
               }}
               disabled={!ready || busy}
-              className="h-11 flex-1"
+              className="h-11 flex-1 gap-2 shadow-lg shadow-primary/20"
             >
+              <WandSparkles className="size-4" aria-hidden />
               {busy ? "Starting..." : "Try it on"}
             </Button>
             <Button type="button" variant="outline" onClick={close} className="h-11 flex-1">

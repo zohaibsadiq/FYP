@@ -29,13 +29,23 @@ import {
   useSavePlan,
 } from "@/hooks/use-planner";
 import { getErrorMessage } from "@/lib/api";
-import { daysAgo, friendlyDay, parseDay } from "@/lib/dates";
+import { daysAgo, friendlyDay, parseDay, spanInWords } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { lastWorn, lastWornSentence } from "@/lib/wear";
 import type { PlannedOutfit } from "@/types/planner";
 
 const MAX_ITEMS = 12;
 
+/** "Today", "In 3 days", "2 weeks ago": how far the day is from now. */
+function distance(date: string): string {
+  const gap = daysAgo(date);
+  if (gap === 0) return "Today";
+  if (gap === -1) return "Tomorrow";
+  if (gap === 1) return "Yesterday";
+  return gap < 0 ? `In ${spanInWords(-gap)}` : `${spanInWords(gap)} ago`;
+}
+
+/** One day of the calendar: what is planned for it, or the form to plan it. */
 export function DayPlan({ date }: { date: string }) {
   const { data: plan, isPending } = usePlanForDay(date);
   const [editing, setEditing] = useState(false);
@@ -47,29 +57,57 @@ export function DayPlan({ date }: { date: string }) {
     setEditing(false);
   }
 
-  const longForm = parseDay(date).toDateString();
+  const longForm = parseDay(date).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const status = isPending ? null : plan ? (plan.is_confirmed ? "Already worn" : "Planned") : "Free day";
 
   return (
-    <section aria-labelledby="day-plan-heading" className="space-y-4">
-      <div>
-        <h2 id="day-plan-heading" className="text-lg font-semibold">
-          {friendlyDay(date)}
-        </h2>
-        <p className="text-sm text-muted-foreground">{longForm}</p>
+    <section aria-labelledby="day-plan-heading">
+      <div className="border-b border-border bg-gradient-to-r from-primary/10 via-card to-chart-4/10 px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-primary">{distance(date)}</p>
+            <h2
+              id="day-plan-heading"
+              className="mt-1 font-display text-2xl font-semibold tracking-tight sm:text-3xl"
+            >
+              {longForm}
+            </h2>
+          </div>
+
+          {status ? (
+            <span
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium",
+                status === "Already worn" && "border-primary/30 bg-primary/10 text-primary",
+                status === "Planned" && "border-border bg-card",
+                status === "Free day" && "border-dashed border-border bg-card text-muted-foreground",
+              )}
+            >
+              {status === "Already worn" ? <Check className="size-3.5" aria-hidden /> : null}
+              {status}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      {isPending ? (
-        <Skeleton className="h-40 rounded-xl" />
-      ) : editing || !plan ? (
-        <PlanForm
-          date={date}
-          plan={plan ?? null}
-          onDone={() => setEditing(false)}
-          onCancel={plan ? () => setEditing(false) : undefined}
-        />
-      ) : (
-        <PlanView plan={plan} onEdit={() => setEditing(true)} />
-      )}
+      <div className="p-5 sm:p-6">
+        {isPending ? (
+          <Skeleton className="h-48 rounded-2xl" />
+        ) : editing || !plan ? (
+          <PlanForm
+            date={date}
+            plan={plan ?? null}
+            onDone={() => setEditing(false)}
+            onCancel={plan ? () => setEditing(false) : undefined}
+          />
+        ) : (
+          <PlanView plan={plan} onEdit={() => setEditing(true)} />
+        )}
+      </div>
     </section>
   );
 }
@@ -84,43 +122,52 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
   const openHistoryFor = plan.item_details.find((item) => item.id === showingHistoryFor);
 
   return (
-    <div className="space-y-4">
-      {plan.label ? <p className="text-base font-medium">{plan.label}</p> : null}
-      {plan.note ? <p className="text-sm text-muted-foreground">{plan.note}</p> : null}
+    <div className="space-y-5">
+      {plan.label || plan.note ? (
+        <div>
+          {plan.label ? (
+            <p className="font-display text-xl font-semibold tracking-tight">{plan.label}</p>
+          ) : null}
+          {plan.note ? <p className="mt-1 text-sm text-muted-foreground">{plan.note}</p> : null}
+        </div>
+      ) : null}
 
       {plan.is_confirmed ? (
-        <p className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+        <p className="flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
           <Check className="size-4" aria-hidden />
           You wore this. It is on the record.
         </p>
       ) : null}
 
       {plan.item_details.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
           This day is marked, but nothing is picked out for it yet.
         </p>
       ) : (
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {plan.item_details.map((item) => {
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {plan.item_details.map((item, index) => {
             const worn = lastWorn(item);
             return (
-              <li key={item.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
-                <Link
-                  href={`/closet/${item.id}`}
-                  className="flex min-w-40 flex-1 items-center gap-3 rounded-lg transition-colors hover:text-primary"
-                >
-                  <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-                    <GarmentPicture src={item.display_image_url} sizes="48px" className="p-1" iconClassName="size-5" />
+              <li
+                key={item.id}
+                className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both flex flex-col overflow-hidden rounded-2xl border border-border bg-card duration-500 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
+                style={{ animationDelay: `${Math.min(index, 7) * 50}ms` }}
+              >
+                <Link href={`/closet/${item.id}`} className="block">
+                  <span className="relative block aspect-square bg-gradient-to-b from-muted/80 to-muted/20">
+                    <GarmentPicture
+                      src={item.display_image_url}
+                      sizes="(max-width: 640px) 50vw, 200px"
+                      className="p-3"
+                      iconClassName="size-8"
+                    />
                   </span>
-
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{item.name}</span>
+                  <span className="block px-3 pt-3">
+                    <span className="block truncate text-sm font-medium">{item.name}</span>
                     <span
                       className={cn(
-                        "block text-sm",
-                        worn.recent
-                          ? "text-amber-700 dark:text-amber-400"
-                          : "text-muted-foreground",
+                        "block truncate text-xs",
+                        worn.recent ? "text-amber-700" : "text-muted-foreground",
                       )}
                     >
                       {lastWornSentence(worn)}
@@ -128,7 +175,12 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
                   </span>
                 </Link>
 
-                <HistoryButton onClick={() => setShowingHistoryFor(item.id)} className="h-9" />
+                <div className="px-2 pb-2 pt-1">
+                  <HistoryButton
+                    onClick={() => setShowingHistoryFor(item.id)}
+                    className="h-8 w-full justify-start px-2 text-xs text-muted-foreground"
+                  />
+                </div>
               </li>
             );
           })}
@@ -154,7 +206,7 @@ function PlanView({ plan, onEdit }: { plan: PlannedOutfit; onEdit: () => void })
                   toast.error(getErrorMessage(error, "That could not be recorded.")),
               })
             }
-            className="h-11 gap-2 px-5"
+            className="h-11 gap-2 px-5 shadow-lg shadow-primary/20"
           >
             {confirm.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
             <Check className="size-4" aria-hidden />
@@ -265,7 +317,7 @@ function PlanForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5">
+    <form onSubmit={submit} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="plan-label" className="mb-2 block">
@@ -297,7 +349,7 @@ function PlanForm({
       </div>
 
       <div>
-        <p className="mb-3 font-medium">Pick what you will wear</p>
+        <p className="mb-3 font-display text-lg font-semibold tracking-tight">Pick what you will wear</p>
         <ItemPicker
           chosen={items}
           onChange={setItems}
@@ -312,9 +364,13 @@ function PlanForm({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2" aria-live="polite">
+      <div className="flex flex-wrap items-center gap-2" aria-live="polite">
         {hasSomething && changed ? (
-          <Button type="submit" disabled={save.isPending} className="h-11 gap-2 px-5">
+          <Button
+            type="submit"
+            disabled={save.isPending}
+            className="h-11 gap-2 px-5 shadow-lg shadow-primary/20"
+          >
             {save.isPending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : (

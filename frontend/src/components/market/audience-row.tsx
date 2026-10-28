@@ -23,7 +23,7 @@ export function AudienceRow({
     <div
       role="tablist"
       aria-label="Whose clothes to show"
-      className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-muted/40 p-1"
+      className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-muted/50 p-1"
     >
       {AUDIENCE_TABS.map((tab) => {
         const selected = value === tab.value;
@@ -35,9 +35,9 @@ export function AudienceRow({
             aria-selected={selected}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "min-h-11 flex-1 whitespace-nowrap rounded-lg px-4 text-sm transition-colors",
+              "min-h-10 flex-1 whitespace-nowrap rounded-full px-4 text-sm transition-all duration-200",
               selected
-                ? "bg-primary font-semibold text-primary-foreground shadow-sm"
+                ? "bg-primary font-semibold text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:bg-card hover:text-foreground",
             )}
           >

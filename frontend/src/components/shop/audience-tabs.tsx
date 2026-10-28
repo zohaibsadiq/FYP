@@ -35,7 +35,7 @@ export function AudienceTabs({
     <div
       role="tablist"
       aria-label="Who the clothes are for"
-      className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-muted/40 p-1"
+      className="flex w-full gap-1 overflow-x-auto rounded-full border border-border bg-muted/50 p-1"
     >
       {AUDIENCE_TABS.map((tab) => {
         const selected = value === tab.value;
@@ -49,18 +49,22 @@ export function AudienceTabs({
             aria-selected={selected}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 text-sm transition-colors",
+              "flex min-h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-sm transition-all duration-200",
               // The same solid colour the quick choices below use, so a
-              // chosen thing looks the same wherever it is on the page. White
-              // on near-white was barely a difference at all.
+              // chosen thing looks the same wherever it is on the page.
               selected
-                ? "bg-primary font-semibold text-primary-foreground shadow-sm"
+                ? "bg-primary font-semibold text-primary-foreground shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:bg-card hover:text-foreground",
             )}
           >
             {tab.label}
             {count !== undefined ? (
-              <span className="text-xs font-normal tabular-nums opacity-70">
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-[0.7rem] font-medium tabular-nums",
+                  selected ? "bg-primary-foreground/20" : "bg-card text-muted-foreground",
+                )}
+              >
                 {count.toLocaleString("en-US")}
               </span>
             ) : null}

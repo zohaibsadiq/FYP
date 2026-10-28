@@ -17,6 +17,7 @@ app then answers questions a wardrobe cannot answer by itself:
 - **Is this on sale anywhere?** It reads real shop catalogues twice a day.
 - **Can I sell this?** A marketplace between users of the app.
 - **Can I borrow one for Saturday?** Lending between friends.
+- **How would this look on me?** Virtual try-on draws a garment onto a photo of the person.
 
 It runs in a browser on a phone or a laptop.
 
@@ -36,10 +37,11 @@ first, `StorageLocation` is the second.
 
 ### Where the AI is
 
-One trained model does real work here. Background removal runs **U-2-Net**, a
+Two trained models do real work here. Background removal runs **U-2-Net**, a
 deep convolutional network for salient object detection, with roughly 176 MB of
 learned weights. A photograph taken against any background comes back as a
-clean cutout.
+clean cutout. Virtual try-on uses **Kling**, run on a supplier's hardware
+(section 7.9): two pictures go out, one comes back.
 
 Everything else is deliberately conventional. Colour naming is CIE L\*a\*b\*
 colour science, shop classification is rule-based pattern matching, and weather
@@ -61,10 +63,10 @@ Calling them AI would overstate them.
             v
    Django REST API   ........ hosted on Render
             |
-    +-------+--------+-----------------+----------------+
-    |                |                 |                |
- Postgres        Cloudinary       OpenWeather     Shopify shops
-  (Neon)          (photos)         (weather)       (prices)
+    +-------+--------+-----------------+----------------+--------------+
+    |                |                 |                |              |
+ Postgres        Cloudinary       OpenWeather     Shopify shops      PiAPI
+  (Neon)          (photos)         (weather)       (prices)         (try-on)
 ```
 
 Two separate programs. The frontend knows nothing about the database; the
@@ -211,9 +213,11 @@ Three settings exist because of how Neon behaves:
 and converted on the way out, which is the only way that stays correct across
 daylight saving and travel.
 
-**Pagination** is 24 per page. The wardrobe grid is 2, 3 or 4 columns depending
-on screen width, and 24 divides evenly by all three, so the last row is never
-ragged.
+**Pagination** is 24 per page. The wardrobe grid is 2, 3 or 4 columns on a
+phone, a tablet and a laptop, and 24 divides evenly by all three, so the last
+row is rarely ragged. (A very wide screen adds a fifth column, where the last
+row can be short.) The Sales and Buy and Sell grids fetch the next page on a
+"Show more" button.
 
 **Secret key guard**:
 
@@ -631,7 +635,7 @@ pytest
 | `test_wardrobe.py` | 27    | Counts, statuses, bringing things back                                                                         |
 | `test_circle.py`   | 45    | Friend codes, same-name handling, sharing, lending                                                             |
 
-**237 backend tests, all passing.** Plus **360 frontend tests**.
+**237 backend tests, all passing.** Plus **433 frontend tests** in 48 files.
 
 Nothing in the suite reaches the internet. The supplier and the image host
 are both replaced in the test, so a run costs nothing and cannot be broken
@@ -686,6 +690,7 @@ than the page breaking in front of a judge.
 | `tailwindcss` 4                     | Styling               | Utility classes; no separate CSS files to drift                          |
 | `lucide-react`                      | Icons                 | Consistent, tree-shaken icon set                                         |
 | `sonner`                            | Toasts                | The small "Saved." messages                                              |
+| `tw-animate-css`                    | Animation classes     | The short easing-in of sections, and the shimmer on a waiting try-on     |
 | `date-fns` 4                        | Dates                 | Formatting and arithmetic                                                |
 | `next-themes`                       | Dark mode             | Remembers the choice, no flash on load                                   |
 | `vitest` + `@testing-library/react` | Tests                 | Fast, and tests what a user sees rather than internals                   |
@@ -708,19 +713,19 @@ src/
 |   |   |-- shop/            Sales
 |   |   |-- marketplace/     Buy and Sell
 |   |   |-- friends/         Borrow from Friends
-|   |-- try-on/          Virtual Try-On
-|   |   `-- profile/
+|   |   |-- try-on/          Virtual Try-On
+|   |   `-- profile/         My details
 |   `-- page.tsx             the public landing page
 |
 |-- components/
 |   |-- ui/                  generated building blocks (button, dialog, input)
 |   |-- form/                field wrappers used across forms
 |   |-- layout/              sidebar, mobile bar, top bar
-|   |-- wardrobe/            item cards, photo guide, wear history
-|   |-- planner/             weather card, day plan, month grid
-|   |-- shop/                deal cards, filters, price history
-|   |-- market/              listings, sell dialog, enquiries
-|   |-- friends/             friend list, borrow dialog, loan cards
+|   |-- wardrobe/            item cards, slot picker, photo field, wear history, week strip
+|   |-- planner/             weather card, month grid, day plan, item picker
+|   |-- shop/                deal cards, tabs, freshness bar, filters, price history
+|   |-- market/              listing cards, sell dialog, ask dialog, request cards
+|   |-- friends/             add-friend dialog, request cards, borrow dialog, loan cards
 |   `-- tryon/               body photo, upload dialog, result cards
 |
 |-- hooks/                   one file per API area
@@ -771,11 +776,34 @@ badges in the menu.
 
 These came from accessibility guidance and are worth naming in a viva:
 
-- **Every icon has a visible text label.** Hover-only labels do not exist on a touchscreen.
-- **Minimum tap target 44x44 pixels** - the WCAG recommendation.
+- **Icons never stand alone.** Each sits next to a text label or carries a hidden one for screen readers. Nothing relies on hover, which does not exist on a touchscreen.
+- **Tap targets are made for thumbs.** Main buttons are 44 pixels tall; the smallest round icon buttons are 36, above the 24-pixel minimum WCAG 2.2 asks for.
 - **Meaning never depends on colour alone.** A red badge always carries text too, for colour-blind users.
 - **Empty states say what to do next** and link to it.
 - **Reduced motion is respected.** Animations switch off for anyone whose system asks for less motion.
+
+### The look
+
+One design runs through every page, and it lives in two files.
+`src/app/globals.css` holds the colour tokens. The theme is called "Linen and
+plum": a warm off-white ground instead of pure white, ink that leans warm
+rather than blue-black, a deep plum for anything that can be pressed, and
+teal, olive, amber and terracotta for the small charts. `src/app/layout.tsx`
+loads three typefaces through `next/font`: Outfit for text, Fraunces for
+headings (the `font-display` class), and JetBrains Mono for small labels such
+as "Step 1".
+
+Every page follows the same pattern: a short line in plum above the heading
+that says where you are, a large heading, rounded cards (`rounded-2xl`),
+pill-shaped choice buttons that fill in plum when chosen, counts in small
+rounded chips, and a soft lift with a plum shadow when a card is hovered.
+Sections ease in as a page loads (`animate-in` from `tw-animate-css`, with
+small delays so they arrive one after another; `fill-mode-both` stops a
+delayed section from showing before its turn). Side panels that belong with
+a long page, such as the add-item preview, the Try It On body photo and the
+Sales filters, stay in view while the rest scrolls (`lg:sticky`). The
+reduced-motion rule at the bottom of `globals.css` turns every animation and
+transition off for anybody whose system asks for less motion.
 
 ---
 
@@ -902,7 +930,7 @@ Nothing secret is in the repository. `backend/.env` is gitignored; only
 | Where Things Are - storage tree, bulk move                                    | Done  |
 | My Plans - plan a day, calendar, confirm worn                                 | Done  |
 | Weather - temperature, rain, wind, advice                                     | Done  |
-| Sales - 8 shops, live prices, filters, price history                          | Done  |
+| Sales - 8 shops, prices refreshed twice a day, tabs, filters, price changes recorded | Done  |
 | Buy and Sell - list, browse, ask, accept, block, report                       | Done  |
 | Borrow from Friends - codes, sharing, lending, returns                        | Done  |
 | Notification badges                                                           | Done  |
@@ -961,7 +989,7 @@ unique per account, and a colour derived from the account id so two "Ali Khan"
 rows never look alike.
 
 **How do you know it works?**
-237 backend tests and 360 frontend tests, all automated and committed. The
+237 backend tests and 433 frontend tests, all automated and committed. The
 backend tests include a suite that actively attacks the app, and one that
 checks the frontend's types against the API's published schema.
 

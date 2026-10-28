@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Plus, Search, Store, Tag, X } from "lucide-react";
+import {
+  Bell,
+  Check,
+  Handshake,
+  MapPin,
+  MessageCircle,
+  Plus,
+  Search,
+  Store,
+  Tag,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { AudienceRow } from "@/components/market/audience-row";
@@ -32,6 +43,25 @@ const TYPING_PAUSE = 350;
 
 const SLOT_CHOICES = (["TOP", "BOTTOM", "FULL_BODY", "OUTERWEAR", "FOOTWEAR", "ACCESSORY"] as Slot[])
   .map((slot) => ({ value: slot, label: SLOT_LABELS[slot] }));
+
+// The three things a buyer does here, in the order they happen.
+const HOW_TO_BUY = [
+  {
+    icon: Search,
+    title: "Find something you like",
+    body: "Browse by who it is for, or search by name. Every card is a real person's own clothes.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Tap Ask to buy",
+    body: "A short request goes to the seller. A message is optional. No money changes hands here.",
+  },
+  {
+    icon: Handshake,
+    title: "Meet and pay in person",
+    body: "If they say yes, you both see each other's details and arrange it between you.",
+  },
+];
 
 export default function MarketplacePage() {
   const { data: me } = useCurrentUser();
@@ -106,69 +136,103 @@ export default function MarketplacePage() {
   ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="relative mx-auto max-w-7xl space-y-6">
+      <div aria-hidden className="pointer-events-none absolute -top-24 right-0 -z-10 h-72 w-full overflow-hidden">
+        <div className="animate-drift absolute -top-10 right-10 size-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="animate-drift absolute left-1/3 top-6 size-56 rounded-full bg-chart-3/10 blur-3xl [animation-delay:-8s]" />
+      </div>
+
+      <header className="animate-in fade-in slide-in-from-bottom-2 flex flex-wrap items-end justify-between gap-4 duration-500">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Buy and Sell</h1>
+          <p className="text-sm font-medium text-primary">From people like you</p>
+          <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+            Buy and Sell
+          </h1>
           <p className="mt-2 max-w-prose text-muted-foreground">
             Clothes other people are selling. Money is never handled here: you agree with
             each other and settle it yourselves.
           </p>
         </div>
 
-        <Button type="button" onClick={() => setSelling(true)} className="h-11 gap-2 px-5">
-          <Plus className="size-5" aria-hidden />
-          Sell something
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/marketplace/selling"
+            className={cn(buttonVariants({ variant: "outline" }), "h-11 gap-2 px-5")}
+          >
+            <Tag className="size-4" aria-hidden />
+            My selling and requests
+          </Link>
+          <Button
+            type="button"
+            onClick={() => setSelling(true)}
+            className="h-11 gap-2 px-5 shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="size-5" aria-hidden />
+            Sell something
+          </Button>
+        </div>
       </header>
 
-      <AudienceRow value={audience ?? ""} onChange={changeAudience} />
+      <HowItWorks />
+
+      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500 [animation-delay:120ms]">
+        <AudienceRow value={audience ?? ""} onChange={changeAudience} />
+      </div>
 
       <MyBits stats={stats} />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="market-search">Search what is for sale</Label>
-          <div className="relative flex">
-            <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Input
-              id="market-search"
-              type="search"
-              value={typed}
-              onChange={(event) => setTyped(event.target.value)}
-              placeholder="Try: kurta"
-              className="pl-11"
-            />
-            {typed ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setTyped("")}
-                className="absolute right-1 top-1/2 -translate-y-1/2"
-              >
-                <X className="size-4" aria-hidden />
-                <span className="sr-only">Clear the search box</span>
-              </Button>
-            ) : null}
+      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both space-y-3 rounded-2xl border border-border bg-card p-3 duration-500 [animation-delay:180ms] sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <Label htmlFor="market-search" className="sr-only">
+              Search what is for sale
+            </Label>
+            <div className="relative flex">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                id="market-search"
+                type="search"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                placeholder="Search what is for sale, like: kurta"
+                className="h-12 rounded-full border-transparent bg-muted/60 pl-12 pr-12 focus-visible:border-ring focus-visible:bg-card"
+              />
+              {typed ? (
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setTyped("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full"
+                >
+                  <X className="size-4" aria-hidden />
+                  <span className="sr-only">Clear the search box</span>
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* The dropdown keeps its label for screen readers; on screen the
+              word in front of it says what it does. */}
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-sm text-muted-foreground">Order by</span>
+            <div className="min-w-44 flex-1 [&_label]:sr-only">
+              <ChoiceField
+                id="market-sort"
+                label="Order by"
+                choices={LISTING_SORTS}
+                value={filters.ordering ?? LISTING_SORTS[0].value}
+                onChange={(ordering) => change({ ordering: ordering ?? LISTING_SORTS[0].value })}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="sm:w-52">
-          <ChoiceField
-            id="market-sort"
-            label="Order by"
-            choices={LISTING_SORTS}
-            value={filters.ordering ?? LISTING_SORTS[0].value}
-            onChange={(ordering) => change({ ordering: ordering ?? LISTING_SORTS[0].value })}
-          />
-        </div>
+        <Filters filters={filters} onChange={change} onClear={clearAll} activeCount={activeCount} />
       </div>
-
-      <Filters filters={filters} onChange={change} onClear={clearAll} activeCount={activeCount} />
 
       <section>
         <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
@@ -184,43 +248,47 @@ export default function MarketplacePage() {
           aria-busy={waiting}
           className="duration-200 animate-in fade-in slide-in-from-bottom-1"
         >
-        {isError ? (
-          <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
-            {getErrorMessage(error, "The marketplace could not be loaded. Try again shortly.")}
-          </p>
-        ) : waiting ? (
-          <LoadingGrid />
-        ) : listings.length === 0 ? (
-          <NothingHere activeCount={activeCount} onClear={clearAll} onSell={() => setSelling(true)} />
-        ) : (
-          <>
-            <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {listings.map((listing) => (
-                <li key={listing.id}>
-                  <ListingCard listing={listing} onAsk={setAsking} onReport={setReporting} />
-                </li>
-              ))}
-            </ul>
+          {isError ? (
+            <p role="alert" className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm">
+              {getErrorMessage(error, "The marketplace could not be loaded. Try again shortly.")}
+            </p>
+          ) : waiting ? (
+            <LoadingGrid />
+          ) : listings.length === 0 ? (
+            <NothingHere activeCount={activeCount} onClear={clearAll} onSell={() => setSelling(true)} />
+          ) : (
+            <>
+              <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+                {listings.map((listing, index) => (
+                  <li
+                    key={listing.id}
+                    className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500"
+                    style={{ animationDelay: `${Math.min(index, 7) * 40}ms` }}
+                  >
+                    <ListingCard listing={listing} onAsk={setAsking} onReport={setReporting} />
+                  </li>
+                ))}
+              </ul>
 
-            {hasNextPage ? (
-              <div className="mt-6 flex justify-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  className="h-11 px-8"
-                >
-                  {isFetchingNextPage ? "Loading more..." : "Show more"}
-                </Button>
-              </div>
-            ) : (
-              <p className="mt-6 text-center text-sm text-muted-foreground">
-                That is everything for sale right now.
-              </p>
-            )}
-          </>
-        )}
+              {hasNextPage ? (
+                <div className="mt-6 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="h-11 rounded-full px-8"
+                  >
+                    {isFetchingNextPage ? "Loading more..." : "Show more"}
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                  That is everything for sale right now.
+                </p>
+              )}
+            </>
+          )}
         </div>
       </section>
 
@@ -243,6 +311,40 @@ export default function MarketplacePage() {
   );
 }
 
+/** The three steps of buying, so nobody has to guess what a request does. */
+function HowItWorks() {
+  return (
+    <section
+      aria-labelledby="how-heading"
+      className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-chart-3/10 p-5 duration-500 [animation-delay:60ms] sm:p-6"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-primary">How it works</p>
+          <h2 id="how-heading" className="mt-1 font-display text-xl font-semibold tracking-tight sm:text-2xl">
+            Find it, ask, meet. The app never touches the money.
+          </h2>
+        </div>
+      </div>
+
+      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+        {HOW_TO_BUY.map(({ icon: Icon, title, body }, index) => (
+          <li key={title} className="flex gap-3 rounded-2xl border border-border/70 bg-card/80 p-4 backdrop-blur">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Icon className="size-4" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-mono text-[0.7rem] text-muted-foreground">Step {index + 1}</span>
+              <span className="block text-sm font-medium">{title}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 /** The seller-side summary, and the link into it. */
 function MyBits({ stats }: { stats?: { my_listings: number; enquiries_waiting_on_me: number; my_enquiries_answered: number } }) {
   if (!stats) return null;
@@ -251,27 +353,30 @@ function MyBits({ stats }: { stats?: { my_listings: number; enquiries_waiting_on
   if (nothingYet) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border bg-muted/30 p-3 text-sm">
+    <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-3 text-sm duration-500">
       {stats.enquiries_waiting_on_me > 0 ? (
-        <span className="font-medium">
+        <span className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 font-medium text-primary-foreground shadow-md shadow-primary/20">
+          <Bell className="size-4" aria-hidden />
           {stats.enquiries_waiting_on_me}{" "}
           {stats.enquiries_waiting_on_me === 1 ? "person is" : "people are"} waiting on your answer
         </span>
       ) : null}
       {stats.my_listings > 0 ? (
-        <span className="text-muted-foreground">
+        <span className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-muted-foreground">
+          <Tag className="size-4 text-primary" aria-hidden />
           {stats.my_listings} of yours {stats.my_listings === 1 ? "is" : "are"} up for sale
         </span>
       ) : null}
       {stats.my_enquiries_answered > 0 ? (
-        <span className="text-muted-foreground">
+        <span className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-muted-foreground">
+          <Check className="size-4 text-primary" aria-hidden />
           {stats.my_enquiries_answered} of your requests {stats.my_enquiries_answered === 1 ? "was" : "were"} accepted
         </span>
       ) : null}
 
       <Link
         href="/marketplace/selling"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "ml-auto h-9 gap-2")}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "ml-auto h-9 gap-2 rounded-full")}
       >
         <Tag className="size-4" aria-hidden />
         My selling and requests
@@ -291,19 +396,23 @@ function Filters({
   onClear: () => void;
   activeCount: number;
 }) {
+  const chip = (on: boolean) =>
+    cn(
+      "flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-all duration-200",
+      "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+      on
+        ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20"
+        : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5",
+    );
+
   return (
-    <div className="space-y-3 rounded-xl border border-border p-3">
+    <div className="space-y-3 border-t border-border pt-3">
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => onChange({ near_me: !filters.near_me, city: undefined })}
           aria-pressed={Boolean(filters.near_me)}
-          className={cn(
-            "flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm transition-colors",
-            filters.near_me
-              ? "border-primary bg-primary font-medium text-primary-foreground"
-              : "border-border hover:border-primary hover:bg-accent",
-          )}
+          className={chip(Boolean(filters.near_me))}
         >
           <MapPin className="size-4" aria-hidden />
           In my city
@@ -317,12 +426,7 @@ function Filters({
               onChange({ condition: filters.condition === choice.value ? undefined : choice.value })
             }
             aria-pressed={filters.condition === choice.value}
-            className={cn(
-              "min-h-11 rounded-full border px-4 text-sm transition-colors",
-              filters.condition === choice.value
-                ? "border-primary bg-primary font-medium text-primary-foreground"
-                : "border-border hover:border-primary hover:bg-accent",
-            )}
+            className={chip(filters.condition === choice.value)}
           >
             {choice.label}
           </button>
@@ -382,7 +486,7 @@ function Filters({
         variant="outline"
         onClick={onClear}
         disabled={activeCount === 0}
-        className="h-11 w-full sm:w-auto"
+        className="h-10 w-full rounded-full sm:w-auto sm:px-5"
       >
         {activeCount === 0
           ? "No filters are on"
@@ -397,7 +501,7 @@ function LoadingGrid() {
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
         <div key={index} className="space-y-2">
-          <Skeleton className="aspect-[3/4] w-full rounded-xl" />
+          <Skeleton className="aspect-3/4 w-full rounded-2xl" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-2/3" />
         </div>
@@ -416,8 +520,10 @@ function NothingHere({
   onSell: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-border p-10 text-center">
-      <Store className="mx-auto size-8 text-muted-foreground" aria-hidden />
+    <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+        <Store className="size-6" aria-hidden />
+      </span>
       <p className="mt-3 font-medium">
         {activeCount > 0 ? "Nothing matched" : "Nobody is selling anything yet"}
       </p>
@@ -430,7 +536,7 @@ function NothingHere({
         type="button"
         variant={activeCount > 0 ? "outline" : "default"}
         onClick={activeCount > 0 ? onClear : onSell}
-        className="mt-4 h-11"
+        className={cn("mt-4 h-11 rounded-full px-5", activeCount === 0 && "shadow-lg shadow-primary/20")}
       >
         {activeCount > 0 ? "Clear the filters" : "Sell something"}
       </Button>

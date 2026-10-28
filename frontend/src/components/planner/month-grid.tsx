@@ -7,6 +7,7 @@ import { monthGrid, monthLabel, parseDay, todayIso, WEEKDAY_INITIALS } from "@/l
 import { cn } from "@/lib/utils";
 import type { PlanDay } from "@/types/planner";
 
+/** The month as a grid of days, with a mark on every day that has a plan. */
 export function MonthGrid({
   month,
   selected,
@@ -25,20 +26,20 @@ export function MonthGrid({
   const planned = new Map(days.map((day) => [day.date, day]));
 
   return (
-    <div className="rounded-2xl border border-border p-4">
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={() => onMonthChange(-1)}
-          className="size-11"
+          className="size-10 rounded-full"
         >
           <ChevronLeft className="size-5" aria-hidden />
           <span className="sr-only">Go to the month before</span>
         </Button>
 
-        <h2 aria-live="polite" className="text-lg font-semibold">
+        <h2 aria-live="polite" className="font-display text-xl font-semibold tracking-tight">
           {monthLabel(month)}
         </h2>
 
@@ -47,14 +48,14 @@ export function MonthGrid({
           variant="ghost"
           size="icon"
           onClick={() => onMonthChange(1)}
-          className="size-11"
+          className="size-10 rounded-full"
         >
           <ChevronRight className="size-5" aria-hidden />
           <span className="sr-only">Go to the month after</span>
         </Button>
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[0.7rem] font-medium uppercase tracking-wide text-muted-foreground">
         {WEEKDAY_INITIALS.map((name) => (
           <abbr key={name} title={name} className="py-1 no-underline">
             {name.slice(0, 1)}
@@ -86,13 +87,13 @@ export function MonthGrid({
                   : `${number}, nothing planned`
               }
               className={cn(
-                "relative flex aspect-square min-h-11 flex-col items-center justify-center rounded-lg text-sm transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                "relative flex aspect-square min-h-11 flex-col items-center justify-center rounded-xl text-sm transition-all duration-200",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95",
                 inMonth ? "text-foreground" : "text-muted-foreground/40",
                 isSelected
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-accent",
-                isToday && !isSelected && "ring-1 ring-primary",
+                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                  : "hover:bg-primary/10",
+                isToday && !isSelected && "ring-2 ring-primary/40",
               )}
             >
               <span className={cn("tabular-nums", plan && "font-semibold")}>{number}</span>
@@ -126,7 +127,7 @@ export function MonthGrid({
           Already worn
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded ring-1 ring-primary" aria-hidden />
+          <span className="size-3 rounded ring-2 ring-primary/40" aria-hidden />
           Today
         </span>
       </p>

@@ -25,19 +25,24 @@ export function FreshnessBar({ freshness }: { freshness?: Freshness }) {
   return (
     <div
       className={cn(
-        "rounded-xl border p-3 text-sm",
-        freshness.is_stale
-          ? "border-amber-300/60 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-950/30"
-          : "border-border bg-muted/30",
+        "rounded-2xl border p-3 text-sm sm:px-4",
+        freshness.is_stale ? "border-chart-4/50 bg-chart-4/10" : "border-border bg-card",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="flex items-center gap-2">
-          {freshness.is_stale ? (
-            <TriangleAlert className="size-4 shrink-0 text-amber-600" aria-hidden />
-          ) : (
-            <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          )}
+        <p className="flex items-center gap-2.5">
+          <span
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-full",
+              freshness.is_stale ? "bg-chart-4/20 text-amber-700" : "bg-primary/10 text-primary",
+            )}
+          >
+            {freshness.is_stale ? (
+              <TriangleAlert className="size-4" aria-hidden />
+            ) : (
+              <Clock className="size-4" aria-hidden />
+            )}
+          </span>
           <span>{freshness.summary}</span>
         </p>
 
@@ -47,7 +52,7 @@ export function FreshnessBar({ freshness }: { freshness?: Freshness }) {
           size="sm"
           onClick={() => setShowShops((open) => !open)}
           aria-expanded={showShops}
-          className="h-8 gap-1 px-2 text-xs"
+          className="h-8 gap-1 rounded-full px-3 text-xs"
         >
           {freshness.shops_working} of {freshness.shops_total} shops
           {failing > 0 ? `, ${failing} not answering` : ""}
@@ -59,14 +64,17 @@ export function FreshnessBar({ freshness }: { freshness?: Freshness }) {
       </div>
 
       {showShops ? (
-        <ul className="mt-3 grid gap-1.5 border-t border-border/60 pt-3 sm:grid-cols-2">
+        <ul className="animate-in fade-in slide-in-from-top-1 mt-3 grid gap-2 border-t border-border/60 pt-3 duration-200 sm:grid-cols-2">
           {freshness.shops.map((shop) => (
-            <li key={shop.id} className="flex items-baseline justify-between gap-3 text-xs">
+            <li
+              key={shop.id}
+              className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/40 px-3 py-2 text-xs"
+            >
               <a
                 href={shop.site_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium hover:underline"
+                className="font-medium hover:text-primary hover:underline"
               >
                 {shop.name}
               </a>

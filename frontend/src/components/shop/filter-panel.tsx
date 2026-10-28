@@ -34,6 +34,7 @@ function asChoices(facets: Facet[] = []) {
   }));
 }
 
+/** Every way of narrowing the sales, in three short groups. */
 export function FilterPanel({
   filters,
   options,
@@ -44,7 +45,9 @@ export function FilterPanel({
   return (
     <div className="space-y-6">
       <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold">Price</legend>
+        <legend className="font-display text-base font-semibold tracking-tight">
+          Price
+        </legend>
 
         <SwitchRow
           id="on-sale"
@@ -66,7 +69,9 @@ export function FilterPanel({
           choices={DISCOUNT_STEPS}
           clearLabel="Any"
           value={filters.min_discount ? String(filters.min_discount) : null}
-          onChange={(value) => onChange({ min_discount: value ? Number(value) : undefined })}
+          onChange={(value) =>
+            onChange({ min_discount: value ? Number(value) : undefined })
+          }
         />
 
         <div className="grid grid-cols-2 gap-3">
@@ -81,7 +86,9 @@ export function FilterPanel({
               value={filters.min_price ?? ""}
               onChange={(event) =>
                 onChange({
-                  min_price: event.target.value ? Number(event.target.value) : undefined,
+                  min_price: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
                 })
               }
             />
@@ -97,7 +104,9 @@ export function FilterPanel({
               value={filters.max_price ?? ""}
               onChange={(event) =>
                 onChange({
-                  max_price: event.target.value ? Number(event.target.value) : undefined,
+                  max_price: event.target.value
+                    ? Number(event.target.value)
+                    : undefined,
                 })
               }
             />
@@ -106,77 +115,92 @@ export function FilterPanel({
 
         {options ? (
           <p className="text-xs text-muted-foreground">
-            Prices run from {money(options.price_floor)} to {money(options.price_ceiling)}.
+            Prices run from {money(options.price_floor)} to{" "}
+            {money(options.price_ceiling)}.
           </p>
         ) : null}
       </fieldset>
 
-      <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold">What it is</legend>
+      {/* The line sits on a wrapper, not the fieldset: a fieldset draws its
+          heading into its own border, which would cut the line in half. */}
+      <div className="border-t border-border pt-5">
+        <fieldset className="space-y-4">
+          <legend className="font-display text-base font-semibold tracking-tight">
+            What it is
+          </legend>
 
-        <ChoiceField
-          id="filter-slot"
-          label="Where it is worn"
-          choices={asChoices(options?.slots)}
-          clearLabel="Anywhere"
-          value={filters.slot || null}
-          onChange={(value) => onChange({ slot: (value as Slot) ?? undefined })}
-        />
+          <ChoiceField
+            id="filter-slot"
+            label="Where it is worn"
+            choices={asChoices(options?.slots)}
+            clearLabel="Anywhere"
+            value={filters.slot || null}
+            onChange={(value) =>
+              onChange({ slot: (value as Slot) ?? undefined })
+            }
+          />
 
-        <ChoiceField
-          id="filter-category"
-          label="Kind"
-          choices={asChoices(options?.categories)}
-          clearLabel="Any kind"
-          value={filters.category ?? null}
-          onChange={(category) => onChange({ category: category ?? undefined })}
-        />
+          <ChoiceField
+            id="filter-category"
+            label="Kind"
+            choices={asChoices(options?.categories)}
+            clearLabel="Any kind"
+            value={filters.category ?? null}
+            onChange={(category) =>
+              onChange({ category: category ?? undefined })
+            }
+          />
 
-        <ChoiceField
-          id="filter-color"
-          label="Colour"
-          choices={asChoices(options?.colors)}
-          clearLabel="Any colour"
-          value={filters.color ?? null}
-          onChange={(color) => onChange({ color: color ?? undefined })}
-        />
+          <ChoiceField
+            id="filter-color"
+            label="Colour"
+            choices={asChoices(options?.colors)}
+            clearLabel="Any colour"
+            value={filters.color ?? null}
+            onChange={(color) => onChange({ color: color ?? undefined })}
+          />
 
-        <ChoiceField
-          id="filter-size"
-          label="Size"
-          choices={asChoices(options?.sizes)}
-          clearLabel="Any size"
-          value={filters.size ?? null}
-          onChange={(size) => onChange({ size: size ?? undefined })}
-        />
-      </fieldset>
+          <ChoiceField
+            id="filter-size"
+            label="Size"
+            choices={asChoices(options?.sizes)}
+            clearLabel="Any size"
+            value={filters.size ?? null}
+            onChange={(size) => onChange({ size: size ?? undefined })}
+          />
+        </fieldset>
+      </div>
 
-      <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold">Where from</legend>
+      <div className="border-t border-border pt-5">
+        <fieldset className="space-y-4">
+          <legend className="font-display text-base font-semibold tracking-tight">
+            Where from
+          </legend>
 
-        <ChoiceField
-          id="filter-shop"
-          label="Shop"
-          choices={asChoices(options?.shops)}
-          clearLabel="All shops"
-          value={filters.shop ?? null}
-          onChange={(shop) => onChange({ shop: shop ?? undefined })}
-        />
+          <ChoiceField
+            id="filter-shop"
+            label="Shop"
+            choices={asChoices(options?.shops)}
+            clearLabel="All shops"
+            value={filters.shop ?? null}
+            onChange={(shop) => onChange({ shop: shop ?? undefined })}
+          />
 
-        <SwitchRow
-          id="in-stock"
-          label="Leave out sold out things"
-          checked={Boolean(filters.in_stock)}
-          onChange={(in_stock) => onChange({ in_stock })}
-        />
-      </fieldset>
+          <SwitchRow
+            id="in-stock"
+            label="Leave out sold out things"
+            checked={Boolean(filters.in_stock)}
+            onChange={(in_stock) => onChange({ in_stock })}
+          />
+        </fieldset>
+      </div>
 
       <Button
         type="button"
         variant="outline"
         onClick={onClear}
         disabled={activeCount === 0}
-        className="h-11 w-full gap-2"
+        className="h-11 w-full gap-2 rounded-full"
       >
         <RotateCcw className="size-4" aria-hidden />
         {activeCount === 0

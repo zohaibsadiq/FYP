@@ -1,10 +1,15 @@
 """
 The only file that knows which company generates the try-on pictures.
 
-Generation takes two to four minutes, far longer than a web request can stay
-open, so this offers two steps, submit and check, instead of one call that
-waits. The rest of the app only ever deals in web addresses. vision/storage.py
-plays the same role for Cloudinary.
+Pictures are made by the FASHN try-on model, run by fal.ai. A picture takes
+from several seconds to about a minute, longer than a web request should wait,
+so this offers two steps, submit and check, instead of one call that waits. The
+rest of the app only ever deals in web addresses. vision/storage.py plays the
+same role for Cloudinary.
+
+fal.ai's queue: a picture is submitted to the model's own address, and its
+status and result are read under the app's address (owner and app only, without
+the version), as fal.ai documents for models with longer names.
 """
 
 from __future__ import annotations
@@ -17,23 +22,30 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-SUBMIT_URL = "https://api.piapi.ai/api/v1/task"
-STATUS_URL = "https://api.piapi.ai/api/v1/task/{task_id}"
+MODEL = "fal-ai/fashn/tryon/v1.6"
+APP = "fal-ai/fashn"
+SUBMIT_URL = f"https://queue.fal.run/{MODEL}"
+STATUS_URL = f"https://queue.fal.run/{APP}/requests/{{task_id}}/status"
+RESULT_URL = f"https://queue.fal.run/{APP}/requests/{{task_id}}"
 
 SUBMIT_TIMEOUT = 30
 STATUS_TIMEOUT = 20
 
-PROVIDER = "piapi/kling/ai_try_on"
+PROVIDER = "fal/fashn/tryon/v1.6"
 
-# Which of the supplier's inputs a garment goes into, by where it is worn.
-# Anything not listed here, such as shoes or a watch, has no equivalent on the
-# supplier's side and is refused before any money is spent.
-GARMENT_FIELD = {
-    "TOP": "upper_input",
-    "OUTERWEAR": "upper_input",
-    "BOTTOM": "lower_input",
-    "FULL_BODY": "dress_input",
+# The model's garment category, by where the garment is worn. Anything not
+# listed here, such as shoes or a watch, has no equivalent on the supplier's
+# side and is refused before any money is spent.
+CATEGORY = {
+    "TOP": "tops",
+    "OUTERWEAR": "tops",
+    "BOTTOM": "bottoms",
+    "FULL_BODY": "one-pieces",
 }
+
+# Words in the supplier's error that mean the photos were the problem, so the
+# person is asked for a different photo rather than told to wait and retry.
+PHOTO_PROBLEMS = ("pose", "image", "photo", "load", "moderation", "nsfw", "content", "person")
 
 
 class TryOnUnavailable(RuntimeError):
@@ -62,57 +74,55 @@ def is_configured() -> bool:
 
 
 def supports(slot: str) -> bool:
-    return slot in GARMENT_FIELD
+    return slot in CATEGORY
 
 
 def _headers() -> dict[str, str]:
-    return {"x-api-key": settings.TRYON_API_KEY, "Content-Type": "application/json"}
+    return {"Authorization": f"Key {settings.TRYON_API_KEY}", "Content-Type": "application/json"}
 
 
 def submit(body_photo_url: str, garment_image_url: str, slot: str) -> Submitted:
-    """
-    Queues one picture and returns the supplier's id for it.
-
-    batch_size is always sent, although the supplier's documentation calls it
-    optional with a default of 1. Leaving it out is rejected with a bare
-    "Invalid input" that names no field.
-    """
+    """Queues one picture and returns the supplier's id for it."""
     if not is_configured():
         raise TryOnUnavailable("Try-On is not switched on yet.")
 
-    field = GARMENT_FIELD.get(slot)
-    if field is None:
+    category = CATEGORY.get(slot)
+    if category is None:
         raise TryOnRefused("Only tops, bottoms, outerwear and full outfits can be drawn on.")
 
     payload = {
-        "model": "kling",
-        "task_type": "ai_try_on",
-        "input": {"model_input": body_photo_url, field: garment_image_url, "batch_size": 1},
+        "model_image": body_photo_url,
+        "garment_image": garment_image_url,
+        "category": category,
+        # Slower than the default but keeps more of the garment's detail, such
+        # as a kurta's collar and placket. The price is the same.
+        "mode": "quality",
+        "num_samples": 1,
+        "output_format": "png",
     }
 
     try:
-        response = requests.post(
-            SUBMIT_URL, json=payload, headers=_headers(), timeout=SUBMIT_TIMEOUT
-        )
+        response = requests.post(SUBMIT_URL, json=payload, headers=_headers(), timeout=SUBMIT_TIMEOUT)
     except requests.RequestException as exc:
         raise TryOnUnavailable("Could not reach the picture service.") from exc
 
-    if response.status_code == 401:
+    body = _as_json(response)
+
+    if response.status_code in (401, 403):
+        logger.error("Try-on submit refused the key: %s %s", response.status_code, _short(body))
         raise TryOnUnavailable("The picture service rejected the account key.")
 
-    body = _as_json(response)
-    task_id = (body.get("data") or {}).get("task_id")
-
-    if response.status_code == 400:
-        # A 400 covers both a badly formed request and a photo the model cannot
-        # work with. Neither is worth trying again, and the sentence below is
-        # the only thing the person ever sees.
+    if response.status_code in (400, 422):
+        # A badly formed request or a photo address the model cannot read.
+        # Neither is worth trying again, and the sentence below is the only
+        # thing the person ever sees.
         logger.warning("Try-on submit refused: %s", _short(body))
         raise TryOnRefused(
             "That pairing could not be used. A clear, full-length photo facing "
             "the camera works best."
         )
 
+    task_id = body.get("request_id")
     if not response.ok or not task_id:
         logger.error("Try-on submit failed: %s %s", response.status_code, _short(body))
         raise TryOnUnavailable("The picture service did not accept the request.")
@@ -125,60 +135,76 @@ def check(task_id: str) -> Progress:
     if not is_configured():
         raise TryOnUnavailable("Try-On is not switched on yet.")
 
+    status_body = _get(STATUS_URL.format(task_id=task_id))
+    if status_body is None:
+        # The supplier has no record of this picture, so waiting will not help.
+        return Progress(done=True, error="That picture was lost on the drawing service's side. Try again.")
+
+    if (status_body.get("status") or "").upper() != "COMPLETED":
+        return Progress(done=False)
+
+    if status_body.get("error"):
+        return _failed(task_id, status_body.get("error"), status_body.get("error_type"))
+
+    result = _get(RESULT_URL.format(task_id=task_id), result=True)
+    if result is None:
+        return Progress(done=True, error="That picture was lost on the drawing service's side. Try again.")
+    if result.get("detail") and not result.get("images"):
+        return _failed(task_id, result.get("detail"), "")
+
+    url = _first_image(result)
+    if url:
+        return Progress(done=True, image_url=url)
+    logger.error("Try-on finished with no image: %s", _short(result))
+    return Progress(done=True, error="The picture came back empty.")
+
+
+def _get(url: str, result: bool = False) -> dict | None:
+    """
+    One read from the queue. A dropped connection or a fault on the supplier's
+    side is reported as unavailable, so the picture simply keeps waiting; an
+    unknown request comes back as None. A result that failed is returned as is,
+    because fal.ai answers it with an error status and a detail message.
+    """
     try:
-        response = requests.get(
-            STATUS_URL.format(task_id=task_id), headers=_headers(), timeout=STATUS_TIMEOUT
-        )
+        response = requests.get(url, headers=_headers(), timeout=STATUS_TIMEOUT)
     except requests.RequestException as exc:
         raise TryOnUnavailable("Could not reach the picture service.") from exc
 
-    data = (_as_json(response).get("data") or {})
-    status = (data.get("status") or "").lower()
+    if response.status_code == 404:
+        return None
+    body = _as_json(response)
+    if response.ok or (result and body.get("detail")):
+        return body
+    logger.warning("Try-on read failed: %s %s", response.status_code, _short(body))
+    raise TryOnUnavailable("The picture service did not answer properly.")
 
-    if status == "completed":
-        url = _first_image(data)
-        if url:
-            return Progress(done=True, image_url=url)
-        logger.error("Try-on finished with no image: %s", _short(data))
-        return Progress(done=True, error="The picture came back empty.")
 
-    if status == "failed":
-        error = data.get("error") or {}
-        reason = (error.get("message") or "").strip()
-        logger.warning(
-            "Try-on task %s failed: code %s, %s", task_id, error.get("code"), reason or "no reason given"
-        )
-        if _service_fault(error):
-            # Kling gave up on its own side, after processing for its full
-            # time allowance. The photos were never the problem, so the
-            # sentence must not send anybody off to take a new one.
-            return Progress(
-                done=True,
-                error=(
-                    "The drawing service could not finish this one on its side. "
-                    "Try again in a little while."
-                ),
-            )
+def _failed(task_id: str, error, error_type) -> Progress:
+    reason = _reason(error)
+    logger.warning("Try-on request %s failed: %s, %s", task_id, error_type or "no type", reason or "no reason given")
+    if any(word in reason.lower() for word in PHOTO_PROBLEMS):
         return Progress(done=True, error="That picture did not work. Try a different photo.")
+    return Progress(
+        done=True,
+        error="The drawing service could not finish this one on its side. Try again in a little while.",
+    )
 
-    return Progress(done=False)
 
-
-def _service_fault(error: dict) -> bool:
-    """
-    True when the supplier reports trouble of its own rather than with the
-    pictures. Code 10000 "Internal error." is what it sends when a picture
-    times out on its side; nothing is charged for those.
-    """
-    message = (error.get("message") or "").lower()
-    return error.get("code") == 10000 or "internal error" in message
+def _reason(error) -> str:
+    """fal.ai sends an error as a sentence, or as a list of {msg: ...} items."""
+    if isinstance(error, str):
+        return error.strip()
+    if isinstance(error, list):
+        return " ".join(str(item.get("msg", item)) if isinstance(item, dict) else str(item) for item in error)
+    if isinstance(error, dict):
+        return str(error.get("message") or error.get("msg") or error)
+    return str(error or "")
 
 
 def _first_image(data: dict) -> str:
-    works = ((data.get("output") or {}).get("works")) or []
-    for work in works:
-        image = work.get("image") or {}
-        url = image.get("resource_without_watermark") or image.get("resource")
+    for image in data.get("images") or []:
+        url = (image or {}).get("url")
         if url:
             return url
     return ""
